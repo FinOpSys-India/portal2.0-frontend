@@ -39,3 +39,26 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local documentation files
+/docs/
+
+# backend (separate repo)
+/Portal-backend/
+Portal-backend*.zip
+
+# playwright / browser automation artifacts
+/.playwright-mcp/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# agent instruction files
+/CLAUDE.md
+
+# local screenshots & scratch assets
+/*.png
+/*.jpg
+/*.jpeg
+/*.zip

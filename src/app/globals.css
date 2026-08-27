@@ -1,26 +1,201 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --color-disabled-bg: var(--disabled-bg);
+  --color-disabled-fg: var(--disabled-fg);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/*
+ * Portal 2.0 auth theme.
+ *
+ * #7F56D9 is carried over from 1.0 — it is the brand. Everything else is
+ * rebuilt: a real neutral ramp instead of 1.0's ad-hoc greys (#252525,
+ * #313131, #525252, #9E9E9E, #CDCDCD, #DCDCDC, #E6E6E6, #EEE, #F2F2F2 were
+ * all in use, most of them a few points apart and none of them systematic).
+ */
+:root {
+  /* Surfaces taken from the deployed portal at portal.finopsys.ai
+     (--color-page-bg, --color-surface, --color-card-bg, --color-border), so
+     this app sits on the same greys as the rest of the product. */
+  --background: #f0f2f5;
+  --foreground: oklch(0.21 0.01 285);
+  --card: #ffffff;
+  --card-foreground: oklch(0.21 0.01 285);
+  --popover: #ffffff;
+  --popover-foreground: oklch(0.21 0.01 285);
+  --primary: #7f56d9;
+  --primary-foreground: #ffffff;
+  --secondary: #f9fafb;
+  --secondary-foreground: oklch(0.21 0.01 285);
+  --muted: #f9fafb;
+  /* 0.55 measured 4.45:1 on --disabled-bg, just under AA, and that surface
+     carries the invited email. Darkened until it clears 4.5 there. */
+  --muted-foreground: oklch(0.52 0.014 285);
+  /* Hover surface: the portal's --color-primary-light. A light purple tint of
+     the brand rather than a neutral grey, so pointing at something reads as
+     "this is ours". */
+  --accent: #ede9fe;
+  --accent-foreground: oklch(0.38 0.14 300);
+  --destructive: oklch(0.577 0.212 27.2);
+  --success: oklch(0.6 0.13 160);
+  --border: #e5e7eb;
+  /* Split from --border on purpose. A field's outline is the only thing that
+     says "control" — inputs are the same white as the card — so it is a UI
+     boundary under WCAG 1.4.11 and owes 3:1. 0.92 measured 1.27:1. --border
+     stays light: separators are decorative and exempt. */
+  --input: oklch(0.647 0.008 285);
+  --ring: #7f56d9;
+  --disabled-bg: oklch(0.97 0.003 285);
+  --disabled-fg: oklch(0.65 0.01 285);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: #f9fafb;
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  /* Hover surface in the sidebar: the same light purple as the rest of the
+     app, so pointing at a nav item reads as brand rather than neutral grey. */
+  --sidebar-accent: #ede9fe;
+  --sidebar-accent-foreground: oklch(0.38 0.14 300);
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@theme {
+  /* Built-in easings are too weak to read as intentional. */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+
+  /* Motion sickness: keep opacity cues, drop movement. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Auth pages enter once per visit, so a short stagger is affordable. */
+  .auth-enter {
+    opacity: 0;
+    transform: translateY(6px);
+    animation: auth-enter 340ms var(--ease-out-strong) forwards;
+    animation-delay: var(--auth-delay, 0ms);
+  }
+
+  @keyframes auth-enter {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .auth-enter {
+      opacity: 1;
+      transform: none;
+      animation: none;
+    }
+  }
 }

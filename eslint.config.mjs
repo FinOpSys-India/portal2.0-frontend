@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // A read-only copy of the deployed Node backend, kept as the reference for
+    // what the API actually does. It is CommonJS and not ours to restyle, so
+    // linting it only ever produced 578 errors nobody could act on.
+    "Portal-backend/**",
   ]),
 ]);
 
