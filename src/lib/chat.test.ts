@@ -7,7 +7,7 @@
  */
 import assert from "node:assert/strict";
 
-import { chatApi } from "./chat";
+import { chatApi, toContact } from "./chat";
 
 async function main() {
   const customers = await chatApi.contacts("18", "customer");
@@ -54,6 +54,32 @@ async function main() {
   // badge is set from — not the number it just cleared.
   assert.equal(typeof (await chatApi.markRead("c-1")), "number");
   assert.equal(typeof (await chatApi.unreadCount("18")), "number");
+
+  /*
+   * THE LIVE ROW, not the fixture. A contact carries `id` — chat's DTO spreads a
+   * PERSON into the row, where the key is not the `userId` every directory in
+   * this app uses — and reading the wrong one is invisible in mock mode: it is
+   * the fixtures that answer, and they are already the mapped shape. The row
+   * below is `chatDto.toContact`'s output, field for field.
+   */
+  const row = toContact({
+    id: 13,
+    firstName: "bookkeeping",
+    lastName: "user",
+    email: "testuser1_bookkeepingspecialist@finopsys.ai",
+    roleLabel: "Bookkeeping",
+    specializations: [],
+    conversationId: null,
+    lastMessageAt: null,
+    lastMessage: null,
+    unreadCount: 0,
+  });
+
+  // Without it the list has no keys, every row looks like the open one, and
+  // opening a thread asks the backend to start a conversation with nobody.
+  assert.equal(row.userId, 13);
+  assert.equal(row.name, "bookkeeping user");
+  assert.equal(row.conversationId, null);
 
   console.log("chat api: all checks passed");
 }

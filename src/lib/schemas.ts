@@ -120,6 +120,20 @@ export const newProjectSchema = z.object({
 export type NewProjectValues = z.infer<typeof newProjectSchema>;
 
 /**
+ * The manager's version of the same form, plus the company.
+ *
+ * A customer opens a project inside one workspace and the URL already names it.
+ * A manager holds several, so which account the project lands on is a decision
+ * the form has to collect — and getting it wrong files a client's work under
+ * somebody else's company.
+ */
+export const managerProjectSchema = newProjectSchema.extend({
+  companyId: z.string().min(1, "Pick a company."),
+});
+
+export type ManagerProjectValues = z.infer<typeof managerProjectSchema>;
+
+/**
  * Add New Task, on the manager's project detail.
  *
  * All three fields are required in 1.0. No assignee — 1.0's modal has no such
@@ -137,23 +151,11 @@ export const newTaskSchema = z.object({
 
 export type NewTaskValues = z.infer<typeof newTaskSchema>;
 
-/**
- * Company-level specialist assignment. Every service is optional — a company
- * may buy one service — but saving nothing at all is a no-op, so at least one
- * pick is required.
+/*
+ * No schema for the specialist-assignment dialog. Which services it must fill
+ * and who is eligible for each are the server's to state — see
+ * `managerApi.staffing` — so there is no fixed shape here to validate.
  */
-export const assignSpecialistsSchema = z
-  .object({
-    bookkeeping: z.string(),
-    payroll: z.string(),
-    tax: z.string(),
-  })
-  .refine((values) => Object.values(values).some(Boolean), {
-    message: "Pick at least one specialist.",
-    path: ["bookkeeping"],
-  });
-
-export type AssignSpecialistsValues = z.infer<typeof assignSpecialistsSchema>;
 
 /**
  * The Connect email, shared by the manager and the specialist. 1.0 keeps Send
@@ -194,6 +196,25 @@ export const profileSchema = z.object({
 });
 
 export type ProfileValues = z.infer<typeof profileSchema>;
+
+/**
+ * The new password, at the end of a reset.
+ *
+ * Same eight-character floor and same confirmation as signup — a reset that
+ * accepted a weaker password than the account was created with would be the way
+ * around the rule rather than a recovery from it.
+ */
+export const newPasswordSchema = z
+  .object({
+    password: z.string().min(8, "Use at least 8 characters."),
+    confirm: z.string().min(1, "Re-enter your password."),
+  })
+  .refine((v) => v.password === v.confirm, {
+    message: "Passwords do not match.",
+    path: ["confirm"],
+  });
+
+export type NewPasswordValues = z.infer<typeof newPasswordSchema>;
 
 export const otpSchema = z.object({
   code: z

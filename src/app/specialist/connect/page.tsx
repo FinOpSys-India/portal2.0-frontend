@@ -3,7 +3,7 @@ import { Mail, MessageSquare } from "lucide-react";
 
 import { ConnectCard } from "@/components/portal/connect-card";
 import { scoped } from "@/lib/manager";
-import { specialistApi } from "@/lib/specialist";
+import { companyScope, specialistApi } from "@/lib/specialist";
 
 export const metadata: Metadata = { title: "Connect" };
 
@@ -17,7 +17,7 @@ export default async function SpecialistConnectPage({
 }: {
   searchParams: Promise<{ company?: string }>;
 }) {
-  const { company } = await searchParams;
+  const company = await companyScope((await searchParams).company);
   // Scoped, so the card names the manager of the company on the switcher and
   // its badge counts that thread — not whichever company came back first.
   const thread = await specialistApi.thread(company);

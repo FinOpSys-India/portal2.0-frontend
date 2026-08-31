@@ -3,22 +3,24 @@
 import { ParamPill } from "@/components/portal/param-pill";
 import type { PillOption } from "@/components/portal/workspace-pill";
 
-/** Cleared scope. Empty id means "no ?company= on the URL". */
-const ALL: PillOption = { id: "", name: "All companies" };
-
 /**
  * Company switcher in the manager's top bar.
  *
- * ponytail: the param only survives while you stay on a page — the sidebar
- * links are plain hrefs, so navigating resets to All companies. Thread it
- * through PortalShell's nav if the reset starts costing clicks.
+ * There is no "All companies" entry: the portal reads exactly one company at a
+ * time. With no `?company=` on the URL that is the first on the book — the same
+ * fallback every page applies through `companyScope`, so the pill and the data
+ * under it never disagree.
  */
 export function CompanySwitcher({ companies }: { companies: PillOption[] }) {
+  const [first, ...rest] = companies;
+  // Nothing to scope to, so nothing to show.
+  if (!first) return null;
+
   return (
     <ParamPill
       param="company"
-      all={ALL}
-      options={companies}
+      all={first}
+      options={rest}
       label="Company"
       menuLabel="Scope to company"
     />

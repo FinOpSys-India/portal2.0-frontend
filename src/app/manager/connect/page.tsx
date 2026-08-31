@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Mail, MessageSquare } from "lucide-react";
 
 import { ConnectCard } from "@/components/portal/connect-card";
-import { managerApi, totalUnread, type Party } from "@/lib/manager";
+import { companyScope, managerApi, totalUnread, type Party } from "@/lib/manager";
 
 export const metadata: Metadata = { title: "Connect" };
 
@@ -44,7 +44,7 @@ export default async function ManagerConnectPage({
 }: {
   searchParams: Promise<{ company?: string }>;
 }) {
-  const { company } = await searchParams;
+  const company = await companyScope((await searchParams).company);
   const conversations = await managerApi.conversations(
     company ? { companyId: company } : {},
   );

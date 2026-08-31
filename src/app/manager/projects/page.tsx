@@ -3,9 +3,10 @@ import type { Metadata } from "next";
 import { DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { AssignSpecialist } from "@/components/manager/assign-specialist";
 import { ProgressBar } from "@/components/portal/progress-bar";
-import { managerApi, type ManagedProject } from "@/lib/manager";
+import { companyScope, managerApi, type ManagedProject } from "@/lib/manager";
+
+import { NewProject } from "./new-project";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -14,15 +15,26 @@ export default async function ManagerProjectsPage({
 }: {
   searchParams: Promise<{ company?: string }>;
 }) {
-  const { company } = await searchParams;
-  const [projects, specialists] = await Promise.all([
+  const company = await companyScope((await searchParams).company);
+  const [projects, companies] = await Promise.all([
     managerApi.projects(company),
-    managerApi.specialists(),
+    managerApi.companies(),
   ]);
 
   return (
     <>
-      <PageHeader title="All Projects" />
+      {/* `POST /projects` admits an ACCOUNTING_MANAGER and always has; this
+          portal simply had no control that called it, so every job had to be
+          opened from the client's side of the account. */}
+      <PageHeader
+        title="All Projects"
+        action={
+          <NewProject
+            companies={companies.map(({ id, name }) => ({ id, name }))}
+            defaultCompanyId={company}
+          />
+        }
+      />
 
       {/* Columns are 1.0's, in 1.0's order. Status is deliberately absent: it
           is not a column there, it lives on the project detail. */}
@@ -42,16 +54,14 @@ export default async function ManagerProjectsPage({
           { header: "Created By", cell: (row) => row.createdBy },
           { header: "Deadline", cell: (row) => row.deadline },
           {
+            // Read-only: it follows the company's staffing for this project's
+            // service line, which is the Companies screen's Assign Specialist.
             header: "Specialist",
             cell: (row) =>
               row.specialist ? (
                 <PersonCell name={row.specialist} />
               ) : (
-                <AssignSpecialist
-                  projectId={row.id}
-                  projectName={row.name}
-                  specialists={specialists}
-                />
+                <span className="text-muted-foreground">Unassigned</span>
               ),
           },
           {

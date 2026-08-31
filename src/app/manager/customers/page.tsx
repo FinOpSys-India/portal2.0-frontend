@@ -4,7 +4,7 @@ import { ChipsCell, DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { RoleBadge } from "@/components/admin/role-badge";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { managerApi, type ManagerCustomer } from "@/lib/manager";
+import { companyScope, managerApi, type ManagerCustomer } from "@/lib/manager";
 
 export const metadata: Metadata = { title: "Customers" };
 
@@ -19,7 +19,7 @@ export default async function ManagerCustomersPage({
 }: {
   searchParams: Promise<{ company?: string }>;
 }) {
-  const { company } = await searchParams;
+  const company = await companyScope((await searchParams).company);
   const customers = await managerApi.customers(company);
 
   return (

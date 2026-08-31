@@ -6,6 +6,8 @@
  * am-01…am-15. Where 1.0 and this port differ the deviation is commented.
  */
 
+import { cache } from "react";
+
 import type { CompanyPlan, CustomerRole } from "@/lib/admin";
 import {
   BASE,
@@ -113,11 +115,33 @@ export interface Specialist {
   activeProjects: number;
 }
 
+/**
+ * One service line on a company: who may work it, and who does today.
+ *
+ * The unit the staffing dialog renders — one dropdown per line — and the unit
+ * the write endpoint takes.
+ */
+export interface StaffingLine {
+  /** The backend's own specialization code, e.g. `BOOKKEEPING`. */
+  code: string;
+  /** Its display name, e.g. `Bookkeeping`. */
+  name: string;
+  /** The specialist holding this line, or null when nobody does. */
+  assigned: number | null;
+  options: { userId: number; name: string; email: string }[];
+}
+
 /** What the Specialists Detail screen shows beside the task list. */
 export interface SpecialistDetail extends Specialist {
   phone: string;
   /** One line, as the detail card renders it. */
   address: string;
+  /**
+   * Only ever populated for the SIGNED-IN specialist reading their own profile:
+   * `avatarUrl` is on `userDto.toMe`, and the directory row a manager reads
+   * someone else off does not carry it.
+   */
+  avatarUrl?: string | null;
 }
 
 /**
@@ -133,6 +157,15 @@ export interface ManagerProfile {
   name: string;
   email: string;
   phone: string;
+  /** `userDto.toMe` builds this from the stored key. Null when none is set. */
+  avatarUrl: string | null;
+}
+
+/** What `POST /projects` needs, in the form's own words. */
+export interface NewProjectInput {
+  name: string;
+  service: string;
+  deadline: string;
 }
 
 /**
@@ -285,6 +318,22 @@ export function scoped(path: string, companyId?: string): string {
     : path;
 }
 
+/**
+ * The company every screen reads under: the one on the URL, or the first on the
+ * manager's book when the URL carries none.
+ *
+ * The portal has no "all companies" view — the switcher offers one company at a
+ * time — so every page resolves its scope through here before it asks for data.
+ * `companies()` is request-cached, so the fallback costs nothing extra.
+ *
+ * `undefined` only when the manager holds no companies at all.
+ */
+export async function companyScope(
+  companyId?: string,
+): Promise<string | undefined> {
+  return companyId ?? (await managerApi.companies())[0]?.id;
+}
+
 /* ---------------------------------------------------------------- live ---- */
 
 /**
@@ -292,19 +341,71 @@ export function scoped(path: string, companyId?: string): string {
  *
  * `/projects`, `/tasks` and `/documents` all REQUIRE `?companyId=` — with no
  * exemption, deliberately, so a filter can never become a way to read across
- * accounts. The manager's screens have an "All companies" setting, which has no
- * single company to name. So "all" is resolved into the manager's own list and
- * queried once per company.
+ * accounts. The screens are scoped to one company each, but a few readers here
+ * genuinely span the book — the notification bell, the specialist detail's task
+ * list, the upload dialog's project list — and those are resolved into the
+ * manager's own company list and queried once per company.
  *
- * ponytail: N+1 on the unscoped view, bounded by how many accounts one manager
- * holds (a handful). Push the fan-out server-side if a manager's book ever
- * makes it the slow part of the page.
+ * ponytail: N+1 on those cross-company reads, bounded by how many accounts one
+ * manager holds (a handful). Push the fan-out server-side if a manager's book
+ * ever makes it the slow part of the page.
  */
+/**
+ * The manager's book, fetched AT MOST ONCE PER RENDER.
+ *
+ * Every list in this portal derives its scope from this one call — `scopeIds`
+ * and `companyNames` both reach for it, and so does each page and the layout
+ * directly. Rendering /manager/projects asked for it SEVEN times: three from the
+ * layout's `Promise.all`, four more from the page's. All concurrent, all
+ * identical, and each one its own invocation of a Vercel function capped at
+ * `maxDuration: 10` (Portal-backend/vercel.json) — a burst that cold-started
+ * into `504 FUNCTION_INVOCATION_TIMEOUT` and took the whole portal down with it.
+ *
+ * `cache` is React's request-scoped memo, so the dedupe lasts exactly one render
+ * and never serves one manager's accounts to another. In the client build it
+ * compiles to a plain pass-through, which is harmless here: nothing client-side
+ * calls this.
+ *
+ * ponytail: only this call is deduped. The per-company fan-out underneath it
+ * (projects, specialists and chat, one request each per company) is still N
+ * requests wide — batch endpoints are the fix if a manager's book gets large.
+ */
+const fetchCompanies = cache(async (): Promise<ClientCompany[]> => {
+  const data = await get<{ companies: BackendCompany[] }>(
+    "/accounting-manager/companies?limit=100",
+  );
+  return data.companies.map(toClientCompany);
+});
+
 async function scopeIds(companyId?: string): Promise<string[]> {
   if (companyId) return [companyId];
   const companies = await managerApi.companies();
   return companies.map((c) => c.id);
 }
+
+/**
+ * The per-company project sweep, memoised for the render that asked for it.
+ *
+ * `specialists()` reads the project list too, for its workload column — so a
+ * page that shows both a project table and a specialist picker ran the whole
+ * fan-out twice, one request per company each time. Deduping matters more here
+ * than the request count suggests: every one of those requests re-loads the
+ * caller, re-loads the company and re-checks access before it reads anything,
+ * and each of those is a separate round trip to a database on another continent.
+ *
+ * Same `cache()` as `fetchCompanies` above, and the same limitation: it holds
+ * for one server render, which is where the sweep happens. In the browser React
+ * does not memoise and each caller fetches for itself.
+ */
+const fetchProjects = cache(
+  async (companyId?: string): Promise<ManagedProject[]> =>
+    overCompanies(companyId, async (id) => {
+      const data = await get<{ projects: BackendProject[] }>(
+        `/projects?companyId=${encodeURIComponent(id)}&limit=100`,
+      );
+      return data.projects.map(toManagedProject);
+    }),
+);
 
 async function overCompanies<T>(
   companyId: string | undefined,
@@ -315,11 +416,33 @@ async function overCompanies<T>(
   return pages.flat();
 }
 
+/**
+ * The per-company conversation sweep, on a key React can actually memoise.
+ *
+ * `conversations()` takes a filter OBJECT, and `cache()` compares arguments by
+ * identity — a fresh `{}` at every call site would miss every time and the
+ * memoisation would be decoration. Only the company id reaches the backend; the
+ * party and channel filters are applied to the result, so the id is the whole
+ * key. The layout asks for this on every manager page to put a number on the
+ * bell, so it is the single most repeated sweep in the portal.
+ */
+const fetchConversations = cache(
+  async (companyId?: string): Promise<BackendConversation[]> =>
+    overCompanies(companyId, async (id) => {
+      const data = await get<{ conversations: BackendConversation[] }>(
+        `/chat/conversations?companyId=${encodeURIComponent(id)}`,
+      );
+      return data.conversations;
+    }),
+);
+
 /** Name lookup for the rows that carry a company id but not its name. */
-async function companyNames(): Promise<Map<string, string>> {
+const companyNames = cache(async function companyNames(): Promise<
+  Map<string, string>
+> {
   const companies = await managerApi.companies();
   return new Map(companies.map((c) => [c.id, c.name]));
-}
+});
 
 /**
  * The people directories, `?companyId=` REQUIRED.
@@ -334,18 +457,25 @@ async function companyNames(): Promise<Map<string, string>> {
  * conversation lists already are. De-duplicated by user, because a customer on
  * three of the manager's companies is one person and comes back from all three.
  */
-async function directory(
+const directory = cache(async function directory(
   kind: "customers" | "specialists",
   companyId?: string,
-): Promise<DirectoryRow[]> {
+): Promise<ScopedDirectoryRow[]> {
   const rows = await overCompanies(companyId, async (id) => {
     const data = await get<Partial<Record<typeof kind, DirectoryRow[]>>>(
       `/${kind}?companyId=${encodeURIComponent(id)}&limit=${DIRECTORY_LIMIT}`,
     );
-    return data[kind] ?? [];
+    // WHICH company this row was read from, kept because the DETAIL endpoints
+    // demand it too and there is no other way back to it. `GET /customers/:id`
+    // and `GET /specialists/:id` both answer `400 companyId is required.` to
+    // anyone but an admin (companyService.getCustomerDetail /
+    // getSpecialistDetail), so a bare lookup was a 400 on every detail page —
+    // the same trap the list calls above already work around. Dropping it here
+    // is what made the detail calls unable to comply.
+    return (data[kind] ?? []).map((row) => ({ ...row, scopeCompanyId: id }));
   });
   return [...new Map(rows.map((row) => [row.userId, row])).values()];
-}
+});
 
 /**
  * ponytail: 100 is the directories' own maxLimit and one page is fetched per
@@ -369,6 +499,31 @@ interface DirectoryRow {
   companies?: { companyId: number; companyName: string }[];
 }
 
+/** One line of `GET /companies/:id/specialist-options`. */
+interface BackendStaffingService {
+  specializationCode: string;
+  specializationName: string;
+  /** At most one, and `userId` is absent when the person record was dropped. */
+  assigned: { assignmentId: number | null; userId?: number }[];
+  eligibleSpecialists: {
+    userId: number;
+    email: string;
+    firstName: string;
+    lastName: string;
+    status: string;
+  }[];
+}
+
+/**
+ * A directory row plus the company whose roster it came back on.
+ *
+ * Set by `directory()`, not by the backend. `companies` above is the customer's
+ * own multi-company list and is absent on the specialist rows, so it cannot
+ * serve as this. Required rather than optional so the detail calls that need it
+ * cannot forget it.
+ */
+type ScopedDirectoryRow = DirectoryRow & { scopeCompanyId: string };
+
 function toManagerCustomer(row: DirectoryRow): ManagerCustomer {
   return {
     name: fullName(row),
@@ -391,8 +546,14 @@ export const managerApi = {
       lastName: string;
       email: string;
       phone: string | null;
+      avatarUrl: string | null;
     }>("/users/me");
-    return { name: fullName(me), email: me.email, phone: me.phone ?? "" };
+    return {
+      name: fullName(me),
+      email: me.email,
+      phone: me.phone ?? "",
+      avatarUrl: me.avatarUrl ?? null,
+    };
   },
 
   /**
@@ -409,10 +570,7 @@ export const managerApi = {
    */
   async companies(): Promise<ClientCompany[]> {
     if (!BASE) return mock.companies();
-    const data = await get<{ companies: BackendCompany[] }>(
-      "/accounting-manager/companies?limit=100",
-    );
-    return data.companies.map(toClientCompany);
+    return fetchCompanies();
   },
 
   /** `data: { company }`, not the row — read a level too high and every field renders empty. */
@@ -441,7 +599,7 @@ export const managerApi = {
     if (!row) return null;
 
     const detail = await get<{ customer: DirectoryRow }>(
-      `/customers/${row.userId}`,
+      `/customers/${row.userId}?companyId=${encodeURIComponent(row.scopeCompanyId)}`,
     );
     return toManagerCustomer({ ...row, ...detail.customer });
   },
@@ -477,12 +635,7 @@ export const managerApi = {
   /** Every project across the companies this manager holds. */
   async projects(companyId?: string): Promise<ManagedProject[]> {
     if (!BASE) return mock.projects(companyId);
-    return overCompanies(companyId, async (id) => {
-      const data = await get<{ projects: BackendProject[] }>(
-        `/projects?companyId=${encodeURIComponent(id)}&limit=100`,
-      );
-      return data.projects.map(toManagedProject);
-    });
+    return fetchProjects(companyId);
   },
 
   async project(id: string): Promise<ManagedProject | null> {
@@ -491,6 +644,37 @@ export const managerApi = {
       `/projects/${encodeURIComponent(id)}`,
     );
     return row ? toManagedProject(row) : null;
+  },
+
+  /**
+   * Services a project can be opened against, on one of the manager's
+   * companies. Derived server-side from what the company actually pays for, so
+   * the dropdown can never offer an option the write would refuse.
+   */
+  async availableServices(companyId: string): Promise<string[]> {
+    if (!BASE) return mock.availableServices(companyId);
+    return (await serviceOptions(companyId)).map((s) => s.serviceName);
+  },
+
+  /**
+   * Open a project on one of the manager's companies.
+   *
+   * `POST /projects` has always admitted an ACCOUNTING_MANAGER — its gate reads
+   * `requireRole('ACCOUNTING_MANAGER', 'CUSTOMER')` — and this portal simply had
+   * no way to call it. The manager could route, staff and task a project, and
+   * could not open one, so every job had to start on the client's side of the
+   * account.
+   *
+   * The specialist is NOT chosen here: the server derives it from the company's
+   * staffing for that service line, which is what `assignSpecialist` above
+   * manipulates.
+   */
+  async createProject(
+    companyId: string,
+    input: NewProjectInput,
+  ): Promise<ManagedProject> {
+    if (!BASE) return mock.createProject(companyId, input);
+    return toManagedProject(await createProjectOn(companyId, input));
   },
 
   /**
@@ -520,18 +704,26 @@ export const managerApi = {
     }));
   },
 
-  async specialist(email: string): Promise<SpecialistDetail | null> {
+  /**
+   * One specialist, read on the company in view — the same scope the list that
+   * links here is under, so the workload figure beside their name counts the
+   * projects this company can see and not their whole book.
+   */
+  async specialist(
+    email: string,
+    companyId?: string,
+  ): Promise<SpecialistDetail | null> {
     if (!BASE) return mock.specialist(email);
     const [list, rows] = await Promise.all([
-      managerApi.specialists(),
-      directory("specialists"),
+      managerApi.specialists(companyId),
+      directory("specialists", companyId),
     ]);
     const row = rows.find((s) => s.email === email);
     const summary = list.find((s) => s.email === email);
     if (!row || !summary) return null;
 
     const detail = await get<{ specialist: DirectoryRow }>(
-      `/specialists/${row.userId}`,
+      `/specialists/${row.userId}?companyId=${encodeURIComponent(row.scopeCompanyId)}`,
     );
     const a = detail.specialist.address;
     const address = toAddressFields(a);
@@ -547,29 +739,40 @@ export const managerApi = {
   },
 
   /**
-   * Every task on the projects this specialist holds.
+   * Every task this specialist is carrying ON ONE COMPANY.
    *
    * There is no per-specialist task route. `GET /tasks` takes a
    * `specialistUserId` filter, which is the same question asked the way the API
    * asks it.
+   *
+   * SCOPED, like every other list in this portal. Unscoped it swept the
+   * manager's whole book, so a specialist working three accounts showed all
+   * three companies' tasks on a screen sitting inside one — rows naming projects
+   * that are not on the Projects list two clicks away.
    *
    * `specialistUserId`, NOT `assignedSpecialistUserId`. The two filters are one
    * word apart and live on different endpoints — the longer name is the projects
    * list's. Every task query validator calls `rejectUnknown`, so sending the
    * wrong one here was not ignored: it was a 400 on every specialist detail page.
    */
-  async specialistTasks(email: string): Promise<SpecialistTask[]> {
-    if (!BASE) return mock.specialistTasks(email);
-    const row = (await directory("specialists")).find((s) => s.email === email);
+  async specialistTasks(
+    email: string,
+    companyId?: string,
+  ): Promise<SpecialistTask[]> {
+    if (!BASE) return mock.specialistTasks(email, companyId);
+    const row = (await directory("specialists", companyId)).find(
+      (s) => s.email === email,
+    );
     if (!row) return [];
 
-    return overCompanies(undefined, async (id) => {
+    return overCompanies(companyId, async (id) => {
       const page = await get<{ tasks: BackendTask[] }>(
         `/tasks?companyId=${encodeURIComponent(id)}&specialistUserId=${row.userId}&limit=100`,
       );
       return page.tasks.map(toSpecialistTask);
     });
   },
+
 
   /** `PATCH`, and the status is the backend's own code, not the label. */
   async setTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
@@ -579,57 +782,72 @@ export const managerApi = {
     });
   },
 
-  /**
-   * Assign a specialist to a project.
-   *
-   * A project's specialist is DERIVED, not set: the server copies it from the
-   * company's staffing for that project's service line. So routing one project
-   * means staffing that line, then asking the server to re-derive — which is
-   * exactly what `POST /projects/sync-specialists` does.
+  /*
+   * No per-project assignment. A specialist is staffed onto a COMPANY's service
+   * line — one speciality each, picked when admin invites them — and a project's
+   * specialist is derived from that line. Routing a single project meant
+   * restaffing the whole line behind the reader's back: every other project on
+   * that service moved with it.
    */
-  async assignSpecialist(
-    projectId: string,
-    specialistEmail: string,
-  ): Promise<void> {
-    if (!BASE) return mock.ok();
 
-    const project = await managerApi.project(projectId);
-    if (!project) throw new Error("That project no longer exists.");
+  /**
+   * The staffing picker for one company, as the SERVER sees it.
+   *
+   * Three things the client must not decide, and each of them was wrong when it
+   * did: WHICH services are active (the company row's `activeServices` labels
+   * are not the subscription the write endpoint checks), WHO may work each one
+   * (`PUT` refuses a specialist whose specific role does not match the service —
+   * a Tax Specialist on bookkeeping is access to books they are not qualified
+   * for), and WHO holds the line today. `GET /companies/:id/specialist-options`
+   * answers all three, and the write re-checks the same rules, so the picker
+   * cannot offer a choice the save would reject.
+   */
+  async staffing(companyId: string): Promise<StaffingLine[]> {
+    if (!BASE) return mock.staffing(companyId);
+    const data = await get<{ services: BackendStaffingService[] }>(
+      `/companies/${encodeURIComponent(companyId)}/specialist-options`,
+    );
 
-    const row = await specialistByEmail(specialistEmail);
-    const service = await serviceCodeFor(projectId);
-
-    await post(`/companies/${encodeURIComponent(project.companyId)}/specialists`, {
-      specialistUserId: row.userId,
-      specializationCodes: [service],
-    });
-    await post("/projects/sync-specialists", {
-      companyId: Number(project.companyId),
-    });
+    return data.services.map((service) => ({
+      code: service.specializationCode,
+      name: service.specializationName,
+      // `assigned` is at most one per line — it is read from the company's
+      // standing specialist column, which is what "exactly one" means there.
+      assigned: service.assigned[0]?.userId ?? null,
+      options: service.eligibleSpecialists
+        .filter((user) => user.status === "ACTIVE")
+        .map((user) => ({
+          userId: user.userId,
+          name: fullName(user),
+          email: user.email,
+        })),
+    }));
   },
 
   /**
-   * Assign specialists to a company, one per service — 1.0's only assignment
-   * surface. `PUT` replaces the whole set, which is what the dialog submits.
+   * Staff a company's service lines — 1.0's only assignment surface.
+   *
+   * `PUT` states the WHOLE staffing, and the backend insists on it: it answers
+   * `422 INCOMPLETE_SPECIALIST_ASSIGNMENTS` unless there is exactly one
+   * specialist for every active service. A dialog that submitted only the lines
+   * the reader touched therefore saved nothing at all, which is what "it does
+   * not save" was.
+   *
+   * User ids, not emails. The picker already carries them, so nothing has to be
+   * resolved through a roster that — by definition on a first assignment — does
+   * not have the person on it yet.
    */
   async assignCompanySpecialists(
     companyId: string,
-    byService: Partial<Record<"bookkeeping" | "payroll" | "tax", string>>,
+    byService: Record<string, number>,
   ): Promise<void> {
     if (!BASE) return mock.ok();
 
-    const entries = Object.entries(byService).filter(
-      (e): e is [string, string] => Boolean(e[1]),
-    );
-    const rows = await Promise.all(
-      entries.map(async ([service, email]) => ({
-        specializationCode: SERVICE_CODE[service] ?? service.toUpperCase(),
-        specialistUserId: (await specialistByEmail(email)).userId,
-      })),
-    );
-
     await put(`/companies/${encodeURIComponent(companyId)}/specialists`, {
-      assignments: rows,
+      assignments: Object.entries(byService).map(([code, specialistUserId]) => ({
+        specializationCode: code,
+        specialistUserId,
+      })),
     });
     await post("/projects/sync-specialists", { companyId: Number(companyId) });
   },
@@ -645,13 +863,10 @@ export const managerApi = {
     if (!BASE) return mock.conversations(filter);
     if (filter.channel === "email") return [];
 
-    const names = await companyNames();
-    const rows = await overCompanies(filter.companyId, async (id) => {
-      const data = await get<{ conversations: BackendConversation[] }>(
-        `/chat/conversations?companyId=${encodeURIComponent(id)}`,
-      );
-      return data.conversations;
-    });
+    const [names, rows] = await Promise.all([
+      companyNames(),
+      fetchConversations(filter.companyId),
+    ]);
 
     return rows
       .map((c) => ({
@@ -716,11 +931,12 @@ export const managerApi = {
 
   async sendMessage(conversationId: string, body: string): Promise<ChatMessage> {
     if (!BASE) return mock.sendMessage(conversationId, body);
-    const data = await post<{ message: BackendMessage }>(
+    // `data` is the stored message itself, same as `openConversation` above.
+    const message = await post<BackendMessage>(
       `/chat/conversations/${encodeURIComponent(conversationId)}/messages`,
       { body },
     );
-    return toChatMessage(data.message);
+    return toChatMessage(message);
   },
 
   /** A file in the thread: ticket, PUT to storage, then the message. */
@@ -755,27 +971,75 @@ export const managerApi = {
 
 /* ------------------------------------------------- shared live helpers ---- */
 
-/** The dialog's service keys, in the backend's specialization vocabulary. */
-const SERVICE_CODE: Record<string, string> = {
-  bookkeeping: "BOOKKEEPING",
-  payroll: "PAYROLL",
-  tax: "TAX",
-};
-
-async function specialistByEmail(email: string): Promise<DirectoryRow> {
-  const row = (await directory("specialists")).find((s) => s.email === email);
-  if (!row) throw new Error(`No specialist for ${email}.`);
-  return row;
+export interface ServiceOption {
+  servicePlanId: number;
+  serviceName: string;
+  serviceCode: string;
 }
 
-/** Which service line a project sits on — the line that has to be staffed. */
-async function serviceCodeFor(projectId: string): Promise<string> {
-  const row = await get<BackendProject>(
-    `/projects/${encodeURIComponent(projectId)}`,
+/**
+ * What a company pays for, as the project form's dropdown.
+ *
+ * Shared with the customer portal rather than written twice: the endpoint has
+ * no role gate of its own (only the paywall above it), both portals open
+ * projects against the same companies, and the NAME→`servicePlanId` resolution
+ * below is the kind of mapping that fails silently when two copies drift.
+ */
+export async function serviceOptions(
+  companyId: string,
+): Promise<ServiceOption[]> {
+  const data = await get<{ services: ServiceOption[] }>(
+    `/projects/services?companyId=${encodeURIComponent(companyId)}`,
   );
-  const code = row.service?.serviceCode;
-  if (!code) throw new Error("That project names no service to staff.");
-  return code;
+  return data.services;
+}
+
+/**
+ * `POST /projects`, for whichever portal is opening it.
+ *
+ * The form picks a service by NAME; the endpoint wants the id of that service's
+ * base plan, so the option list is read back to resolve it.
+ *
+ * The created project IS the payload — `data` is the row, not `{ project }`.
+ * The controller's own Location header (`${req.baseUrl}/${data.id}`) is the
+ * proof. Reading `.project` here yields `undefined`, and the adapter throws on
+ * it, so a create would fail AFTER the record had already been written.
+ */
+export async function createProjectOn(
+  companyId: string,
+  input: NewProjectInput,
+): Promise<BackendProject> {
+  const services = await serviceOptions(companyId);
+  const service = services.find((s) => s.serviceName === input.service);
+  if (!service) {
+    throw new Error(`${input.service} is not active on this company.`);
+  }
+
+  const project = await post<BackendProject>("/projects", {
+    companyId: Number(companyId),
+    projectName: input.name,
+    deadlineDate: input.deadline,
+    servicePlanId: service.servicePlanId,
+  });
+
+  /*
+   * Route it to whoever holds the company's line for this service.
+   *
+   * A project's specialist is DERIVED from company staffing, but only when the
+   * server is asked to re-derive — `POST /projects` does not do it on the way
+   * in. So a company with a bookkeeping specialist still opened every new
+   * bookkeeping job unassigned, and someone had to staff by hand what the
+   * company-level assignment had already decided.
+   *
+   * Fire-and-forget on failure: the project exists either way, and re-deriving
+   * happens again on the next assignment. Reporting a sync error as a failed
+   * create would be a lie.
+   */
+  await post("/projects/sync-specialists", {
+    companyId: Number(companyId),
+  }).catch(() => {});
+
+  return project;
 }
 
 /**
@@ -866,16 +1130,16 @@ export async function openConversation(
   companyId: string,
   participantUserId?: number,
 ): Promise<BackendConversation> {
-  const data = await post<{ conversation: BackendConversation }>(
-    "/chat/conversations",
-    {
-      companyId: Number(companyId),
-      // The manager names who they are opening with; a customer or specialist
-      // omits it and the server resolves the company's manager for them.
-      ...(participantUserId ? { participantUserId } : {}),
-    },
-  );
-  return data.conversation;
+  // The envelope's `data` IS the conversation — this route answers with
+  // `dto.toConversation(...)`, not `{ conversation }`. Reading a key off it gave
+  // `undefined`, and every portal layout that opens its one thread died on
+  // `undefined.id` before rendering anything.
+  return post<BackendConversation>("/chat/conversations", {
+    companyId: Number(companyId),
+    // The manager names who they are opening with; a customer or specialist
+    // omits it and the server resolves the company's manager for them.
+    ...(participantUserId ? { participantUserId } : {}),
+  });
 }
 
 /**
@@ -904,11 +1168,11 @@ export async function sendChatAttachment(
   const { putSigned } = await import("@/lib/http");
   await putSigned(uploads[0].uploadUrl, file);
 
-  const data = await post<{ message: BackendMessage }>(
+  const message = await post<BackendMessage>(
     `/chat/conversations/${encodeURIComponent(conversationId)}/messages`,
     { files: [{ key: uploads[0].key, fileName: file.name }] },
   );
-  return toChatMessage(data.message);
+  return toChatMessage(message);
 }
 
 /**
@@ -1529,6 +1793,10 @@ const mock = {
       name: "Alex Morgan",
       email: "alex.morgan@finopsys.ai",
       phone: "5550188",
+      // Nowhere to serve an image from without storage, so the initials avatar
+      // stands in — which is the same fallback a real account with no picture
+      // gets.
+      avatarUrl: null,
     };
   },
 
@@ -1590,6 +1858,46 @@ const mock = {
     return PROJECTS.find((p) => p.id === id) ?? null;
   },
 
+  async availableServices(companyId: string): Promise<string[]> {
+    await delay(150);
+    return COMPANIES.find((c) => c.id === companyId)?.activeServices ?? [];
+  },
+
+  /**
+   * Pushes the row rather than resolving empty. The dialog refreshes the page
+   * on success, and a create that leaves the table unchanged reads as failure.
+   */
+  async createProject(
+    companyId: string,
+    input: NewProjectInput,
+  ): Promise<ManagedProject> {
+    await delay();
+    const company = COMPANIES.find((c) => c.id === companyId);
+    if (!company) throw new Error("That company is not on your book.");
+    if (!company.activeServices.includes(input.service)) {
+      throw new Error(`${input.service} is not active on this company.`);
+    }
+
+    const project: ManagedProject = {
+      id: `p${PROJECTS.length + 1}`,
+      name: input.name,
+      company: company.name,
+      companyId,
+      service: input.service,
+      deadline: toStamp(input.deadline),
+      status: "Not started",
+      // Derived from the company's staffing on the real backend, and there is
+      // none in the fixtures — an unassigned project is the queue this portal
+      // exists to clear anyway.
+      specialist: null,
+      createdBy: (await mock.profile()).name,
+      progress: 0,
+      createdOn: toStamp(new Date().toISOString().slice(0, 10)),
+    };
+    PROJECTS.push(project);
+    return project;
+  },
+
   async specialists(companyId?: string): Promise<Specialist[]> {
     await delay();
     if (!companyId) return SPECIALISTS;
@@ -1601,19 +1909,56 @@ const mock = {
     return SPECIALISTS.filter((s) => onCompany.has(s.name));
   },
 
+  /**
+   * The staffing lines the live endpoint would answer with.
+   *
+   * Eligibility is matched on the first three letters of the speciality, which
+   * is all the fixtures need: they carry "Payroll Specialist" against a
+   * "Payroll" service, and 1.0's misspelled "Bookkeping Specialist" against
+   * "Bookkeeping". The real backend matches on the specific-role CODE and is the
+   * only place that decision is load-bearing.
+   */
+  async staffing(companyId: string): Promise<StaffingLine[]> {
+    await delay();
+    const company = COMPANIES.find((c) => c.id === companyId);
+    const stem = (s: string) => s.slice(0, 3).toLowerCase();
+
+    return (company?.activeServices ?? []).map((service) => ({
+      code: service.toUpperCase(),
+      name: service,
+      assigned: null,
+      options: SPECIALISTS.filter(
+        (s) => stem(s.speciality) === stem(service),
+      ).map((s) => ({
+        // The fixtures have no user ids; their position stands in for one, which
+        // is enough for a dialog that only round-trips the value.
+        userId: SPECIALISTS.indexOf(s) + 1,
+        name: s.name,
+        email: s.email,
+      })),
+    }));
+  },
+
   async specialist(email: string): Promise<SpecialistDetail | null> {
     await delay();
     return SPECIALISTS.find((s) => s.email === email) ?? null;
   },
 
-  async specialistTasks(email: string): Promise<SpecialistTask[]> {
+  async specialistTasks(
+    email: string,
+    companyId?: string,
+  ): Promise<SpecialistTask[]> {
     await delay();
     const specialist = SPECIALISTS.find((s) => s.email === email);
     if (!specialist) return [];
 
     // Assignment is project-level in 1.0 — a task has no assignee of its own,
     // so a specialist's work is every task on the projects routed to them.
-    return PROJECTS.filter((p) => p.specialist === specialist.name).flatMap(
+    return PROJECTS.filter(
+      (p) =>
+        p.specialist === specialist.name &&
+        (!companyId || p.companyId === companyId),
+    ).flatMap(
       (project) =>
         TASKS.filter((t) => t.projectId === project.id).map((task) => ({
           ...task,

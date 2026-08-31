@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { EmailCompose } from "@/components/portal/email-compose";
-import { specialistApi } from "@/lib/specialist";
+import { companyScope, specialistApi } from "@/lib/specialist";
 
 export const metadata: Metadata = { title: "Email" };
 
@@ -15,10 +15,11 @@ export default async function SpecialistEmailPage({
 }: {
   searchParams: Promise<{ company?: string }>;
 }) {
-  const [{ company }, manager] = await Promise.all([
+  const [{ company: picked }, manager] = await Promise.all([
     searchParams,
     specialistApi.manager(),
   ]);
+  const company = await companyScope(picked);
 
   return (
     <EmailCompose

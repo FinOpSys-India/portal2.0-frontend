@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -17,6 +18,7 @@ import {
 } from "@/lib/schemas";
 
 export function ForgotPasswordForm() {
+  const router = useRouter();
   const [failure, setFailure] = React.useState<string | null>(null);
   const [sent, setSent] = React.useState(false);
 
@@ -30,8 +32,23 @@ export function ForgotPasswordForm() {
   async function onSubmit(values: ForgotPasswordValues) {
     setFailure(null);
     try {
-      await api.requestPasswordReset(values.email.trim());
+      /*
+       * The `challengeId` is what makes the rest of the flow possible, and it
+       * was being thrown away: this screen said "an email is on its way" and
+       * went no further, so the code that arrived had nowhere to be typed.
+       *
+       * The address is deliberately NOT carried onward. This endpoint answers
+       * the same whether or not the account exists, and putting the address in
+       * the next URL would leak nothing new — but there is also nothing to show
+       * with it, since no masked address comes back.
+       */
+      const { challengeId } = await api.requestPasswordReset(
+        values.email.trim(),
+      );
       setSent(true);
+      router.push(
+        `/forgot_password/verify?challenge=${encodeURIComponent(challengeId)}`,
+      );
     } catch (err) {
       setFailure(
         err instanceof Error ? err.message : "Could not send the email.",
@@ -72,19 +89,21 @@ export function ForgotPasswordForm() {
             placeholder="Enter your email address"
           />
 
-          {/* Deliberately does not confirm whether the address exists. */}
+          {/* Deliberately does not confirm whether the address exists — and
+              neither does the next screen, which is why it is safe to send
+              everyone on to it. */}
           {sent ? (
             <Alert className="items-start">
               <CheckCircle2 className="size-4 text-success" aria-hidden />
               <AlertDescription>
-                If that address has an account, a recovery email is on its way.
+                If that address has an account, a recovery code is on its way.
               </AlertDescription>
             </Alert>
           ) : null}
 
           <FormAlert>{failure}</FormAlert>
 
-          <SubmitButton pending={form.formState.isSubmitting}>
+          <SubmitButton pending={form.formState.isSubmitting || sent}>
             Send verification code
           </SubmitButton>
         </form>

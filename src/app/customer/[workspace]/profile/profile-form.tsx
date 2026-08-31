@@ -12,7 +12,7 @@ import {
   TextField,
 } from "@/components/auth/fields";
 import { FormAlert } from "@/components/auth/form-alert";
-import { InitialsAvatar } from "@/components/admin/initials-avatar";
+import { AvatarUpload } from "@/components/portal/avatar-upload";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Form } from "@/components/ui/form";
 import { COUNTRIES } from "@/lib/countries";
@@ -55,8 +55,14 @@ export function ProfileForm({ profile }: { profile: Profile }) {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <section className="flex items-center gap-4 rounded-xl border border-border bg-card p-6">
-        <InitialsAvatar name={profile.fullName} className="size-14 text-base" />
+      {/*
+       * Outside the <form>, deliberately. The picture is its own write —
+       * multipart, its own endpoint, its own result — and putting it inside
+       * would make Save look like what commits it, so a user who picked a photo
+       * and did not press Save would think they had lost it.
+       */}
+      <section className="flex items-center gap-5 rounded-xl border border-border bg-card p-6">
+        <AvatarUpload name={profile.fullName} avatarUrl={profile.avatarUrl} />
         <div>
           <p className="font-semibold">{profile.fullName}</p>
           <p className="text-sm text-muted-foreground">{profile.email}</p>

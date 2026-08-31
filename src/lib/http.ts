@@ -31,6 +31,7 @@ import {
   LIVE,
   backendUrl,
 } from "@/lib/backend";
+import { PORTAL_CACHE_SECONDS, PORTAL_CACHE_TAG } from "@/lib/cache-tag";
 
 /**
  * Kept as the mock switch every boundary already branches on, so `if (!BASE)`
@@ -122,9 +123,11 @@ async function unwrap<T>(res: Response): Promise<T> {
     // where the status is the whole diagnosis. Always carry it.
     const message =
       error?.message ?? body?.message ?? `Request failed (HTTP ${res.status}).`;
-    // ponytail: temporary diagnostic — log the raw body when it is not the
-    // expected envelope, so a non-JSON failure names itself once instead of
-    // hiding behind "Request failed." Remove after the /manager 4xx is pinned.
+    // Log the raw body when it is not the expected envelope. Kept rather than
+    // removed once it had done its job: a non-JSON failure is exactly the one
+    // the envelope cannot describe, and this is what named the /manager outage
+    // as Vercel's `FUNCTION_INVOCATION_TIMEOUT` rather than a 4xx from the API.
+    // It fires only when the body did not parse, so it is quiet in normal use.
     if (!body) {
       console.error(
         `[http] non-JSON ${res.status} ${res.url} :: ${raw.slice(0, 300) || "<empty>"}`,
@@ -205,6 +208,134 @@ export function clearAccessToken() {
   document.cookie = `${ACCESS_TOKEN_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
 }
 
+/* ------------------------------------------------------- concurrency cap -- */
+
+/**
+ * Cap how many backend requests are in flight at once.
+ *
+ * The manager and admin pages fan out per company — `overCompanies` in
+ * src/lib/manager.ts is `Promise.all(ids.map(fn))` with no bound — and several
+ * of those run per page, so eight companies became roughly thirty simultaneous
+ * requests. Every one of them occupies a connection from the backend's pg pool
+ * for its whole life, and that pool is ten wide. The tail sat in pg-pool's
+ * checkout queue until `connectionTimeoutMillis` gave up, and the page rendered
+ * "timeout exceeded when trying to connect" — a pool starved by its own client,
+ * not a database that was down.
+ *
+ * Bounding it here rather than at each fan-out because this is the one place
+ * every boundary already passes through: a limit in `overCompanies` would leave
+ * the same pile-up available to any other caller that maps over a list.
+ *
+ * Eight, because that is how wide the fan-out is — a manager holds eight
+ * companies, and a cap below that turns one sweep into two waves, each paying
+ * the full round trip to a database on another continent. It still sits under
+ * the backend's ten-connection pool, so a second page loading at the same time
+ * queues for a connection rather than exhausting them. Raise it only alongside
+ * DB_POOL_MAX, and note the Supabase session pooler refuses past 15 clients for
+ * the whole project.
+ */
+const MAX_INFLIGHT = 8;
+let inflight = 0;
+const waiting: Array<() => void> = [];
+
+export async function withSlot<T>(run: () => Promise<T>): Promise<T> {
+  if (inflight >= MAX_INFLIGHT) {
+    await new Promise<void>((resolve) => waiting.push(resolve));
+  }
+  inflight += 1;
+  try {
+    return await run();
+  } finally {
+    inflight -= 1;
+    waiting.shift()?.();
+  }
+}
+
+/* ----------------------------------------------------------- transport -- */
+
+/**
+ * One fetch, and a second one if the FIRST NEVER GOT A REPLY.
+ *
+ * `fetch` rejects — as `TypeError: fetch failed` — only when the request never
+ * completed at the transport level: connection refused, socket reset, keep-alive
+ * connection closed under us. That last one is routine rather than exotic: the
+ * connection pool holds sockets open between renders, and a backend that
+ * restarts (a deploy, a dev-server reload) leaves them looking alive and dead on
+ * use. One page render then dies with "Something went wrong / fetch failed" over
+ * a backend that is already back up.
+ *
+ * READS ONLY. A request that got no reply may still have been delivered, so
+ * retrying a write could book the same thing twice; those surface the failure to
+ * the caller, which can say so. An HTTP error is NOT retried either — a 4xx or
+ * 5xx is an answer, and repeating the request will get the same one.
+ */
+export async function fetchOrRetry(
+  target: string,
+  init: RequestInit,
+  idempotent: boolean,
+): Promise<Response> {
+  try {
+    return await withSlot(() => fetch(target, init));
+  } catch (err) {
+    if (!idempotent) throw err;
+    // Long enough for a restarting process to be listening again, short enough
+    // that the render is not visibly waiting on it.
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return withSlot(() => fetch(target, init));
+  }
+}
+
+/* ------------------------------------------------------------- data cache -- */
+
+/**
+ * Serve a GET from Next's data cache, partitioned per session.
+ *
+ * THE PARTITION IS THE WHOLE SAFETY ARGUMENT. Every row this backend returns is
+ * scoped to the caller — a manager sees their eight companies, a customer sees
+ * one — so a cache keyed on the path alone would hand the first manager's
+ * projects to the next person who asked for the same URL. The key therefore
+ * carries a digest of the Authorization header: two sessions cannot collide,
+ * and a forged token lands in its own empty partition where the first fetch
+ * goes to the backend and is refused there.
+ *
+ * THE TOKEN ITSELF IS NOT IN THE KEY, only its digest. `unstable_cache` builds
+ * its key from `keyParts` plus the arguments and explicitly does NOT include
+ * closed-over values — so `headers`, which carries the bearer token, is reached
+ * through the closure and never written to the cache entry on disk.
+ *
+ * Errors are not cached: `unwrap` throws before the cache stores anything, so a
+ * 401 or a 500 does not pin itself in front of a route for thirty seconds.
+ */
+async function cachedRead<T>(
+  path: string,
+  headers: Record<string, string>,
+): Promise<T> {
+  const [{ unstable_cache }, { createHash }] = await Promise.all([
+    import("next/cache"),
+    import("node:crypto"),
+  ]);
+
+  const partition = createHash("sha256")
+    .update(headers.Authorization ?? "anonymous")
+    .digest("hex")
+    .slice(0, 32);
+
+  const read = unstable_cache(
+    async () =>
+      unwrap<T>(
+        await fetchOrRetry(
+          url(path),
+          { headers, credentials: "include" },
+          true,
+        ),
+      ),
+    ["portal-get", partition, path],
+    { revalidate: PORTAL_CACHE_SECONDS, tags: [PORTAL_CACHE_TAG] },
+  );
+
+  return read();
+}
+
 /**
  * The single request path. `retry` is spent on the one refresh attempt, so a
  * 401 that survives a fresh token surfaces to the caller instead of looping.
@@ -215,21 +346,62 @@ async function request<T>(
   retry = true,
 ): Promise<T> {
   const csrf = await readCookie(CSRF_COOKIE);
+  // Typed rather than inferred: `RequestInit["headers"]` also admits a Headers
+  // instance and an array of pairs, and the cache partition below reads
+  // `Authorization` off this by name. Every caller here passes a plain object.
+  const headers: Record<string, string> = {
+    ...(await authHeaders()),
+    // Sent on every write rather than only on /auth/*: it is ignored where it
+    // is not required, and this way a route that starts checking it does not
+    // need a change here.
+    ...(csrf && init.method && init.method !== "GET"
+      ? { [CSRF_HEADER]: csrf }
+      : {}),
+    ...(init.headers as Record<string, string> | undefined),
+  };
 
-  const res = await fetch(url(path), {
-    ...init,
-    headers: {
-      ...(await authHeaders()),
-      // Sent on every write rather than only on /auth/*: it is ignored where it
-      // is not required, and this way a route that starts checking it does not
-      // need a change here.
-      ...(csrf && init.method && init.method !== "GET"
-        ? { [CSRF_HEADER]: csrf }
-        : {}),
-      ...init.headers,
-    },
-    credentials: "include",
-  });
+  /*
+   * Reads on the server go through the data cache; nothing else does. A write
+   * must reach the backend every time, and the browser has no data cache to
+   * read from — its GETs travel to the proxy, which answers them with the HTTP
+   * caching headers it sets instead.
+   */
+  if (onServer && !init.method) {
+    try {
+      return await cachedRead<T>(path, headers);
+    } catch (err) {
+      // Same redirect as the uncached path below, for the same reason: a lapsed
+      // session on a server render is the login screen, not a stack trace.
+      if (err instanceof ApiError && err.status === 401) {
+        const { redirect } = await import("next/navigation");
+        redirect("/login");
+      }
+      throw err;
+    }
+  }
+
+  /*
+   * Only the fetch is inside the slot, never the whole function. The 401 path
+   * below calls `request` again, and a slot still held across that recursion
+   * would let a page whose requests all expire together fill every slot with
+   * callers each waiting for a slot to retry in.
+   */
+  const res = await fetchOrRetry(
+    url(path),
+    { ...init, headers, credentials: "include" },
+    !init.method || init.method === "GET",
+  );
+
+  /*
+   * A write invalidates every cached read for everyone. Coarse on purpose: the
+   * alternative is a tag per resource, and a write whose tag does not quite
+   * match the read that showed it leaves the user staring at the row they just
+   * changed. The cache refills in one page load.
+   */
+  if (!onServer && res.ok && init.method && init.method !== "GET") {
+    const { revalidatePortal } = await import("@/lib/revalidate");
+    await revalidatePortal();
+  }
 
   // A server component cannot write the refreshed cookie back to the browser,
   // so only the client refreshes and retries.

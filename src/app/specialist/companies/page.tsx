@@ -4,7 +4,7 @@ import { DataTable, ListCell } from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { scoped, type ClientCompany } from "@/lib/manager";
-import { specialistApi } from "@/lib/specialist";
+import { companyScope, specialistApi } from "@/lib/specialist";
 
 export const metadata: Metadata = { title: "Companies" };
 
@@ -19,7 +19,7 @@ export default async function SpecialistCompaniesPage({
 }: {
   searchParams: Promise<{ company?: string }>;
 }) {
-  const { company } = await searchParams;
+  const company = await companyScope((await searchParams).company);
   const [all, manager] = await Promise.all([
     specialistApi.companies(),
     specialistApi.manager(),

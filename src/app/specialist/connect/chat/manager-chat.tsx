@@ -21,9 +21,9 @@ export function ManagerChat({
   /** Threaded through so opening the pane clears the unread badge. */
   conversationId: string | null;
   /**
-   * Which company this thread belongs to. Undefined means "All companies" on
-   * the switcher, which the boundary resolves to the first — the same thread
-   * the page above already opened, so both halves agree on which one it is.
+   * Which company this thread belongs to. Undefined only when the specialist
+   * works none — otherwise the page above resolves the switcher's selection,
+   * so both halves agree on which thread this is.
    */
   companyId?: string;
 }) {

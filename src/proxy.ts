@@ -1,7 +1,57 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { landingPathForRole, type Role } from "@/lib/api";
 import { ACCESS_TOKEN_COOKIE, LIVE, backendUrl } from "@/lib/backend";
+
+/**
+ * Which role each portal belongs to. A prefix that is not listed — `/`, the
+ * onboarding group, the shared 1.0 routes like `/list_of_customers` that render
+ * different columns per role — is open to any signed-in session.
+ */
+const PORTAL_ROLE: Record<string, Role> = {
+  "/admin": "ADMIN",
+  "/manager": "ACCOUNTING_MANAGER",
+  "/specialist": "SPECIALIST",
+  "/customer": "CUSTOMER",
+};
+
+/**
+ * The `role` claim, read without verifying the signature.
+ *
+ * That is deliberate and it is not the authorization: the backend re-checks the
+ * role on every request, against the DATABASE and not just the claim (see
+ * `requireRole`). This only decides which page to show, so a forged claim buys
+ * an attacker a portal that then 403s on its first fetch — exactly where they
+ * started. Verifying here would mean shipping the signing key to the proxy.
+ */
+function roleFromToken(token: string): Role | null {
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const role = JSON.parse(json)?.role;
+    return typeof role === "string" && role in landingByRole ? (role as Role) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Roles we know a landing for — also the allowlist `roleFromToken` checks. */
+const landingByRole: Record<Role, true> = {
+  ADMIN: true,
+  ACCOUNTING_MANAGER: true,
+  SPECIALIST: true,
+  CUSTOMER: true,
+};
+
+/** The portal a path sits in, or null for a shared/public route. */
+function portalOwner(pathname: string): Role | null {
+  for (const [prefix, role] of Object.entries(PORTAL_ROLE)) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) return role;
+  }
+  return null;
+}
 
 /**
  * Same-origin proxy in front of the Node backend.
@@ -59,9 +109,34 @@ export function proxy(request: NextRequest) {
     // "clickable without a server". Skip the gate; it re-arms the moment a real
     // backend is set.
     if (!LIVE) return NextResponse.next();
-    return accessToken
-      ? NextResponse.next()
-      : NextResponse.redirect(new URL("/login", request.url));
+    if (!accessToken) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    /**
+     * Wrong portal for this role.
+     *
+     * Every portal layout loads role-scoped data in its first await — the
+     * manager's reads `/accounting-manager/companies`, which is gated on
+     * ACCOUNTING_MANAGER. Without this check a signed-in customer or admin
+     * opening /manager renders the layout, takes the backend's 403, and gets
+     * "Something went wrong" on EVERY route under it, with the message stripped
+     * in a production build. Refusing at the door turns that into a redirect to
+     * the portal they do have.
+     *
+     * A role we cannot read leaves the request alone rather than guessing: the
+     * backend is still the one that decides, and locking someone out on an
+     * unparsed claim would be a worse failure than the one being fixed.
+     */
+    const role = roleFromToken(accessToken);
+    const owner = portalOwner(pathname);
+    if (role && owner && owner !== role) {
+      return NextResponse.redirect(
+        new URL(landingPathForRole(role), request.url),
+      );
+    }
+
+    return NextResponse.next();
   }
 
   const target = backendUrl(pathname.replace(/^\/api/, "") + search);
@@ -84,7 +159,32 @@ export function proxy(request: NextRequest) {
   // path takes over, which is the correct reading of a server-to-server call.
   headers.delete("origin");
 
-  return NextResponse.rewrite(new URL(target), { request: { headers } });
+  const response = NextResponse.rewrite(new URL(target), {
+    request: { headers },
+  });
+
+  /*
+   * NO BROWSER CACHE ON API RESPONSES, AND THAT IS THE CONSIDERED CHOICE.
+   *
+   * A positive `max-age` here looks like free speed and is not. The reads worth
+   * caching are the expensive ones, and those happen in server components,
+   * which never touch this header — they go through the data cache in
+   * src/lib/http.ts instead. What DOES come through here is the traffic a cache
+   * hurts: src/components/portal/chat-thread.tsx re-reads its thread every
+   * eight seconds, and any max-age above that turns a live conversation into a
+   * frozen one, invisibly, with no error to explain it.
+   *
+   * `no-store` also keeps authenticated JSON — invoices, client records, chat —
+   * out of the browser's disk cache and out of any intermediary that would
+   * otherwise treat an unlabelled 200 as fair game.
+   *
+   * Static assets are a different matter and already handled: Next fingerprints
+   * everything under /_next/static and serves it immutable, which is the browser
+   * caching that actually pays here.
+   */
+  response.headers.set("Cache-Control", "private, no-store");
+
+  return response;
 }
 
 export const config = {

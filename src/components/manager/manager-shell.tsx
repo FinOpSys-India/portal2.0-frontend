@@ -16,7 +16,13 @@ import {
   type ScopedShellProps,
 } from "@/components/portal/scoped-portal-shell";
 
-/** Seven items, in 1.0's order and with 1.0's labels. */
+/**
+ * 1.0's seven items, in 1.0's order and with 1.0's labels.
+ *
+ * No Tasks board. A manager staffs the work and reads it per project; the
+ * cross-book task list was this port's own addition and is gone again — tasks
+ * are the specialist's screen.
+ */
 const NAV: NavItem[] = [
   { href: "/manager/customers", label: "Customer", icon: Users },
   { href: "/manager/specialists", label: "Specialist", icon: Wrench },

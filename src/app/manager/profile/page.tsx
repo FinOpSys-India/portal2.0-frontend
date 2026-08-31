@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { InitialsAvatar } from "@/components/admin/initials-avatar";
+import { AvatarUpload } from "@/components/portal/avatar-upload";
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { managerApi } from "@/lib/manager";
@@ -42,7 +42,10 @@ export default async function ManagerProfilePage() {
         </div>
 
         <section className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card p-6 lg:self-start">
-          <InitialsAvatar name={profile.name} className="size-20 text-xl" />
+          {/* The one field on this page that IS editable. The rest are values
+              until 1.0's save-less form is settled; a picture has no such
+              ambiguity — the endpoint takes it and reports the result. */}
+          <AvatarUpload name={profile.name} avatarUrl={profile.avatarUrl} />
           <div className="text-center">
             <p className="font-semibold">{profile.name}</p>
             <p className="text-sm text-muted-foreground">Accounting Manager</p>

@@ -19,10 +19,12 @@ import {
   uploadViaSignedUrls,
 } from "@/lib/http";
 import {
+  createProjectOn,
   managerApi,
   openConversation,
   sendChatAttachment,
   sendEmailAs,
+  serviceOptions,
   toStamp,
   type ChatMessage,
   type ManagerProfile,
@@ -90,6 +92,8 @@ export interface Profile {
   state: string;
   zip: string;
   country: string;
+  /** `userDto.toMe` builds this from the stored key. Null when none is set. */
+  avatarUrl: string | null;
 }
 
 export interface NewProjectInput {
@@ -155,32 +159,16 @@ export const customerApi = {
   },
 
   /**
-   * The form picks a service by NAME; the endpoint wants the id of that
-   * service's base plan, so the option list is read back to resolve it.
+   * The form picks a service by NAME; `createProjectOn` resolves it to the id
+   * of that service's base plan, which is what the endpoint takes. Shared with
+   * the manager portal, which opens projects against the same endpoint.
    */
   async createProject(
     workspaceId: string,
     input: NewProjectInput,
   ): Promise<Project> {
     if (!BASE) return mock.createProject(input);
-
-    const services = await serviceOptions(workspaceId);
-    const service = services.find((s) => s.serviceName === input.service);
-    if (!service) {
-      throw new Error(`${input.service} is not active on this company.`);
-    }
-
-    // The created project IS the payload — `data` is the row, not `{ project }`.
-    // The controller's own Location header (`${req.baseUrl}/${data.id}`) is the
-    // proof. Reading `.project` here yielded `undefined`, and `toProject` threw
-    // on it, so every create failed after the record had already been written.
-    const project = await post<BackendProject>("/projects", {
-      companyId: Number(workspaceId),
-      projectName: input.name,
-      deadlineDate: input.deadline,
-      servicePlanId: service.servicePlanId,
-    });
-    return toProject(project);
+    return toProject(await createProjectOn(workspaceId, input));
   },
 
   async project(workspaceId: string, id: string): Promise<Project | null> {
@@ -326,6 +314,7 @@ export const customerApi = {
       lastName: string;
       email: string;
       phone: string | null;
+      avatarUrl: string | null;
       address: Parameters<typeof toAddressFields>[0];
     }>("/users/me");
 
@@ -333,6 +322,7 @@ export const customerApi = {
       fullName: fullName(me),
       email: me.email,
       phone: me.phone ?? "",
+      avatarUrl: me.avatarUrl ?? null,
       ...toAddressFields(me.address),
     };
   },
@@ -373,7 +363,14 @@ export const customerApi = {
       `/companies/${encodeURIComponent(workspaceId)}`,
     );
     const am = company.accountingManager;
-    return { name: personName(am), email: am?.email ?? "", phone: "" };
+    // No phone and no picture on the joined person: `companyDto` sends a name
+    // and an address, and a manager's number is theirs to share.
+    return {
+      name: personName(am),
+      email: am?.email ?? "",
+      phone: "",
+      avatarUrl: null,
+    };
   },
 
   async thread(workspaceId: string): Promise<ManagerThread> {
@@ -416,20 +413,6 @@ export const customerApi = {
 };
 
 /* ------------------------------------------------------- live helpers ---- */
-
-interface ServiceOption {
-  servicePlanId: number;
-  serviceName: string;
-  serviceCode: string;
-}
-
-/** What the company pays for, as the project form's dropdown. */
-async function serviceOptions(workspaceId: string): Promise<ServiceOption[]> {
-  const data = await get<{ services: ServiceOption[] }>(
-    `/projects/services?companyId=${encodeURIComponent(workspaceId)}`,
-  );
-  return data.services;
-}
 
 function toProject(p: BackendProject): Project {
   return {
@@ -684,6 +667,7 @@ const mock = {
       fullName: "Priya Nair",
       email: "priya.nair@example.com",
       phone: "5550142",
+      avatarUrl: null,
       addressLine1: "",
       city: "",
       state: "",

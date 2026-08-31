@@ -43,7 +43,17 @@ export interface ChatContact {
 }
 
 interface BackendContact {
-  userId: number;
+  /**
+   * `id`, not `userId`. A contact row is a PERSON — chatDto spreads
+   * `projectDto.toPerson` into it, and that shape names the key `id`, unlike the
+   * directory rows everywhere else in this app. Reading `userId` here got
+   * `undefined` on every row: React warned that the list had no keys, the open
+   * thread matched whichever row was first, and clicking one asked the backend
+   * to open a conversation with nobody.
+   */
+  id: number;
+  /** Still accepted, for a deployment that answers with the directory shape. */
+  userId?: number;
   firstName: string;
   lastName: string;
   email: string | null;
@@ -55,9 +65,9 @@ interface BackendContact {
   unreadCount: number;
 }
 
-function toContact(c: BackendContact): ChatContact {
+export function toContact(c: BackendContact): ChatContact {
   return {
-    userId: c.userId,
+    userId: c.userId ?? c.id,
     name: personName(c),
     email: c.email,
     roleLabel:

@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 
 import {
   INBOXES,
+  companyScope,
   dayLabel,
   fileKind,
   formatFileSize,
@@ -115,8 +116,6 @@ async function main() {
   // Project detail resolves, and a bad id is null rather than a stray row.
   assert.deepEqual(await managerApi.project(all[0].id), all[0]);
   assert.equal(await managerApi.project("no-such-id"), null);
-
-  await managerApi.assignSpecialist("p2", specialists[0].email);
 
   /* -------------------------------------------------------- conversations -- */
 
@@ -369,6 +368,101 @@ async function main() {
     scoped("/manager/projects", "a b&c"),
     "/manager/projects?company=a%20b%26c",
   );
+
+  /* ------------------------------------------------- creating a project -- */
+
+  // The manager may open one, on a company they hold. The endpoint has always
+  // allowed it (requireRole('ACCOUNTING_MANAGER', 'CUSTOMER')); the portal had
+  // no control that called it.
+  const [account] = await managerApi.companies();
+  const before = (await managerApi.projects(account.id)).length;
+
+  const opened = await managerApi.createProject(account.id, {
+    name: "August close",
+    service: account.activeServices[0],
+    deadline: "2026-09-30",
+  });
+
+  assert.equal(opened.companyId, account.id);
+  assert.equal(opened.status, "Not started");
+  // Derived from the company's staffing by the server, never sent by the form.
+  assert.equal(opened.specialist, null);
+  // The deadline reaches the table in 1.0's format, not the input's ISO one —
+  // a row written in one format inside a column of another reads as a bug.
+  assert.equal(opened.deadline, "9/30/26");
+  assert.equal((await managerApi.projects(account.id)).length, before + 1);
+
+  // A service the company does not pay for is refused rather than sent: the
+  // dropdown is built from the same list, so this can only be reached by a
+  // stale form.
+  await assert.rejects(
+    managerApi.createProject(account.id, {
+      name: "Not sold here",
+      service: "Astrology",
+      deadline: "2026-09-30",
+    }),
+    /not active on this company/,
+  );
+
+  /* ------------------------------------------------ the scoped screens -- */
+
+  // A specialist's task list is the tasks of THIS company's projects routed to
+  // them — never the whole book. Every row must name a project the scoped
+  // Projects list also has, or the screen contradicts the one beside it.
+  const staffed = (await managerApi.projects(account.id)).find(
+    (p) => p.specialist,
+  );
+  if (staffed?.specialist) {
+    const worker = specialists.find((s) => s.name === staffed.specialist);
+    assert.ok(worker, "the project names a specialist on the book");
+    const scopedTasks = await managerApi.specialistTasks(
+      worker.email,
+      account.id,
+    );
+    const inScope = new Set(
+      (await managerApi.projects(account.id)).map((p) => p.name),
+    );
+    assert.ok(scopedTasks.every((t) => inScope.has(t.project)));
+    // Unscoped is wider, which is exactly what the screens must not use.
+    const everywhere = await managerApi.specialistTasks(worker.email);
+    assert.ok(everywhere.length >= scopedTasks.length);
+  }
+
+  /* -------------------------------------------------- the assign dialog -- */
+
+  // One line per service the company buys — the dialog renders exactly these,
+  // and the write endpoint insists every one of them is filled.
+  const lines = await managerApi.staffing(account.id);
+  assert.deepEqual(
+    lines.map((l) => l.name),
+    account.activeServices,
+  );
+
+  // Each line only offers people who work it: a payroll specialist is not on
+  // offer for tax, and every option carries the id the write endpoint takes.
+  for (const line of lines) {
+    assert.ok(
+      line.options.every((o) => o.userId > 0 && o.email.includes("@")),
+      `${line.code} options must carry an id and an email`,
+    );
+  }
+  const speciality = new Map(specialists.map((s) => [s.email, s.speciality]));
+  const payroll = lines.find((l) => l.code === "PAYROLL");
+  assert.ok(payroll && payroll.options.length > 0, "payroll line is staffable");
+  assert.ok(
+    payroll.options.every((o) =>
+      speciality.get(o.email)?.startsWith("Payroll"),
+    ),
+    "only payroll specialists are offered for payroll",
+  );
+
+  /* ---------------------------------------------------- the company scope -- */
+
+  // No "all companies" state: an unscoped URL reads the first company on the
+  // book — the same one the switcher shows — and a picked one is left alone.
+  const [firstCompany] = await managerApi.companies();
+  assert.equal(await companyScope(undefined), firstCompany.id);
+  assert.equal(await companyScope(account.id), account.id);
 
   console.log("manager api: all checks passed");
 }

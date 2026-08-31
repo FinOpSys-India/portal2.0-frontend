@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { chatApi } from "@/lib/chat";
-import { managerApi, type Party } from "@/lib/manager";
+import { companyScope, scoped, type Party } from "@/lib/manager";
 
 import { ChatInbox } from "./chat-inbox";
 
@@ -25,11 +25,9 @@ export default async function ManagerChatPage({
   /*
    * The contact lists are per company and there is no unscoped form — a roster
    * merged across companies would put two clients' people on one screen, which
-   * is the same reason `companyId` is required everywhere else in chat. So an
-   * unscoped switcher falls back to the manager's first company rather than
-   * showing an empty page.
+   * is the same reason `companyId` is required everywhere else in chat.
    */
-  const companyId = company ?? (await managerApi.companies())[0]?.id;
+  const companyId = await companyScope(company);
   const contacts = companyId
     ? await chatApi.contacts(companyId, forParty)
     : [];
@@ -39,11 +37,7 @@ export default async function ManagerChatPage({
       contacts={contacts}
       party={forParty}
       companyId={companyId}
-      backHref={
-        company
-          ? `/manager/connect?company=${encodeURIComponent(company)}`
-          : "/manager/connect"
-      }
+      backHref={scoped("/manager/connect", companyId)}
     />
   );
 }

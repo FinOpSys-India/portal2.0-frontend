@@ -119,7 +119,7 @@ export function ScopeBreadcrumb({
     >
       <ol className="flex min-w-0 items-center gap-2">
         <li className="truncate text-muted-foreground">
-          {company ?? "All companies"}
+          {company ?? "No company"}
         </li>
         <li aria-hidden className="text-muted-foreground">
           /

@@ -6,7 +6,11 @@ import {
   ScopeBreadcrumb,
 } from "@/components/portal/file-list";
 import { ProjectFilter } from "@/components/portal/project-filter";
-import { managerApi, type ManagerDocument } from "@/lib/manager";
+import {
+  companyScope,
+  managerApi,
+  type ManagerDocument,
+} from "@/lib/manager";
 import { ManagerUploadFile } from "./upload-file";
 
 export const metadata: Metadata = { title: "Files" };
@@ -24,7 +28,8 @@ export default async function ManagerDocumentsPage({
 }: {
   searchParams: Promise<{ company?: string; project?: string }>;
 }) {
-  const { company, project } = await searchParams;
+  const { company: picked, project } = await searchParams;
+  const company = await companyScope(picked);
 
   const [documents, projects, companies, profile] = await Promise.all([
     managerApi.documents(company, project),
@@ -33,11 +38,12 @@ export default async function ManagerDocumentsPage({
     managerApi.profile(),
   ]);
 
-  // Unscoped upload needs the whole book; the pills only narrow what is shown.
-  const allProjects = company ? await managerApi.projects() : projects;
+  // Upload can still file against any company on the book; the pills only
+  // narrow what the list below shows.
+  const allProjects = await managerApi.projects();
 
   // From the company list, not from the projects: a company with no projects
-  // yet would otherwise fall back to "All companies" while scoped to it.
+  // yet would otherwise leave the breadcrumb blank while scoped to it.
   const companyName = companies.find((c) => c.id === company)?.name ?? null;
 
   return (

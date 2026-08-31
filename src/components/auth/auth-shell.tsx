@@ -16,7 +16,6 @@ export const AUTH_PANELS = {
   login: {
     title: "Streamline Your Financial Operations",
     body: "Manage bookkeeping, payroll, and taxes all in one place. Get real-time insights and stay compliant with automated workflows.",
-    backdrop: "silk",
   },
   signup: {
     title: "Join Thousands of Growing Businesses",

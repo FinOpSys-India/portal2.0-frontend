@@ -7,7 +7,7 @@ import {
 } from "@/components/portal/file-list";
 import { ProjectFilter } from "@/components/portal/project-filter";
 import type { ManagerDocument } from "@/lib/manager";
-import { specialistApi } from "@/lib/specialist";
+import { companyScope, specialistApi } from "@/lib/specialist";
 
 import { SpecialistUploadFile } from "./upload-file";
 
@@ -27,7 +27,8 @@ export default async function SpecialistDocumentsPage({
 }: {
   searchParams: Promise<{ company?: string; project?: string }>;
 }) {
-  const { company, project } = await searchParams;
+  const { company: picked, project } = await searchParams;
+  const company = await companyScope(picked);
 
   const [documents, projects, companies] = await Promise.all([
     specialistApi.documents(company, project),
@@ -36,13 +37,12 @@ export default async function SpecialistDocumentsPage({
   ]);
 
   // From the company list, not from the projects: a company with no projects
-  // left would otherwise fall back to "All companies" while scoped to it.
+  // left would otherwise leave the breadcrumb blank while scoped to it.
   const companyName = companies.find((c) => c.id === company)?.name ?? null;
 
-  // Unscoped upload needs the whole book; the pills only narrow what is shown.
-  const allProjects = company
-    ? await specialistApi.projects()
-    : projects;
+  // Upload can still file against any company they work; the pills only narrow
+  // what the list below shows.
+  const allProjects = await specialistApi.projects();
 
   return (
     <>

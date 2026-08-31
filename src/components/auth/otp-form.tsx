@@ -28,8 +28,13 @@ import { otpSchema, type OtpValues } from "@/lib/schemas";
 const RESEND_COOLDOWN = 30;
 
 /**
- * Verify-code step, shared by the login and signup routes. The only
- * difference between them is the back link.
+ * Verify-code step, shared by the login, signup and password-reset routes.
+ *
+ * TWO CHALLENGES, ONE SCREEN. `/auth/otp` and `/auth/password-reset/otp` are
+ * different endpoints that ask the identical question and end somewhere
+ * different: login's answer is a session, reset's is a short-lived
+ * `resetToken` that the next screen spends. `purpose` picks the pair — a second
+ * copy of this component would be the same six boxes with two lines changed.
  *
  * 1.0 drew six loose boxes with en-dashes between them; this is one grouped
  * control, which is what the pattern has settled on everywhere else.
@@ -38,12 +43,15 @@ export function OtpForm({
   challengeId,
   email,
   showBackToLogin = false,
+  purpose = "login",
 }: {
   /** The UUID from `POST /auth/login`. Both verify and resend spend this. */
   challengeId: string;
   /** Server-masked address, display only. */
   email: string;
   showBackToLogin?: boolean;
+  /** Which challenge this code answers, and therefore where it leads. */
+  purpose?: "login" | "reset";
 }) {
   const router = useRouter();
   const [failure, setFailure] = React.useState<string | null>(null);
@@ -60,6 +68,24 @@ export function OtpForm({
     async (values: OtpValues) => {
       setFailure(null);
       try {
+        if (purpose === "reset") {
+          /*
+           * The reset token goes in the URL because the next screen is a
+           * separate route and there is nowhere else to put it that survives a
+           * navigation. It is single-use and short-lived by design — a reset
+           * flow whose token could be replayed would be worse than the password
+           * it is replacing.
+           */
+          const { resetToken } = await api.verifyPasswordResetOtp(
+            challengeId,
+            values.code,
+          );
+          router.push(
+            `/forgot_password/new?token=${encodeURIComponent(resetToken)}`,
+          );
+          return;
+        }
+
         const session = await api.verifyOtp(challengeId, values.code);
         router.push(await landingPathFor(session));
       } catch (err) {
@@ -67,7 +93,7 @@ export function OtpForm({
         form.reset({ code: "" });
       }
     },
-    [form, router, challengeId],
+    [form, router, challengeId, purpose],
   );
 
   React.useEffect(() => {
@@ -81,7 +107,10 @@ export function OtpForm({
     try {
       // The server states its own cooldown; the local constant is only the
       // fallback for a response that omits it.
-      const { resendAvailableInSeconds } = await api.resendOtp(challengeId);
+      const { resendAvailableInSeconds } =
+        purpose === "reset"
+          ? await api.resendPasswordResetOtp(challengeId)
+          : await api.resendOtp(challengeId);
       setCooldown(resendAvailableInSeconds || RESEND_COOLDOWN);
     } catch (err) {
       setFailure(

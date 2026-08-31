@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
-import { InitialsAvatar } from "@/components/admin/initials-avatar";
+import { AvatarUpload } from "@/components/portal/avatar-upload";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { specialistApi } from "@/lib/specialist";
 
@@ -40,7 +40,10 @@ export default async function SpecialistProfilePage() {
         </div>
 
         <section className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card p-6 lg:self-start">
-          <InitialsAvatar name={profile.name} className="size-20 text-xl" />
+          <AvatarUpload
+            name={profile.name}
+            avatarUrl={profile.avatarUrl ?? null}
+          />
           <div className="text-center">
             <p className="font-semibold">{profile.name}</p>
             <p className="text-sm text-muted-foreground">

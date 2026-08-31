@@ -80,6 +80,19 @@ async function scopeIds(companyId?: string): Promise<string[]> {
   return (await myCompanies()).map((c) => String(c.id));
 }
 
+/**
+ * The company every screen reads under: the one on the URL, or the first the
+ * specialist works when the URL carries none.
+ *
+ * Same rule as the manager's `companyScope` — the switcher has no "all
+ * companies" entry, so a page always has one company to ask about.
+ */
+export async function companyScope(
+  companyId?: string,
+): Promise<string | undefined> {
+  return companyId ?? (await specialistApi.companies())[0]?.id;
+}
+
 export const specialistApi = {
   /** The signed-in specialist. The session decides who that is, not the caller. */
   async profile(): Promise<SpecialistDetail> {
@@ -91,6 +104,7 @@ export const specialistApi = {
         email: string;
         phone: string | null;
         specificRole: string | null;
+        avatarUrl: string | null;
         address: Parameters<typeof toAddressFields>[0];
       }>("/users/me"),
       specialistApi.projects(),
@@ -100,6 +114,7 @@ export const specialistApi = {
     return {
       name: fullName(me),
       email: me.email,
+      avatarUrl: me.avatarUrl ?? null,
       // The role code is the speciality; the display name lives on /roles and
       // is not worth a second request for one line of a profile card.
       speciality: SPECIALITY[me.specificRole ?? ""] ?? "",
@@ -117,8 +132,10 @@ export const specialistApi = {
     return {
       name: personName(am),
       email: am?.email ?? "",
-      // Not on the joined person. A manager's number is theirs to share.
+      // Neither is on the joined person. A manager's number is theirs to share,
+      // and `companyDto` carries no picture.
       phone: "",
+      avatarUrl: null,
     };
   },
 
@@ -250,8 +267,9 @@ export const specialistApi = {
    * into a thread the specialist's screen never opened: the reply went to the
    * wrong person's window and the right one stayed empty.
    *
-   * Unscoped still falls back to the first company, because the header switcher
-   * legitimately sits on "All companies" and one pane cannot show two threads.
+   * Unscoped still falls back to the first company — the same default the
+   * switcher shows before anything is picked — because one pane cannot show
+   * two threads.
    */
   async thread(companyId?: string): Promise<ManagerThread> {
     if (!BASE) return mock.thread();

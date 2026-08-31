@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 import { AddTask } from "@/components/portal/add-task";
-import { specialistApi } from "@/lib/specialist";
-
-import { TaskTable } from "./task-table";
+import { PageHeader } from "@/components/portal/portal-shell";
+import { TaskTable } from "@/components/portal/task-table";
+import { companyScope, specialistApi } from "@/lib/specialist";
 
 export const metadata: Metadata = { title: "Tasks" };
 
@@ -14,32 +14,47 @@ export const metadata: Metadata = { title: "Tasks" };
  * Add New Task asks which project, because here there is more than one. A task
  * added to their own project is theirs: assignment is project-level, so the
  * design's missing assignee field costs nothing on this screen.
+ *
+ * THE BUTTON IS ALWAYS RENDERED, even with nothing to file against. Hiding it
+ * left this screen with no explanation for its own emptiness — a specialist on a
+ * company whose projects all belong to another speciality saw a bare table and
+ * no way to act. The dialog says which of the two it is; the table's empty row
+ * says the same thing without a click.
  */
 export default async function SpecialistTasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string }>;
+  searchParams: Promise<{ company?: string; page?: string }>;
 }) {
-  const { company } = await searchParams;
+  const params = await searchParams;
+  const company = await companyScope(params.company);
   const [tasks, projects] = await Promise.all([
     specialistApi.allTasks(company),
     specialistApi.projects(company),
   ]);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border p-6">
-        <h1 className="text-lg font-bold tracking-tight">All Tasks</h1>
-        {/* Nothing to attach a task to until they hold a project. */}
-        {projects.length > 0 ? (
+    <>
+      <PageHeader
+        title="All Tasks"
+        action={
           <AddTask
             from="specialist"
             projects={projects.map((p) => ({ id: p.id, name: p.name }))}
           />
-        ) : null}
-      </div>
+        }
+      />
 
-      <TaskTable tasks={tasks} />
-    </div>
+      <TaskTable
+        tasks={tasks}
+        from="specialist"
+        page={Number(params.page) || 1}
+        empty={
+          projects.length > 0
+            ? "No tasks on your projects yet."
+            : "No projects assigned to you at this company."
+        }
+      />
+    </>
   );
 }

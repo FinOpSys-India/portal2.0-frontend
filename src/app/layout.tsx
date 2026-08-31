@@ -17,7 +17,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
+    // `suppressHydrationWarning` covers THIS ELEMENT'S OWN ATTRIBUTES AND
+    // NOTHING ELSE — not its children, not its text. Browser extensions edit
+    // <html> before React hydrates (a `hydrated` class, a theme attribute, a
+    // scrollbar style), and React reports the difference as a mismatch the page
+    // itself can never fix. A real mismatch inside the app still reports.
+    <html
+      lang="en"
+      className={`${inter.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

@@ -58,14 +58,19 @@ export default async function CompaniesPage({
           },
           {
             header: "Accounting Manager",
-            // The one thing admin can write. Sits above the row link, so it
-            // needs its own stacking context to stay clickable.
+            /*
+             * The one thing admin can write, and it is rendered for EVERY row
+             * now — assigned or not. Showing the control only where the cell
+             * was empty made the assignment a one-way door: a manager who left
+             * the company could not be replaced or removed from here, though
+             * both writes existed on the backend all along.
+             */
             cell: (row) => (
-              <span className="relative z-10">
-                {row.accountingManager ?? (
-                  <AssignManager companyId={row.id} managers={managers} />
-                )}
-              </span>
+              <AssignManager
+                companyId={row.id}
+                managers={managers}
+                current={row.accountingManager}
+              />
             ),
           },
         ]}

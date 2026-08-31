@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { SpecialistShell } from "@/components/specialist/specialist-shell";
+import { NotificationBell } from "@/components/portal/portal-chrome";
 import { specialistApi } from "@/lib/specialist";
 
 export const metadata: Metadata = {
@@ -26,7 +27,7 @@ export default async function SpecialistLayout({
       user={{ name: profile.name, email: profile.email }}
       companies={companies.map(({ id, name }) => ({ id, name }))}
       // One counterparty, so the bell counts the one thread that exists.
-      notificationCount={thread.unread}
+      notifications={<NotificationBell count={thread.unread} />}
     >
       {children}
     </SpecialistShell>

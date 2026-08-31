@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { specialistApi } from "@/lib/specialist";
+import { companyScope, specialistApi } from "@/lib/specialist";
 
 import { ManagerChat } from "./manager-chat";
 
@@ -17,7 +17,7 @@ export default async function SpecialistChatPage({
 }: {
   searchParams: Promise<{ company?: string }>;
 }) {
-  const { company } = await searchParams;
+  const company = await companyScope((await searchParams).company);
   const thread = await specialistApi.thread(company);
 
   return (

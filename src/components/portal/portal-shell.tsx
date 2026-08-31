@@ -141,7 +141,11 @@ export function PortalShell({
             </div>
           </header>
 
-          <div className="p-6">{children}</div>
+          {/* `flex-1` so the content area owns the rest of the viewport rather
+              than only the height of what is in it — a page that wants a
+              full-height column (a side rail, a chat pane) can then ask for
+              `h-full` and get something real to measure against. */}
+          <div className="flex-1 p-6">{children}</div>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

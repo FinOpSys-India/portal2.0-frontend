@@ -4,7 +4,7 @@ import { DataTable, ListCell } from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { AssignCompanySpecialist } from "@/components/manager/assign-company-specialist";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { managerApi, type ClientCompany } from "@/lib/manager";
+import { companyScope, managerApi, type ClientCompany } from "@/lib/manager";
 
 export const metadata: Metadata = { title: "Companies" };
 
@@ -14,18 +14,19 @@ export const metadata: Metadata = { title: "Companies" };
  * 1.0 leaves this page unscoped — it is the only cross-company view there —
  * but the switcher scopes the whole portal here, so leaving one page out would
  * make the selection mean something different depending on where you stood.
- * All companies is always one click away in the switcher.
+ * The switcher itself still lists every company, which is how you move between
+ * them.
  */
 export default async function ManagerCompaniesPage({
   searchParams,
 }: {
   searchParams: Promise<{ company?: string }>;
 }) {
-  const { company } = await searchParams;
-  const [all, specialists] = await Promise.all([
-    managerApi.companies(),
-    managerApi.specialists(),
-  ]);
+  const company = await companyScope((await searchParams).company);
+  // No specialist roster here any more: the staffing dialog asks the server for
+  // its own options when it opens, which spared this page a directory sweep per
+  // company on every load.
+  const all = await managerApi.companies();
 
   const companies = company ? all.filter((c) => c.id === company) : all;
 
@@ -70,7 +71,6 @@ export default async function ManagerCompaniesPage({
               <AssignCompanySpecialist
                 companyId={row.id}
                 companyName={row.name}
-                specialists={specialists}
               />
             ),
           },

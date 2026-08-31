@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AddTask } from "@/components/portal/add-task";
-import { AssignSpecialist } from "@/components/manager/assign-specialist";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { managerApi } from "@/lib/manager";
@@ -19,16 +18,27 @@ export const metadata: Metadata = { title: "Project" };
  */
 export default async function ManagerProjectPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ company?: string }>;
 }) {
-  const { id } = await params;
+  const [{ id }, { company }] = await Promise.all([params, searchParams]);
   const project = await managerApi.project(id);
 
-  if (!project) notFound();
+  /*
+   * The scope and the record have to agree. A detail page is a single record, so
+   * the switcher does not filter it — but a URL that NAMES a company and a
+   * project belonging to a different one is describing two different accounts at
+   * once, and the tasks below would then be a project the Projects list two
+   * clicks away does not have.
+   *
+   * Only when the URL says so. Arriving without `?company=` is a bare link, not
+   * a contradiction, and the page still answers it.
+   */
+  if (!project || (company && project.companyId !== company)) notFound();
 
-  const [specialists, documents, tasks, profile] = await Promise.all([
-    managerApi.specialists(),
+  const [documents, tasks, profile] = await Promise.all([
     managerApi.documents(project.companyId),
     managerApi.tasks(project.id),
     managerApi.profile(),
@@ -38,19 +48,9 @@ export default async function ManagerProjectPage({
 
   return (
     <>
-      <PageHeader
-        title="Project Information"
-        description={project.name}
-        action={
-          project.specialist ? null : (
-            <AssignSpecialist
-              projectId={project.id}
-              projectName={project.name}
-              specialists={specialists}
-            />
-          )
-        }
-      />
+      {/* No Assign control: the specialist follows the company's staffing for
+          this project's service line, set on the Companies screen. */}
+      <PageHeader title="Project Information" description={project.name} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid gap-6">
@@ -70,6 +70,10 @@ export default async function ManagerProjectPage({
             <DetailRow label="Created On" value={project.createdOn} />
             <DetailRow label="Deadline" value={project.deadline} />
             <DetailRow label="Services Name" value={project.service} />
+            <DetailRow
+              label="Specialist"
+              value={project.specialist ?? "Unassigned"}
+            />
             <DetailRow label="Company Legal Name" value={project.company} />
             <DetailRow label="Created By" value={project.createdBy} />
           </DetailSection>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { EmailCompose } from "@/components/portal/email-compose";
-import { managerApi, type Party } from "@/lib/manager";
+import { companyScope, managerApi, type Party } from "@/lib/manager";
 
 export const metadata: Metadata = { title: "Email" };
 
@@ -15,7 +15,8 @@ export default async function ManagerEmailPage({
 }: {
   searchParams: Promise<{ company?: string; party?: string }>;
 }) {
-  const { company, party } = await searchParams;
+  const { company: picked, party } = await searchParams;
+  const company = await companyScope(picked);
   const forParty: Party = party === "specialist" ? "specialist" : "customer";
 
   // Customers are scoped to the company on the switcher, matching 1.0.

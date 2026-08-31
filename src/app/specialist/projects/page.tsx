@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/portal/status-badge";
 import { ProgressBar } from "@/components/portal/progress-bar";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { scoped, type ManagedProject } from "@/lib/manager";
-import { specialistApi } from "@/lib/specialist";
+import { companyScope, specialistApi } from "@/lib/specialist";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -22,7 +22,7 @@ export default async function SpecialistProjectsPage({
 }: {
   searchParams: Promise<{ company?: string }>;
 }) {
-  const { company } = await searchParams;
+  const company = await companyScope((await searchParams).company);
   const projects = await specialistApi.projects(company);
 
   return (

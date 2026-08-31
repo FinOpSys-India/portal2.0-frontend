@@ -108,61 +108,74 @@ export function AddTask({
           <DialogTitle>Add new task</DialogTitle>
         </DialogHeader>
 
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            noValidate
-            className="space-y-4"
-          >
-            <TextField
-              control={form.control}
-              name="name"
-              label="Task Name"
-              required
-              autoFocus
-              placeholder="Task name"
-            />
+        {projects.length === 0 ? (
+          // A task hangs off a project, so with none there is nothing to file
+          // against. Said here rather than by disabling the trigger: a dead
+          // button is the same dead end without the reason.
+          <p className="text-sm text-muted-foreground">
+            You have no projects at this company yet. A task is filed against a
+            project, so there is nothing to add one to.
+          </p>
+        ) : (
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              noValidate
+              className="space-y-4"
+            >
+              <TextField
+                control={form.control}
+                name="name"
+                label="Task Name"
+                required
+                autoFocus
+                placeholder="Task name"
+              />
 
-            <TextareaField
-              control={form.control}
-              name="description"
-              label="Description"
-              required
-              rows={3}
-              placeholder="Describe task"
-            />
+              <TextareaField
+                control={form.control}
+                name="description"
+                label="Description"
+                required
+                rows={3}
+                placeholder="Describe task"
+              />
 
-            {/* Native date input rather than a picker library: it validates,
+              {/* Native date input rather than a picker library: it validates,
                 localises and is keyboard-accessible for free. 1.0 uses
                 pickadate.js, whose overlay breaks its own modal layout. */}
-            <TextField
-              control={form.control}
-              name="deadline"
-              label="Deadline Date"
-              required
-              type="date"
-            />
-
-            {only ? (
-              <StaticField label="Project" value={only.name} />
-            ) : (
-              <SelectField
+              <TextField
                 control={form.control}
-                name="projectId"
-                label="Project"
+                name="deadline"
+                label="Deadline Date"
                 required
-                placeholder="Select a project"
-                options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                type="date"
               />
-            )}
 
-            <FormAlert>{failure}</FormAlert>
+              {only ? (
+                <StaticField label="Project" value={only.name} />
+              ) : (
+                <SelectField
+                  control={form.control}
+                  name="projectId"
+                  label="Project"
+                  required
+                  placeholder="Select a project"
+                  options={projects.map((p) => ({
+                    value: p.id,
+                    label: p.name,
+                  }))}
+                />
+              )}
 
-            <SubmitButton pending={form.formState.isSubmitting}>
-              Submit
-            </SubmitButton>
-          </form>
-        </Form>
+              <FormAlert>{failure}</FormAlert>
+
+              <SubmitButton pending={form.formState.isSubmitting}>
+                Submit
+              </SubmitButton>
+            </form>
+          </Form>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { managerApi, type Specialist } from "@/lib/manager";
+import { companyScope, managerApi, type Specialist } from "@/lib/manager";
 
 export const metadata: Metadata = { title: "Specialists" };
 
@@ -21,7 +21,7 @@ export default async function ManagerSpecialistsPage({
 }: {
   searchParams: Promise<{ company?: string }>;
 }) {
-  const { company } = await searchParams;
+  const company = await companyScope((await searchParams).company);
   const specialists = await managerApi.specialists(company);
 
   return (
