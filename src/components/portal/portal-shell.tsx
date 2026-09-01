@@ -24,7 +24,6 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { MockBadge } from "@/components/portal/mock-badge";
 import { api } from "@/lib/api";
 
 export type NavItem = {
@@ -135,10 +134,7 @@ export function PortalShell({
                 once it closes. Desktop keeps the trigger in the menu. */}
             <SidebarTrigger className="-ml-1 md:hidden" />
             {back ? <BackLink href={back.href}>{back.label}</BackLink> : null}
-            <div className="ml-auto flex items-center gap-3">
-              <MockBadge />
-              {headerRight}
-            </div>
+            <div className="ml-auto flex items-center gap-3">{headerRight}</div>
           </header>
 
           {/* `flex-1` so the content area owns the rest of the viewport rather

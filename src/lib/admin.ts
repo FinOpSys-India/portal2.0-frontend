@@ -1,17 +1,12 @@
 /**
  * Admin portal API boundary.
  *
- * Same contract as lib/api.ts: real shapes and real fetch calls when
- * NEXT_PUBLIC_API_URL is set, an in-file mock otherwise so the pages are
- * navigable today. Mock rows are the actual records captured from the live
- * Bubble app, so the columns are exercised with realistic values — including
- * the messy ones (multi-company customers, unassigned managers, blank
- * billing dates).
+ * Same contract as lib/api.ts: real shapes, real fetch calls, every row read
+ * from the backend.
  */
 
 import {
   ApiError,
-  BASE,
   del,
   get,
   getOrNull,
@@ -314,7 +309,6 @@ export const adminApi = {
    * there was nothing more.
    */
   async customers(page: number): Promise<Page<Customer>> {
-    if (!BASE) return mock.page(CUSTOMERS, page);
     const data = await get<{
       customers: CustomerRow[];
       pagination: { total: number };
@@ -332,7 +326,6 @@ export const adminApi = {
    * happened to land in that page.
    */
   async customer(email: string): Promise<CustomerDetail | null> {
-    if (!BASE) return mock.customer(email);
     const data = await get<{ customers: CustomerRow[] }>(
       `/customers?search=${encodeURIComponent(email)}&limit=${PAGE_SIZE}`,
     );
@@ -354,7 +347,6 @@ export const adminApi = {
   },
 
   async specialists(page: number): Promise<Page<Specialist>> {
-    if (!BASE) return mock.page(SPECIALISTS, page);
     const data = await get<{
       specialists: SpecialistRow[];
       pagination: { total: number };
@@ -365,7 +357,6 @@ export const adminApi = {
   },
 
   async accountingManagers(page: number): Promise<Page<AccountingManager>> {
-    if (!BASE) return mock.page(MANAGERS, page);
     const data = await get<{
       accountingManagers: ManagerRow[];
       pagination: { total: number };
@@ -383,9 +374,6 @@ export const adminApi = {
    * and never an actual manager.
    */
   async companies(page: number): Promise<CompanyPage> {
-    if (!BASE) {
-      return { ...(await mock.page(COMPANIES, page)), managers: MANAGER_OPTIONS };
-    }
     const data = await get<{
       companies: AccountRow[];
       accountingManagers: ManagerRow[];
@@ -402,7 +390,6 @@ export const adminApi = {
   },
 
   async company(id: string): Promise<CompanyDetail | null> {
-    if (!BASE) return mock.company(id);
     // `data: { company }`, not the row itself. Read a level too high and every
     // field on the page is `undefined` — a company that renders entirely blank
     // rather than erroring.
@@ -441,17 +428,14 @@ export const adminApi = {
    * NAME where an id was required.
    */
   inviteCustomer(input: InviteInput): Promise<InviteResult> {
-    if (!BASE) return mock.invited();
     return invite(input, "CUSTOMER", input.role ?? "OWNER");
   },
 
   inviteSpecialist(input: InviteInput): Promise<InviteResult> {
-    if (!BASE) return mock.invited();
     return invite(input, "SPECIALIST", input.role);
   },
 
   inviteAccountingManager(input: InviteInput): Promise<InviteResult> {
-    if (!BASE) return mock.invited();
     return invite(input, "ACCOUNTING_MANAGER", null);
   },
 
@@ -464,7 +448,6 @@ export const adminApi = {
    * two more requests, off a fixture that held neither.
    */
   async assignManager(companyId: string, managerUserId: number): Promise<void> {
-    if (!BASE) return mock.ok();
     await put(`/companies/${encodeURIComponent(companyId)}/accounting-manager`, {
       accountingManagerUserId: managerUserId,
     });
@@ -485,7 +468,6 @@ export const adminApi = {
    * assigned again.
    */
   async removeManager(companyId: string): Promise<void> {
-    if (!BASE) return mock.ok();
     await del(`/companies/${encodeURIComponent(companyId)}/accounting-manager`);
   },
 };
@@ -516,195 +498,3 @@ async function invite(
   // warning on every successful invite would train people to ignore it.
   return { emailSent: data.emailSent !== false };
 }
-
-/* ---------------------------------------------------------------- mock ---- */
-
-const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
-
-/**
- * Fixture data. Invented names on example.com — the domain RFC 2606 reserves
- * for exactly this — so nothing real leaks into the repo or a screenshot.
- *
- * The *shapes* are drawn from the live app, though: a customer who owns two
- * companies, a company with no billing date, companies with no manager yet,
- * and an empty specialist list. Those are the cases the columns have to
- * survive, and tidy fixtures would hide them.
- */
-const CUSTOMERS: Customer[] = [
-  {
-    name: "Maya Reyes",
-    role: "Owner",
-    email: "maya.reyes@example.com",
-    companies: ["Northwind Trading"],
-  },
-  {
-    name: "Tom Becker",
-    role: "Teammate",
-    email: "tom.becker@example.com",
-    companies: ["Harbor Coffee Roasters"],
-  },
-  {
-    name: "Priya Nair",
-    role: "Owner",
-    email: "priya.nair@example.com",
-    // Belongs to two companies — the case the Companies column exists for.
-    companies: ["Harbor Coffee Roasters", "Lakeside Dental"],
-  },
-  {
-    name: "Daniel Okafor",
-    role: "Owner",
-    email: "daniel.okafor@example.com",
-    companies: ["Vertex Labs"],
-  },
-];
-
-// Staff, so the domain is the product's — same as the managers below.
-// Specialities come from SPECIALIST_ROLES, misspelling included.
-const SPECIALISTS: Specialist[] = [
-  {
-    name: "Rosa Delgado",
-    speciality: "Payroll Specialist",
-    email: "rosa.delgado@finopsys.ai",
-  },
-  {
-    name: "Ivan Petrov",
-    speciality: "Tax Specialist",
-    email: "ivan.petrov@finopsys.ai",
-  },
-  {
-    name: "Nadia Haddad",
-    speciality: "Bookkeping Specialist",
-    email: "nadia.haddad@finopsys.ai",
-  },
-];
-
-const MANAGERS: AccountingManager[] = [
-  {
-    name: "Alex Morgan",
-    // Managers are FinOpSys staff, so the domain is the product's on purpose.
-    email: "alex.morgan@finopsys.ai",
-    companies: ["Harbor Coffee Roasters"],
-  },
-];
-
-const COMPANIES: Company[] = [
-  {
-    id: "billing@harborcoffee.example.com",
-    name: "Harbor Coffee Roasters",
-    owner: "Priya Nair",
-    activeServices: ["Bookkeeping", "Payroll", "Taxes"],
-    billingDate: "6/08/26",
-    teamMembers: ["Priya Nair", "Alex Morgan", "Tom Becker"],
-    accountingManager: "Alex Morgan",
-  },
-  {
-    id: "accounts@lakesidedental.example.com",
-    name: "Lakeside Dental",
-    owner: "Priya Nair",
-    activeServices: ["Payroll"],
-    // No subscription yet, so no billing date.
-    billingDate: null,
-    teamMembers: ["Priya Nair"],
-    accountingManager: null,
-  },
-  {
-    id: "hello@northwind.example.com",
-    name: "Northwind Trading",
-    owner: "Maya Reyes",
-    activeServices: ["Payroll"],
-    billingDate: null,
-    teamMembers: ["Maya Reyes"],
-    accountingManager: null,
-  },
-  {
-    id: "finance@vertexlabs.example.com",
-    name: "Vertex Labs",
-    owner: "Daniel Okafor",
-    activeServices: ["Bookkeeping"],
-    billingDate: "7/01/26",
-    // Deliberately larger than the avatar stack shows, so the +N overflow is
-    // exercised by the fixtures rather than only appearing in production.
-    teamMembers: [
-      "Daniel Okafor",
-      "Rosa Delgado",
-      "Ivan Petrov",
-      "Nadia Haddad",
-      "Sam Whitfield",
-      "Leah Kaplan",
-    ],
-    accountingManager: null,
-  },
-];
-
-const mock = {
-  async ok(): Promise<void> {
-    await delay();
-  },
-
-  async invited(): Promise<InviteResult> {
-    await delay();
-    return { emailSent: true };
-  },
-
-  async page<T>(all: T[], page: number): Promise<Page<T>> {
-    await delay();
-    const start = (page - 1) * PAGE_SIZE;
-    return { rows: all.slice(start, start + PAGE_SIZE), total: all.length };
-  },
-
-  async customer(email: string): Promise<CustomerDetail | null> {
-    await delay();
-    const found = CUSTOMERS.find((c) => c.email === email);
-    if (!found) return null;
-    return {
-      ...found,
-      position: found.role === "Owner" ? "Company Owner" : "Team Member",
-      // 555 numbers are reserved for fiction.
-      phone: "5550142",
-      // The customer fills these from their own portal; blank until they do.
-      addressLine1: "",
-      city: "",
-      state: "",
-      zip: "",
-      country: "United States of America",
-    };
-  },
-
-  async company(id: string): Promise<CompanyDetail | null> {
-    await delay();
-    const found = COMPANIES.find((c) => c.id === id);
-    if (!found) return null;
-    return {
-      ...found,
-      email: found.id,
-      enNumber: "",
-      addressLine1: "",
-      city: "",
-      state: "",
-      zip: "",
-      country: "United States of America",
-      plans:
-        found.activeServices.length === 3
-          ? [
-              { service: "Bookkeeping", plan: "Starter", amount: "$99/month" },
-              {
-                service: "Payroll",
-                plan: "2 employees, 3 contractors",
-                amount: "$89/month",
-              },
-              {
-                service: "Taxes",
-                plan: "$500K – $2M revenue",
-                amount: "$125/month",
-              },
-            ]
-          : [{ service: "Payroll", plan: "—", amount: "—" }],
-    };
-  },
-};
-
-/** Mirrors what `/admin/company-accounts` sends alongside the rows. */
-const MANAGER_OPTIONS: ManagerOption[] = MANAGERS.map((m, i) => ({
-  userId: i + 1,
-  name: m.name,
-}));

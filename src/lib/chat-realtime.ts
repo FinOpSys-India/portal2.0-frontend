@@ -29,7 +29,7 @@
 
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
-import { BASE, get } from "@/lib/http";
+import { get } from "@/lib/http";
 import type { ChatMessage } from "@/lib/manager";
 
 /** What `GET /chat/realtime-token` answers with. */
@@ -120,7 +120,7 @@ export async function subscribeToThread(
   conversationId: string,
   handlers: LiveHandlers,
 ): Promise<(() => void) | null> {
-  if (!BASE || typeof window === "undefined") return null;
+  if (typeof window === "undefined") return null;
 
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!publishableKey) return null;

@@ -1,87 +1,80 @@
 /**
- * The chat boundary's mock contract. Run: npx tsx src/lib/chat.test.ts
+ * The chat contact mapping. Run: npx tsx src/lib/chat.test.ts
  *
- * The point of these is the CONTACT list, which is the shape the inbox was
- * getting wrong: it rendered conversations, so a person with no thread yet was
- * missing from the screen and no first message could ever be sent to them.
+ * `toContact` is the one part of this boundary that can be wrong without
+ * erroring, and it was: chat's DTO spreads a PERSON into the row, where the key
+ * is `id` and not the `userId` every directory in this app uses. Reading the
+ * wrong one gave a list with no React keys, every row looking like the open
+ * one, and a click asking the backend to open a conversation with nobody.
+ *
+ * The rows below are `chatDto.toContact`'s output, field for field.
  */
 import assert from "node:assert/strict";
 
-import { chatApi, toContact } from "./chat";
+import { toContact } from "./chat";
 
-async function main() {
-  const customers = await chatApi.contacts("18", "customer");
+const fresh = toContact({
+  id: 13,
+  firstName: "bookkeeping",
+  lastName: "user",
+  email: "testuser1_bookkeepingspecialist@finopsys.ai",
+  roleLabel: "Bookkeeping",
+  specializations: [],
+  conversationId: null,
+  lastMessageAt: null,
+  lastMessage: null,
+  unreadCount: 0,
+});
 
-  // THE PERSON IS THE ROW. Everyone on the company appears, whether or not a
-  // thread exists — that is the whole difference from GET /chat/conversations.
-  assert.ok(customers.length >= 2, "the list is people, not threads");
+assert.equal(fresh.userId, 13);
+assert.equal(fresh.name, "bookkeeping user");
 
-  const started = customers.find((c) => c.conversationId !== null);
-  const fresh = customers.find((c) => c.conversationId === null);
+// A person who has never been messaged. THE ROW IS THE PERSON, not the thread —
+// that is the whole difference from GET /chat/conversations, and the null id is
+// what the screen branches on to start a first conversation.
+assert.equal(fresh.conversationId, null);
+assert.equal(fresh.lastMessage, "", "no thread means no last line to show");
+assert.equal(fresh.lastMessageAt, "");
+assert.equal(fresh.unread, 0);
 
-  assert.ok(started, "someone already messaged");
-  assert.ok(
-    fresh,
-    "someone never messaged — the case a conversations-only list cannot show",
-  );
+const started = toContact({
+  id: 21,
+  userId: 21,
+  firstName: "Owner",
+  lastName: "One",
+  email: "owner@example.com",
+  roleLabel: null,
+  specializations: [
+    { specializationName: "Payroll" },
+    { specializationName: null },
+  ],
+  conversationId: 7,
+  lastMessageAt: "2026-08-19T09:00:00.000Z",
+  lastMessage: {
+    id: 91,
+    conversationId: 7,
+    body: "Thanks, that clears it up.",
+    createdAt: "2026-08-19T09:00:00.000Z",
+    sender: { firstName: "Owner", lastName: "One" },
+    attachments: [],
+    mine: false,
+  },
+  unreadCount: 2,
+});
 
-  // A never-messaged row must still be openable: it carries the person's id,
-  // which is what POST /chat/conversations is called with.
-  assert.ok(Number.isFinite(fresh.userId));
-  assert.equal(fresh.lastMessage, "", "no thread means no last line to show");
-  assert.equal(fresh.unread, 0);
+// Every id crossing this boundary is a STRING: they end up in URLs and React
+// keys, and a number would compare unequal to the one the route carries.
+assert.equal(started.conversationId, "7");
+assert.equal(started.lastMessage, "Thanks, that clears it up.");
+assert.equal(started.unread, 2);
 
-  // A started thread names its conversation as a STRING — every id crossing
-  // this boundary is one, because they end up in URLs and React keys.
-  assert.equal(typeof started.conversationId, "string");
+// No `roleLabel` falls back to the specializations, blanks dropped — a column
+// of names with no role beside them cannot be picked from with confidence.
+assert.equal(started.roleLabel, "Payroll");
 
-  // Both sections answer the same shape. The manager's screen switches between
-  // them on one prop, so a divergence here would be a second render path.
-  const specialists = await chatApi.contacts("18", "specialist");
-  assert.deepEqual(
-    Object.keys(specialists[0]).sort(),
-    Object.keys(customers[0]).sort(),
-  );
+// Both rows answer the same shape. The manager's screen switches between the
+// customer and specialist lists on one prop, so a divergence here would be a
+// second render path.
+assert.deepEqual(Object.keys(started).sort(), Object.keys(fresh).sort());
 
-  // Every contact is labelled. A column of names with no role beside them
-  // cannot be picked from with any confidence.
-  for (const contact of [...customers, ...specialists]) {
-    assert.ok(contact.name, "a contact always has a name");
-    assert.equal(typeof contact.roleLabel, "string");
-  }
-
-  // The read receipt answers with the REMAINING unread count, which is what the
-  // badge is set from — not the number it just cleared.
-  assert.equal(typeof (await chatApi.markRead("c-1")), "number");
-  assert.equal(typeof (await chatApi.unreadCount("18")), "number");
-
-  /*
-   * THE LIVE ROW, not the fixture. A contact carries `id` — chat's DTO spreads a
-   * PERSON into the row, where the key is not the `userId` every directory in
-   * this app uses — and reading the wrong one is invisible in mock mode: it is
-   * the fixtures that answer, and they are already the mapped shape. The row
-   * below is `chatDto.toContact`'s output, field for field.
-   */
-  const row = toContact({
-    id: 13,
-    firstName: "bookkeeping",
-    lastName: "user",
-    email: "testuser1_bookkeepingspecialist@finopsys.ai",
-    roleLabel: "Bookkeeping",
-    specializations: [],
-    conversationId: null,
-    lastMessageAt: null,
-    lastMessage: null,
-    unreadCount: 0,
-  });
-
-  // Without it the list has no keys, every row looks like the open one, and
-  // opening a thread asks the backend to start a conversation with nobody.
-  assert.equal(row.userId, 13);
-  assert.equal(row.name, "bookkeeping user");
-  assert.equal(row.conversationId, null);
-
-  console.log("chat api: all checks passed");
-}
-
-main();
+console.log("chat api: all checks passed");

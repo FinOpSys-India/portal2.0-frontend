@@ -2,16 +2,10 @@
  * Customer portal API boundary.
  *
  * Same contract as lib/api.ts and lib/admin.ts: real shapes and real fetch
- * calls when NEXT_PUBLIC_API_URL is set, an in-file mock otherwise.
- *
- * Fixtures are invented (example.com per RFC 2606) but keep the awkward shapes
- * the live app has — a customer in two companies, a company with no billing
- * date, an empty file list — because those are the cases the UI has to
- * survive.
+ * calls against the backend.
  */
 
 import {
-  BASE,
   get,
   getOrNull,
   patch,
@@ -25,7 +19,6 @@ import {
   sendChatAttachment,
   sendEmailAs,
   serviceOptions,
-  toStamp,
   type ChatMessage,
   type ManagerProfile,
   type ManagerThread,
@@ -121,7 +114,6 @@ export interface InviteTeammateInput {
 export const customerApi = {
   /** The picker after sign-in: companies this person owns. */
   async workspaces(): Promise<Workspace[]> {
-    if (!BASE) return mock.workspaces();
     const data = await get<{
       companies: { companyId: number; companyName: string }[];
     }>("/companies/owned");
@@ -132,7 +124,6 @@ export const customerApi = {
   },
 
   async projects(workspaceId: string): Promise<Project[]> {
-    if (!BASE) return mock.projects(workspaceId);
     // ponytail: 100 is the server's own maxLimit, and the whole set is fetched
     // in one request so the table can page it locally. Past 100 rows the
     // remainder is silently absent — move to `?limit=&offset=` per page (as the
@@ -153,7 +144,6 @@ export const customerApi = {
    * building it server-side prevents.
    */
   async availableServices(workspaceId: string): Promise<string[]> {
-    if (!BASE) return mock.availableServices(workspaceId);
     const services = await serviceOptions(workspaceId);
     return services.map((s) => s.serviceName);
   },
@@ -167,12 +157,10 @@ export const customerApi = {
     workspaceId: string,
     input: NewProjectInput,
   ): Promise<Project> {
-    if (!BASE) return mock.createProject(input);
     return toProject(await createProjectOn(workspaceId, input));
   },
 
   async project(workspaceId: string, id: string): Promise<Project | null> {
-    if (!BASE) return mock.project(workspaceId, id);
     // `getOrNull`, not `.catch(() => null)`: that swallowed every failure, so a
     // 403 or a dead backend rendered as "project not found" — a wrong answer
     // that looks like a real one. Only a 404 is absence.
@@ -189,7 +177,6 @@ export const customerApi = {
     workspaceId: string,
     projectName?: string,
   ): Promise<CustomerFile[]> {
-    if (!BASE) return mock.files(workspaceId, projectName);
     // ponytail: 100 is the server's own maxLimit, and the whole set is fetched
     // in one request so the table can page it locally. Past 100 rows the
     // remainder is silently absent — move to `?limit=&offset=` per page (as the
@@ -222,7 +209,6 @@ export const customerApi = {
     file: File,
     meta: { project: string },
   ): Promise<CustomerFile> {
-    if (!BASE) return mock.uploadFile(workspaceId, file, meta);
 
     // ponytail: resolves a project NAME to its id by scanning the first 100.
     // An upload against project 101 fails with "No project named X" — send the
@@ -252,7 +238,6 @@ export const customerApi = {
   },
 
   async companies(): Promise<CustomerCompany[]> {
-    if (!BASE) return mock.companies();
     // ponytail: 100 is the server's own maxLimit, and the whole set is fetched
     // in one request so the table can page it locally. Past 100 rows the
     // remainder is silently absent — move to `?limit=&offset=` per page (as the
@@ -270,7 +255,6 @@ export const customerApi = {
   },
 
   async team(workspaceId: string): Promise<TeamMember[]> {
-    if (!BASE) return mock.team(workspaceId);
     const data = await get<{
       teammates: {
         firstName: string;
@@ -295,7 +279,6 @@ export const customerApi = {
     workspaceId: string,
     input: InviteTeammateInput,
   ): Promise<void> {
-    if (!BASE) return mock.ok();
     const ids = await roleIds("CUSTOMER", "TEAM");
     await post("/invitations/teammates", {
       email: input.email,
@@ -308,7 +291,6 @@ export const customerApi = {
   },
 
   async profile(): Promise<Profile> {
-    if (!BASE) return mock.profile();
     const me = await get<{
       firstName: string;
       lastName: string;
@@ -333,7 +315,6 @@ export const customerApi = {
    * field by field: a half-updated address is worse than requiring all of it.
    */
   async saveProfile(input: Profile): Promise<void> {
-    if (!BASE) return mock.ok();
     await patch("/users/me", {
       phone: input.phone,
       address: {
@@ -355,7 +336,6 @@ export const customerApi = {
    * to two different managers.
    */
   async manager(workspaceId: string): Promise<ManagerProfile> {
-    if (!BASE) return mock.manager();
     // `data: { company }`, not the row. Read a level too high and the contact
     // card renders with an empty name and no email — the one screen whose whole
     // job is telling a customer who to talk to.
@@ -374,7 +354,6 @@ export const customerApi = {
   },
 
   async thread(workspaceId: string): Promise<ManagerThread> {
-    if (!BASE) return mock.thread();
     const conversation = await openConversation(workspaceId);
     return {
       id: String(conversation.id),
@@ -384,19 +363,16 @@ export const customerApi = {
   },
 
   async messages(workspaceId: string): Promise<ChatMessage[]> {
-    if (!BASE) return mock.messages(workspaceId);
     const conversation = await openConversation(workspaceId);
     return managerApi.messages(String(conversation.id));
   },
 
   async sendMessage(workspaceId: string, body: string): Promise<ChatMessage> {
-    if (!BASE) return mock.sendMessage(workspaceId, body);
     const conversation = await openConversation(workspaceId);
     return managerApi.sendMessage(String(conversation.id), body);
   },
 
   async sendAttachment(workspaceId: string, file: File): Promise<ChatMessage> {
-    if (!BASE) return mock.sendAttachment(workspaceId, file);
     const conversation = await openConversation(workspaceId);
     return sendChatAttachment(String(conversation.id), file);
   },
@@ -407,7 +383,6 @@ export const customerApi = {
     message: string;
     companyId?: string;
   }): Promise<void> {
-    if (!BASE) return mock.ok();
     await sendEmailAs(input);
   },
 };
@@ -423,313 +398,4 @@ function toProject(p: BackendProject): Project {
     status: toProjectStatus(p.status),
     specialist: p.specialist ? personName(p.specialist) : null,
   };
-}
-
-/* ---------------------------------------------------------------- mock ---- */
-
-const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
-
-const WORKSPACES: Workspace[] = [
-  { id: "harbor", name: "Harbor Coffee Roasters" },
-  { id: "lakeside", name: "Lakeside Dental" },
-];
-
-const SERVICES: Record<string, string[]> = {
-  harbor: ["Bookkeeping", "Payroll", "Taxes"],
-  lakeside: ["Payroll"],
-};
-
-const PROJECTS: Record<string, Project[]> = {
-  harbor: [
-    {
-      id: "p1",
-      name: "July payroll run",
-      service: "Payroll",
-      deadline: "8/05/26",
-      status: "In progress",
-      specialist: "Rosa Delgado",
-    },
-    {
-      id: "p2",
-      name: "Q2 bookkeeping close",
-      service: "Bookkeeping",
-      deadline: "8/12/26",
-      status: "Not started",
-      specialist: null,
-    },
-    {
-      id: "p3",
-      name: "2025 federal return",
-      service: "Taxes",
-      deadline: "7/15/26",
-      status: "Completed",
-      specialist: "Ivan Petrov",
-    },
-  ],
-  // Empty on purpose: the empty state is a real screen in 1.0.
-  lakeside: [],
-};
-
-const FILES: Record<string, CustomerFile[]> = {
-  harbor: [
-    {
-      id: "f1",
-      name: "june-bank-statement.pdf",
-      project: "Q2 bookkeeping close",
-      owner: "Priya Nair",
-      uploadedAt: "7/02/26",
-      size: 284_160,
-    },
-    {
-      id: "f2",
-      name: "payroll-register-july.xlsx",
-      project: "July payroll run",
-      owner: "Rosa Delgado",
-      uploadedAt: "7/28/26",
-      size: 61_440,
-    },
-    {
-      id: "f3",
-      name: "w9-forms.zip",
-      project: "July payroll run",
-      owner: "Tom Becker",
-      uploadedAt: "7/30/26",
-      size: 4_508_876,
-    },
-  ],
-  lakeside: [],
-};
-
-const TEAM: Record<string, TeamMember[]> = {
-  harbor: [
-    {
-      name: "Priya Nair",
-      jobTitle: "Company Owner",
-      email: "priya.nair@example.com",
-    },
-    {
-      name: "Tom Becker",
-      jobTitle: "Office Manager",
-      email: "tom.becker@example.com",
-    },
-  ],
-  lakeside: [
-    {
-      name: "Priya Nair",
-      jobTitle: "Company Owner",
-      email: "priya.nair@example.com",
-    },
-  ],
-};
-
-/**
- * The customer's half of the thread with their accounting manager, one per
- * workspace. `mine` is the customer — 1.0 stores a thread per pair and each
- * side has its own idea of who "me" is, so this is not the manager's fixture
- * with `mine` inverted.
- *
- * Lakeside starts empty on purpose: a first message into a blank thread is a
- * screen the chat has to survive.
- */
-const THREADS: Record<string, ChatMessage[]> = {
-  harbor: [
-    {
-      id: "cm-1",
-      mine: true,
-      body: "Can you confirm the cutoff for the July payroll run?",
-      sentAt: daysAgo(1, 9, 12),
-      attachments: [],
-    },
-    {
-      id: "cm-2",
-      mine: false,
-      body: "The 3rd. Rosa has the register ready for your review.",
-      sentAt: daysAgo(0, 11, 40),
-      attachments: [],
-    },
-  ],
-  lakeside: [],
-};
-
-/** N days back at a given clock time, so the mock thread keeps its shape. */
-function daysAgo(days: number, hour: number, minute: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  date.setHours(hour, minute, 0, 0);
-  return date.toISOString();
-}
-
-const mock = {
-  async ok(): Promise<void> {
-    await delay();
-  },
-
-  async workspaces(): Promise<Workspace[]> {
-    await delay(150);
-    return WORKSPACES;
-  },
-
-  async projects(workspaceId: string): Promise<Project[]> {
-    await delay();
-    return PROJECTS[workspaceId] ?? [];
-  },
-
-  async availableServices(workspaceId: string): Promise<string[]> {
-    await delay(150);
-    return SERVICES[workspaceId] ?? [];
-  },
-
-  async createProject(input: NewProjectInput): Promise<Project> {
-    await delay();
-    return {
-      id: `p${Math.abs(hash(input.name))}`,
-      name: input.name,
-      service: input.service,
-      deadline: input.deadline,
-      status: "Not started",
-      specialist: null,
-    };
-  },
-
-  async project(workspaceId: string, id: string): Promise<Project | null> {
-    await delay();
-    // Scoped by workspace, not looked up globally: an id from another company
-    // must not resolve here.
-    return (PROJECTS[workspaceId] ?? []).find((p) => p.id === id) ?? null;
-  },
-
-  async files(
-    workspaceId: string,
-    projectName?: string,
-  ): Promise<CustomerFile[]> {
-    await delay();
-    const rows = FILES[workspaceId] ?? [];
-    return projectName
-      ? rows.filter((f) => f.project === projectName)
-      : rows;
-  },
-
-  async uploadFile(
-    workspaceId: string,
-    file: File,
-    meta: { project: string },
-  ): Promise<CustomerFile> {
-    await delay();
-    const projects = PROJECTS[workspaceId] ?? [];
-    // Checked rather than trusted: the project name arrives from a form and
-    // the workspace from a URL param. The server has to repeat it — a mock is
-    // not a boundary.
-    if (!projects.some((p) => p.name === meta.project)) {
-      throw new Error("That project is not in this workspace.");
-    }
-
-    const me = await mock.profile();
-    const row: CustomerFile = {
-      id: `f${Date.now()}`,
-      name: file.name,
-      project: meta.project,
-      owner: me.fullName,
-      uploadedAt: toStamp(new Date().toISOString().slice(0, 10)),
-      size: file.size,
-    };
-    FILES[workspaceId] = [row, ...(FILES[workspaceId] ?? [])];
-    return row;
-  },
-
-  async companies(): Promise<CustomerCompany[]> {
-    await delay();
-    return [
-      {
-        id: "harbor",
-        name: "Harbor Coffee Roasters",
-        activeServices: ["Bookkeeping", "Payroll", "Taxes"],
-        subscriptionDate: "6/08/26",
-        teamMembers: ["Priya Nair", "Tom Becker"],
-      },
-      {
-        id: "lakeside",
-        name: "Lakeside Dental",
-        activeServices: ["Payroll"],
-        subscriptionDate: null,
-        teamMembers: ["Priya Nair"],
-      },
-    ];
-  },
-
-  async team(workspaceId: string): Promise<TeamMember[]> {
-    await delay();
-    return TEAM[workspaceId] ?? [];
-  },
-
-  async profile(): Promise<Profile> {
-    await delay();
-    return {
-      fullName: "Priya Nair",
-      email: "priya.nair@example.com",
-      phone: "5550142",
-      avatarUrl: null,
-      addressLine1: "",
-      city: "",
-      state: "",
-      zip: "",
-      country: "United States of America",
-    };
-  },
-
-  manager: managerApi.profile,
-
-  async thread(): Promise<ManagerThread> {
-    const manager = await managerApi.profile();
-    // 0 unread: nothing here tracks what the customer has read, and a badge
-    // off a message count would be wrong the moment the thread is opened.
-    return { id: null, contact: manager.name, unread: 0 };
-  },
-
-  async messages(workspaceId: string): Promise<ChatMessage[]> {
-    await delay(150);
-    // A copy, not the fixture itself. The view holds what it is handed in
-    // state and appends each send to it — hand back the live array and the
-    // send lands in it twice, once from here and once from the append.
-    return [...(THREADS[workspaceId] ?? [])];
-  },
-
-  async sendMessage(workspaceId: string, body: string): Promise<ChatMessage> {
-    return append(workspaceId, { body, attachments: [] });
-  },
-
-  async sendAttachment(workspaceId: string, file: File): Promise<ChatMessage> {
-    return append(workspaceId, {
-      body: "",
-      // Mock ids are negative so a real attachment id can never collide.
-      attachments: [{ id: -Date.now(), name: file.name, size: file.size }],
-    });
-  },
-};
-
-/** Push a message the customer sent onto their workspace's thread. */
-async function append(
-  workspaceId: string,
-  fields: Omit<ChatMessage, "id" | "mine" | "sentAt">,
-): Promise<ChatMessage> {
-  await delay(150);
-  // A thread the fixtures never seeded is a workspace that does not exist —
-  // writing one into being would let an unknown id grow a real conversation.
-  const thread = THREADS[workspaceId];
-  if (!thread) throw new Error("That workspace is not yours.");
-
-  const message: ChatMessage = {
-    id: `cm-${thread.length + 1}`,
-    mine: true,
-    sentAt: new Date().toISOString(),
-    ...fields,
-  };
-  thread.push(message);
-  return message;
-}
-
-/** Stable id from a string. Mock only — the backend owns real ids. */
-function hash(value: string): number {
-  let out = 0;
-  for (const char of value) out = (out * 31 + char.charCodeAt(0)) | 0;
-  return out;
 }

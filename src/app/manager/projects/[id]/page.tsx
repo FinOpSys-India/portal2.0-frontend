@@ -38,10 +38,9 @@ export default async function ManagerProjectPage({
    */
   if (!project || (company && project.companyId !== company)) notFound();
 
-  const [documents, tasks, profile] = await Promise.all([
+  const [documents, tasks] = await Promise.all([
     managerApi.documents(project.companyId),
     managerApi.tasks(project.id),
-    managerApi.profile(),
   ]);
 
   const attached = documents.filter((d) => d.project === project.name);
@@ -97,7 +96,6 @@ export default async function ManagerProjectPage({
             <ManagerUploadFile
               companies={[{ id: project.companyId, name: project.company }]}
               projects={[{ name: project.name, companyId: project.companyId }]}
-              owner={profile.name}
             />
           </div>
 

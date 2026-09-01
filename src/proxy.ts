@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { landingPathForRole, type Role } from "@/lib/api";
-import { ACCESS_TOKEN_COOKIE, LIVE, backendUrl } from "@/lib/backend";
+import { ACCESS_TOKEN_COOKIE, CSRF_COOKIE, backendUrl } from "@/lib/backend";
 
 /**
  * Which role each portal belongs to. A prefix that is not listed — `/`, the
@@ -89,28 +89,37 @@ export function proxy(request: NextRequest) {
    *
    * Cookie absence IS token expiry: `storeAccessToken` sets Max-Age to the
    * token's own lifetime, so the browser drops it exactly when it stops
-   * working.
+   * working. It is therefore the ordinary state of any navigation made after
+   * ~15 minutes of not clicking anything, and NOT on its own a signed-out one:
+   * the refresh cookie behind it is good for 30 days.
    *
-   * ponytail: expiry lands on /login rather than spending the 30-day refresh
-   * cookie, so a session ends at the access token's ~15 minutes. Refreshing
-   * here is the obvious upgrade and deliberately not taken: proxy runs with no
-   * shared state (it may be deployed to a CDN edge), and the backend rotates
-   * the refresh token on every call — so two page loads racing would each
-   * present the same token, the second would read as replay, and the whole
-   * family gets revoked. The single-flight lock in src/lib/http.ts is what
-   * makes that safe on the client and cannot exist here. Move refresh into a
-   * route handler the client calls, then redirect through it.
+   * So an absent access cookie takes the refresh hop rather than ending the
+   * session. Sending it straight to /login is what made the app appear to log
+   * people out by itself — the session died at the access token's lifetime
+   * with a month of refresh cookie left unspent, and only pages that happened
+   * to poll (chat, every eight seconds) stayed alive, because their 401 went
+   * through the client refresh in src/lib/http.ts. This gives every route what
+   * chat already had.
+   *
+   * Refreshing HERE instead is the thing that cannot be done: proxy runs with
+   * no shared state (it may be deployed to a CDN edge), and the backend
+   * rotates the refresh token on every call — so two page loads racing would
+   * each present the same token, the second would read as replay, and the
+   * whole family gets revoked. The single-flight lock in src/lib/http.ts is
+   * what makes that safe, and it only exists on the client. Hence a redirect
+   * to a client route rather than a refresh in this file.
+   *
+   * `csrfToken` is the test for "is there a session to refresh at all". The
+   * backend mints it alongside the refresh cookie, and unlike the HttpOnly
+   * refresh cookie it can be read here. Without it this is a genuinely
+   * signed-out visitor, and the hop would only fail and land on /login anyway.
    */
   if (!pathname.startsWith("/api")) {
-    // No backend configured (mock mode) means there is no token to obtain — the
-    // mocks never set one — and nothing real to protect. Gating here would trap
-    // every page behind a /login that loops to an OTP screen no fixture can
-    // satisfy, so the whole app is unreachable exactly when it is meant to be
-    // "clickable without a server". Skip the gate; it re-arms the moment a real
-    // backend is set.
-    if (!LIVE) return NextResponse.next();
     if (!accessToken) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      const target = request.cookies.get(CSRF_COOKIE)
+        ? `/login/refresh?next=${encodeURIComponent(pathname + search)}`
+        : "/login";
+      return NextResponse.redirect(new URL(target, request.url));
     }
 
     /**
@@ -197,6 +206,11 @@ export const config = {
      * whole (auth) group (`login` also covers `login-v1`, `signup` covers both
      * signup routes), and any path with a dot in it — favicon.ico, the logo,
      * everything else under public/.
+     *
+     * `login` covering /login/refresh is load-bearing, not incidental: that is
+     * the route the guard above redirects to, and running the guard on it would
+     * be an infinite redirect, since it is by definition reached with no access
+     * cookie. Narrowing this alternative to an exact `login` breaks the hop.
      *
      * `.+` and not `.*` leaves `/` itself out: the portal picker is the page a
      * signed-out visitor is supposed to land on.

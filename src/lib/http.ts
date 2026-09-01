@@ -28,16 +28,9 @@ import {
   ACCESS_TOKEN_COOKIE,
   CSRF_COOKIE,
   CSRF_HEADER,
-  LIVE,
   backendUrl,
 } from "@/lib/backend";
 import { PORTAL_CACHE_SECONDS, PORTAL_CACHE_TAG } from "@/lib/cache-tag";
-
-/**
- * Kept as the mock switch every boundary already branches on, so `if (!BASE)`
- * keeps meaning "no backend configured — answer from the fixture".
- */
-export const BASE = LIVE ? "/api" : undefined;
 
 const onServer = typeof window === "undefined";
 
@@ -156,7 +149,13 @@ async function unwrap<T>(res: Response): Promise<T> {
  */
 let refreshing: Promise<boolean> | null = null;
 
-async function refreshSession(): Promise<boolean> {
+/**
+ * Exported for src/app/(auth)/login/refresh/page.tsx, which spends the refresh
+ * cookie on a navigation that arrived with no access token. That route needs
+ * THIS function and not a copy of it: the lock above is what keeps a bounce
+ * racing an in-flight poll from rotating the token twice.
+ */
+export async function refreshSession(): Promise<boolean> {
   refreshing ??= (async () => {
     try {
       const csrf = await readCookie(CSRF_COOKIE);
@@ -442,11 +441,10 @@ export function get<T>(path: string): Promise<T> {
  * `get`, but a missing record answers `null` instead of throwing.
  *
  * Every detail boundary is typed `Promise<X | null>` and every detail page calls
- * `notFound()` when it gets one — a contract that held against the mocks, where
- * a missing row is `undefined` from an array lookup, and held nowhere else. The
- * backend answers a missing record with a 404, `unwrap` turns that into a thrown
- * `ApiError`, and the null branch was therefore dead code: a mistyped id in the
- * URL produced an unhandled error instead of the 404 page written for it.
+ * `notFound()` when it gets one. The backend answers a missing record with a
+ * 404, and `unwrap` turns that into a thrown `ApiError` — so without this the
+ * null branch is dead code and a mistyped id in the URL produces an unhandled
+ * error instead of the 404 page written for it.
  *
  * ONLY 404. A 403 must keep throwing — "you may not see this" rendered as "this
  * does not exist" is a real answer replaced by a wrong one, and it would hide a

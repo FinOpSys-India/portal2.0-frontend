@@ -31,11 +31,10 @@ export default async function ManagerDocumentsPage({
   const { company: picked, project } = await searchParams;
   const company = await companyScope(picked);
 
-  const [documents, projects, companies, profile] = await Promise.all([
+  const [documents, projects, companies] = await Promise.all([
     managerApi.documents(company, project),
     managerApi.projects(company),
     managerApi.companies(),
-    managerApi.profile(),
   ]);
 
   // Upload can still file against any company on the book; the pills only
@@ -68,7 +67,6 @@ export default async function ManagerDocumentsPage({
                 name,
                 companyId,
               }))}
-              owner={profile.name}
             />
           </>
         }

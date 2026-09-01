@@ -29,34 +29,18 @@ const ORIGIN = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
 const PREFIX = process.env.BACKEND_API_PREFIX ?? "/api";
 
 /**
- * True once a backend is configured. Until then the boundaries answer from their
- * mocks.
+ * Absolute URL for a backend path (`/auth/login` -> `https://host/api/auth/login`).
  *
- * CONFIGURE THIS AS `NEXT_PUBLIC_API_URL`, NOT `BACKEND_URL`. This module is
- * imported by client components — every auth form goes through `api.login` /
- * `api.verifyOtp` — and Next inlines only `NEXT_PUBLIC_*` into the browser
- * bundle. Under the server-only name the server saw a backend and the browser
- * did not, so login resolved against its fixture, redirected to the OTP screen
- * with a made-up challenge id, and the request that sends the email was never
- * made. It fails as a working app that emails nobody, which is why the switch
- * asserts rather than trusting the deployment to have used the right name.
- *
- * `PREFIX` needs no such treatment: `backendUrl` is called only by the proxy and
- * by server components. The browser addresses the backend as `/api/<path>` and
- * never reads it.
+ * Refuses an unset origin rather than building a relative URL from it. Either
+ * `BACKEND_URL` or `NEXT_PUBLIC_API_URL` names the server; with neither, every
+ * call would otherwise die on `fetch` with "Failed to parse URL" — a message
+ * that describes the symptom and never the missing variable.
  */
-export const LIVE = Boolean(ORIGIN);
-
-if (process.env.BACKEND_URL && !process.env.NEXT_PUBLIC_API_URL) {
-  // Server-side only — the browser cannot see BACKEND_URL, which is the bug.
-  console.warn(
-    "[backend] BACKEND_URL is set but NEXT_PUBLIC_API_URL is not: the browser " +
-      "will run every client boundary against its mock (no login, no OTP email). " +
-      "Set NEXT_PUBLIC_API_URL to the same origin.",
-  );
-}
-
-/** Absolute URL for a backend path (`/auth/login` -> `https://host/api/auth/login`). */
 export function backendUrl(path: string): string {
+  if (!ORIGIN) {
+    throw new Error(
+      "No backend configured. Set BACKEND_URL (or NEXT_PUBLIC_API_URL) to the API origin.",
+    );
+  }
   return `${ORIGIN.replace(/\/$/, "")}${PREFIX.replace(/\/$/, "")}${path}`;
 }

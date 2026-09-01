@@ -1,9 +1,8 @@
 /**
  * The backend-row adapters. Run: npx tsx src/lib/portal.test.ts
  *
- * These are the whole risk of the integration. Every boundary answers from its
- * mock when BASE is unset, so the live path is never exercised by a request in
- * this repo — a field renamed on one side would surface as `undefined` in a
+ * These are the whole risk of the integration. Nothing in this repo issues a
+ * request, so a field renamed on one side would surface as `undefined` in a
  * table cell and nowhere else. Asserted here against rows shaped exactly as the
  * DTOs in Portal-backend/src/dto build them.
  */

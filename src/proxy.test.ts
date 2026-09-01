@@ -1,11 +1,9 @@
 /**
  * The portal role gate. Run: npx tsx src/proxy.test.ts
  *
- * The backend is configured here (and nowhere else in the suite) because the
- * gate only arms when `LIVE` is true — in mock mode there is no session to
- * check and every page stays open. `backend.ts` reads the variable at module
- * scope, so it is set before the dynamic imports below and not with a static
- * one, which would hoist above the assignment.
+ * The backend origin is set before the dynamic imports below rather than with a
+ * static one, which would hoist above the assignment: `backend.ts` reads the
+ * variable at module scope.
  */
 import assert from "node:assert/strict";
 
@@ -23,17 +21,34 @@ async function main() {
   const { NextRequest } = await import("next/server");
   const { proxy } = await import("./proxy");
 
-  const visit = (pathname: string, token?: string) =>
+  const visit = (pathname: string, token?: string, csrf = false) =>
     proxy(
       new NextRequest(`http://localhost:5173${pathname}`, {
-        headers: token ? { cookie: `accessToken=${token}` } : {},
+        headers: {
+          cookie: [token && `accessToken=${token}`, csrf && "csrfToken=abc"]
+            .filter(Boolean)
+            .join("; "),
+        },
       }),
     ).headers.get("location");
 
   const at = (path: string) => `http://localhost:5173${path}`;
 
-  // Signed out is still the first gate, and it is unchanged.
+  // No cookies at all is a genuinely signed-out visitor, and still the login screen.
   assert.equal(visit("/manager/projects"), at("/login"));
+
+  // The auto-logout this route exists for: the access cookie expires with its
+  // token, so an idle tab's next click arrives without one. A csrfToken means
+  // there is a refresh cookie behind it, so the session continues through the
+  // hop instead of ending — and comes back to the page that was asked for.
+  assert.equal(
+    visit("/manager/projects", undefined, true),
+    at("/login/refresh?next=%2Fmanager%2Fprojects"),
+  );
+  assert.equal(
+    visit("/manager/projects?tab=open", undefined, true),
+    at("/login/refresh?next=%2Fmanager%2Fprojects%3Ftab%3Dopen"),
+  );
 
   // The role that owns the portal passes through.
   assert.equal(visit("/manager/projects", tokenFor("ACCOUNTING_MANAGER")), null);

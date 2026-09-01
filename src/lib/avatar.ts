@@ -13,7 +13,7 @@
  * 2 MB and goes through the API directly, which is why `postForm` exists.
  */
 
-import { BASE, del, postForm } from "@/lib/http";
+import { del, postForm } from "@/lib/http";
 
 /**
  * The server's ceiling, not the design's — `UPLOAD_MAX_AVATAR_BYTES`, 2 MB by
@@ -46,7 +46,6 @@ export const avatarApi = {
    * and anything else arrives as an unexpected field, which it rejects.
    */
   async upload(file: File): Promise<string | null> {
-    if (!BASE) return mock.upload(file);
 
     const form = new FormData();
     form.append("avatar", file);
@@ -62,7 +61,6 @@ export const avatarApi = {
 
   /** Back to no picture. Idempotent server-side — removing none is a success. */
   async remove(): Promise<void> {
-    if (!BASE) return mock.remove();
     await del("/users/me/avatar");
   },
 };
@@ -83,19 +81,3 @@ export function avatarProblem(file: File): string | null {
   }
   return null;
 }
-
-/* ---------------------------------------------------------------- mock ---- */
-
-const mock = {
-  async upload(file: File): Promise<string | null> {
-    await new Promise((r) => setTimeout(r, 250));
-    // A blob URL, so the picked image really does appear on the card. It lives
-    // as long as the tab and nothing persists it — which is the honest mock of
-    // "there is no storage configured".
-    return URL.createObjectURL(file);
-  },
-
-  async remove(): Promise<void> {
-    await new Promise((r) => setTimeout(r, 200));
-  },
-};

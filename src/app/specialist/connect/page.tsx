@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Mail, MessageSquare } from "lucide-react";
 
 import { ConnectCard } from "@/components/portal/connect-card";
+import { chatApi } from "@/lib/chat";
 import { scoped } from "@/lib/manager";
 import { companyScope, specialistApi } from "@/lib/specialist";
 
@@ -11,6 +12,10 @@ export const metadata: Metadata = { title: "Connect" };
  * The Connect hub. One section, not the manager's two: a specialist has a
  * single counterparty — their accounting manager — so there is no party to
  * choose before choosing a channel.
+ *
+ * Two reads rather than `thread()`, for the reason spelled out on the
+ * customer's copy of this page: opening the conversation is a write costing
+ * sixteen database round trips, and this screen renders a name and a badge.
  */
 export default async function SpecialistConnectPage({
   searchParams,
@@ -18,9 +23,12 @@ export default async function SpecialistConnectPage({
   searchParams: Promise<{ company?: string }>;
 }) {
   const company = await companyScope((await searchParams).company);
-  // Scoped, so the card names the manager of the company on the switcher and
-  // its badge counts that thread — not whichever company came back first.
-  const thread = await specialistApi.thread(company);
+  // Both scoped, so the card names the manager of the company on the switcher
+  // and its badge counts that thread — not whichever company came back first.
+  const [manager, unread] = await Promise.all([
+    specialistApi.manager(company),
+    company ? chatApi.unreadCount(company).catch(() => 0) : 0,
+  ]);
 
   return (
     <section className="rounded-xl border border-border bg-card px-6 py-10">
@@ -37,10 +45,10 @@ export default async function SpecialistConnectPage({
       <div className="mt-8 flex flex-wrap justify-center gap-6">
         <ConnectCard
           icon={<MessageSquare className="size-10" aria-hidden />}
-          label={`Chat with ${thread.contact}`}
+          label={`Chat with ${manager.name || "your accounting manager"}`}
           action="Start Chat"
           href={scoped("/specialist/connect/chat", company)}
-          unread={thread.unread}
+          unread={unread}
         />
         {/* No count on email: the card opens a blank compose form, and there is
             no inbox to read a reply in. A badge here would point at nothing. */}

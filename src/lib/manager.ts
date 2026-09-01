@@ -10,7 +10,6 @@ import { cache } from "react";
 
 import type { CompanyPlan, CustomerRole } from "@/lib/admin";
 import {
-  BASE,
   get,
   getOrNull,
   patch,
@@ -540,7 +539,6 @@ function toManagerCustomer(row: DirectoryRow): ManagerCustomer {
 export const managerApi = {
   /** The signed-in manager. The session decides who, not the caller. */
   async profile(): Promise<ManagerProfile> {
-    if (!BASE) return mock.profile();
     const me = await get<{
       firstName: string;
       lastName: string;
@@ -569,13 +567,11 @@ export const managerApi = {
    * holding more than 100 accounts needs real paging here.
    */
   async companies(): Promise<ClientCompany[]> {
-    if (!BASE) return mock.companies();
     return fetchCompanies();
   },
 
   /** `data: { company }`, not the row — read a level too high and every field renders empty. */
   async company(id: string): Promise<ClientCompanyDetail | null> {
-    if (!BASE) return mock.company(id);
     const data = await getOrNull<{ company: BackendCompany }>(
       `/companies/${encodeURIComponent(id)}`,
     );
@@ -584,7 +580,6 @@ export const managerApi = {
 
   /** Customers of the manager's companies. Scoped by the header switcher. */
   async customers(companyId?: string): Promise<ManagerCustomer[]> {
-    if (!BASE) return mock.customers(companyId);
     return (await directory("customers", companyId)).map(toManagerCustomer);
   },
 
@@ -594,7 +589,6 @@ export const managerApi = {
    * read. One extra request, and no invented lookup-by-email route.
    */
   async customer(email: string): Promise<ManagerCustomer | null> {
-    if (!BASE) return mock.customer(email);
     const row = (await directory("customers")).find((c) => c.email === email);
     if (!row) return null;
 
@@ -605,7 +599,6 @@ export const managerApi = {
   },
 
   async tasks(projectId: string): Promise<ProjectTask[]> {
-    if (!BASE) return mock.tasks(projectId);
     // ponytail: 100 is the task list's maxLimit, fetched in one page so the
     // panel can render the whole breakdown. Page it past that.
     const data = await get<{ tasks: BackendTask[] }>(
@@ -623,7 +616,6 @@ export const managerApi = {
     projectId: string,
     task: { name: string; description: string; deadline: string },
   ): Promise<void> {
-    if (!BASE) return mock.addTask(projectId, task);
     await post("/tasks", {
       projectId: Number(projectId),
       taskName: task.name,
@@ -634,12 +626,10 @@ export const managerApi = {
 
   /** Every project across the companies this manager holds. */
   async projects(companyId?: string): Promise<ManagedProject[]> {
-    if (!BASE) return mock.projects(companyId);
     return fetchProjects(companyId);
   },
 
   async project(id: string): Promise<ManagedProject | null> {
-    if (!BASE) return mock.project(id);
     const row = await get<BackendProject>(
       `/projects/${encodeURIComponent(id)}`,
     );
@@ -652,7 +642,6 @@ export const managerApi = {
    * the dropdown can never offer an option the write would refuse.
    */
   async availableServices(companyId: string): Promise<string[]> {
-    if (!BASE) return mock.availableServices(companyId);
     return (await serviceOptions(companyId)).map((s) => s.serviceName);
   },
 
@@ -673,7 +662,6 @@ export const managerApi = {
     companyId: string,
     input: NewProjectInput,
   ): Promise<ManagedProject> {
-    if (!BASE) return mock.createProject(companyId, input);
     return toManagedProject(await createProjectOn(companyId, input));
   },
 
@@ -683,7 +671,6 @@ export const managerApi = {
    * of theirs".
    */
   async specialists(companyId?: string): Promise<Specialist[]> {
-    if (!BASE) return mock.specialists(companyId);
     const [rows, projects] = await Promise.all([
       directory("specialists", companyId),
       managerApi.projects(companyId),
@@ -713,7 +700,6 @@ export const managerApi = {
     email: string,
     companyId?: string,
   ): Promise<SpecialistDetail | null> {
-    if (!BASE) return mock.specialist(email);
     const [list, rows] = await Promise.all([
       managerApi.specialists(companyId),
       directory("specialists", companyId),
@@ -759,7 +745,6 @@ export const managerApi = {
     email: string,
     companyId?: string,
   ): Promise<SpecialistTask[]> {
-    if (!BASE) return mock.specialistTasks(email, companyId);
     const row = (await directory("specialists", companyId)).find(
       (s) => s.email === email,
     );
@@ -776,7 +761,6 @@ export const managerApi = {
 
   /** `PATCH`, and the status is the backend's own code, not the label. */
   async setTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
-    if (!BASE) return mock.setTaskStatus(taskId, status);
     await patch(`/tasks/${encodeURIComponent(taskId)}/status`, {
       status: taskStatusCode(status),
     });
@@ -803,7 +787,6 @@ export const managerApi = {
    * cannot offer a choice the save would reject.
    */
   async staffing(companyId: string): Promise<StaffingLine[]> {
-    if (!BASE) return mock.staffing(companyId);
     const data = await get<{ services: BackendStaffingService[] }>(
       `/companies/${encodeURIComponent(companyId)}/specialist-options`,
     );
@@ -841,7 +824,6 @@ export const managerApi = {
     companyId: string,
     byService: Record<string, number>,
   ): Promise<void> {
-    if (!BASE) return mock.ok();
 
     await put(`/companies/${encodeURIComponent(companyId)}/specialists`, {
       assignments: Object.entries(byService).map(([code, specialistUserId]) => ({
@@ -860,7 +842,6 @@ export const managerApi = {
    * than inventing rows.
    */
   async conversations(filter: ConversationFilter = {}): Promise<Conversation[]> {
-    if (!BASE) return mock.conversations(filter);
     if (filter.channel === "email") return [];
 
     const [names, rows] = await Promise.all([
@@ -902,7 +883,6 @@ export const managerApi = {
     message: string;
     companyId?: string;
   }): Promise<void> {
-    if (!BASE) return mock.ok();
     await sendEmailAs(input);
   },
 
@@ -914,13 +894,11 @@ export const managerApi = {
    * call when clicked.
    */
   async openThread(companyId: string, participantUserId: number): Promise<string> {
-    if (!BASE) return `mock-${participantUserId}`;
     return String((await openConversation(companyId, participantUserId)).id);
   },
 
   /** One thread's messages, oldest first. The API returns newest first. */
   async messages(conversationId: string): Promise<ChatMessage[]> {
-    if (!BASE) return mock.messages(conversationId);
     const data = await get<{ messages: BackendMessage[] }>(
       `/chat/conversations/${encodeURIComponent(conversationId)}/messages?limit=50`,
     );
@@ -930,7 +908,6 @@ export const managerApi = {
   },
 
   async sendMessage(conversationId: string, body: string): Promise<ChatMessage> {
-    if (!BASE) return mock.sendMessage(conversationId, body);
     // `data` is the stored message itself, same as `openConversation` above.
     const message = await post<BackendMessage>(
       `/chat/conversations/${encodeURIComponent(conversationId)}/messages`,
@@ -941,30 +918,22 @@ export const managerApi = {
 
   /** A file in the thread: ticket, PUT to storage, then the message. */
   sendAttachment(conversationId: string, file: File): Promise<ChatMessage> {
-    if (!BASE) return mock.sendAttachment(conversationId, file);
     return sendChatAttachment(conversationId, file);
   },
 
   /**
    * Attach a file to a company, and optionally to one of its projects.
    *
-   * `owner` is ignored against the real backend — the uploader is the session,
-   * because a client that can name the uploader can name anyone.
+   * The uploader is the session and is never named by the caller — a client
+   * that can name the uploader can name anyone.
    */
-  async uploadDocument(
-    file: File,
-    meta: { companyId: string; project: string | null; owner: string },
-  ): Promise<ManagerDocument> {
-    if (!BASE) return mock.uploadDocument(file, meta);
-    return uploadCompanyDocument(file, meta);
-  },
+  uploadDocument: uploadCompanyDocument,
 
   /** Documents across the manager's companies, optionally one project's. */
   async documents(
     companyId?: string,
     project?: string,
   ): Promise<ManagerDocument[]> {
-    if (!BASE) return mock.documents(companyId, project);
     return listDocuments(companyId, project, await companyNames());
   },
 };
@@ -1238,743 +1207,6 @@ export async function listDocuments(
   return project ? all.filter((d) => d.project === project) : all;
 }
 
-/* ---------------------------------------------------------------- mock ---- */
-
-const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
-
-const COMPANIES: ClientCompanyDetail[] = [
-  {
-    id: "harbor",
-    name: "Harbor Coffee Roasters",
-    owner: "Priya Nair",
-    activeServices: ["Bookkeeping", "Payroll", "Taxes"],
-    billingDate: "8/08/26",
-    // The manager counts as a team member on every company it manages — 1.0
-    // lists them in this column alongside the customer's own people.
-    teamMembers: ["Priya Nair", "Tom Becker", "Alex Morgan"],
-    email: "accounts@harborcoffee.com",
-    enNumber: "84-2910337",
-    addressLine1: "412 Dock Street",
-    city: "Portland",
-    state: "OR",
-    zip: "97204",
-    country: "United States of America",
-    plans: [
-      { service: "Bookkeeping", plan: "Starter", amount: "$99/month" },
-      {
-        service: "Payroll",
-        plan: "2-employee , 3- Contractor",
-        amount: "$89/month",
-      },
-      { service: "Taxes", plan: "$500K - $2M revenue", amount: "$125/month" },
-    ],
-  },
-  {
-    id: "vertex",
-    name: "Vertex Labs",
-    owner: "Daniel Okafor",
-    activeServices: ["Bookkeeping", "Payroll"],
-    // Blank in 1.0 until a subscription starts.
-    billingDate: null,
-    teamMembers: ["Daniel Okafor", "Rosa Delgado", "Ivan Petrov", "Alex Morgan"],
-    email: "finance@vertexlabs.io",
-    enNumber: "",
-    addressLine1: "9 Kestrel Way",
-    city: "Austin",
-    state: "TX",
-    zip: "73301",
-    country: "United States of America",
-    plans: [
-      { service: "Bookkeeping", plan: "Growth", amount: "$249/month" },
-      { service: "Payroll", plan: "1-employee , 6- Contractor", amount: "$69/month" },
-    ],
-  },
-];
-
-const CUSTOMERS: ManagerCustomer[] = [
-  {
-    name: "Priya Nair",
-    role: "Owner",
-    email: "priya.nair@harborcoffee.com",
-    companies: ["Harbor Coffee Roasters"],
-    companyIds: ["harbor"],
-    position: "Company Owner",
-    phone: "5550142",
-    addressLine1: "412 Dock Street",
-    city: "Portland",
-    state: "OR",
-    zip: "97204",
-    country: "United States of America",
-  },
-  {
-    name: "Tom Becker",
-    role: "Teammate",
-    email: "tom.becker@harborcoffee.com",
-    companies: ["Harbor Coffee Roasters"],
-    companyIds: ["harbor"],
-    position: "Operations",
-    phone: "",
-    addressLine1: "",
-    city: "",
-    state: "",
-    zip: "",
-    country: "United States of America",
-  },
-  {
-    name: "Daniel Okafor",
-    role: "Owner",
-    email: "daniel.okafor@vertexlabs.io",
-    // Multi-company, the case 1.0 renders as a comma list.
-    companies: ["Vertex Labs", "Harbor Coffee Roasters"],
-    companyIds: ["vertex", "harbor"],
-    position: "Company Owner",
-    phone: "5550196",
-    addressLine1: "9 Kestrel Way",
-    city: "Austin",
-    state: "TX",
-    zip: "73301",
-    country: "United States of America",
-  },
-];
-
-const TASKS: ProjectTask[] = [
-  {
-    id: "t1",
-    projectId: "p1",
-    name: "Collect June timesheets",
-    description: "Chase the two outstanding contractor submissions.",
-    status: "Completed",
-    deadline: "7/28/26",
-  },
-  {
-    id: "t2",
-    projectId: "p1",
-    name: "Run payroll preview",
-    description: "Check gross-to-net against last cycle before approval.",
-    status: "In progress",
-    deadline: "8/01/26",
-  },
-  {
-    id: "t3",
-    projectId: "p1",
-    name: "File state withholding",
-    description: "OR quarterly filing.",
-    status: "To do",
-    deadline: "8/05/26",
-  },
-  {
-    id: "t4",
-    projectId: "p3",
-    name: "Reconcile 1099 totals",
-    description: "Match contractor payments to the filed return.",
-    status: "Completed",
-    deadline: "7/10/26",
-  },
-  {
-    id: "t5",
-    projectId: "p5",
-    name: "Collect contractor W-9s",
-    description: "Six new contractors, none returned yet.",
-    status: "In progress",
-    deadline: "8/22/26",
-  },
-  {
-    id: "t6",
-    projectId: "p5",
-    name: "Set up direct deposit",
-    description: "Bank details verified before the first run.",
-    status: "To do",
-    deadline: "8/26/26",
-  },
-];
-
-const PROJECTS: ManagedProject[] = [
-  {
-    id: "p1",
-    name: "July payroll run",
-    company: "Harbor Coffee Roasters",
-    companyId: "harbor",
-    service: "Payroll",
-    deadline: "8/05/26",
-    status: "In progress",
-    specialist: "Rosa Delgado",
-    createdBy: "Priya Nair",
-    progress: 60,
-    createdOn: "6/09/26",
-  },
-  {
-    // Unassigned on purpose: the queue this portal exists to clear.
-    id: "p2",
-    name: "Q2 bookkeeping close",
-    company: "Harbor Coffee Roasters",
-    companyId: "harbor",
-    service: "Bookkeeping",
-    deadline: "8/12/26",
-    status: "Not started",
-    specialist: null,
-    createdBy: "Priya Nair",
-    progress: 0,
-    createdOn: "7/02/26",
-  },
-  {
-    id: "p3",
-    name: "2025 federal return",
-    company: "Harbor Coffee Roasters",
-    companyId: "harbor",
-    service: "Taxes",
-    deadline: "7/15/26",
-    status: "Completed",
-    specialist: "Ivan Petrov",
-    createdBy: "Alex Morgan",
-    progress: 100,
-    createdOn: "5/20/26",
-  },
-  {
-    id: "p4",
-    name: "Opening balances",
-    company: "Vertex Labs",
-    companyId: "vertex",
-    service: "Bookkeeping",
-    deadline: "8/20/26",
-    status: "Not started",
-    specialist: null,
-    createdBy: "Daniel Okafor",
-    progress: 0,
-    createdOn: "7/18/26",
-  },
-  {
-    // Second company for Rosa: a specialist's book spans companies, which is
-    // what makes the switcher mean anything in their portal.
-    id: "p5",
-    name: "Contractor onboarding",
-    company: "Vertex Labs",
-    companyId: "vertex",
-    service: "Payroll",
-    deadline: "8/28/26",
-    status: "In progress",
-    specialist: "Rosa Delgado",
-    createdBy: "Daniel Okafor",
-    progress: 35,
-    createdOn: "7/22/26",
-  },
-];
-
-const SPECIALISTS: SpecialistDetail[] = [
-  {
-    name: "Rosa Delgado",
-    email: "rosa.delgado@finopsys.ai",
-    speciality: "Payroll Specialist",
-    activeProjects: 2,
-    phone: "+1 503 555 0147",
-    address: "1120 SE Belmont St, Portland, OR 97214",
-  },
-  {
-    name: "Ivan Petrov",
-    email: "ivan.petrov@finopsys.ai",
-    speciality: "Tax Specialist",
-    activeProjects: 0,
-    phone: "+1 512 555 0182",
-    address: "88 Congress Ave, Austin, TX 78701",
-  },
-  {
-    name: "Nadia Haddad",
-    // Misspelling preserved: existing records store this exact string, so
-    // correcting it here would stop matching them. See lib/admin.ts.
-    speciality: "Bookkeping Specialist",
-    email: "nadia.haddad@finopsys.ai",
-    activeProjects: 2,
-    phone: "+1 646 555 0113",
-    address: "410 W 24th St, New York, NY 10011",
-  },
-];
-
-const CONVERSATIONS: Conversation[] = [
-  // Chat · customers
-  {
-    id: "c1",
-    companyId: "harbor",
-    company: "Harbor Coffee Roasters",
-    contact: "Priya Nair",
-    channel: "chat",
-    party: "customer",
-    lastMessage: "Can you confirm the July payroll totals before Friday?",
-    lastMessageAt: "8/14/26",
-    unread: 2,
-  },
-  {
-    id: "c2",
-    companyId: "vertex",
-    company: "Vertex Labs",
-    contact: "Daniel Okafor",
-    channel: "chat",
-    party: "customer",
-    lastMessage: "Are we still on track for the opening balances?",
-    lastMessageAt: "8/09/26",
-    unread: 0,
-  },
-  // Chat · specialists
-  {
-    id: "c3",
-    companyId: "harbor",
-    company: "Harbor Coffee Roasters",
-    contact: "Rosa Delgado",
-    channel: "chat",
-    party: "specialist",
-    lastMessage: "Payroll register is ready for your review.",
-    lastMessageAt: "8/15/26",
-    unread: 1,
-  },
-  {
-    id: "c4",
-    companyId: "vertex",
-    company: "Vertex Labs",
-    contact: "Nadia Haddad",
-    channel: "chat",
-    party: "specialist",
-    lastMessage: "Need the articles of incorporation before I can start.",
-    lastMessageAt: "8/11/26",
-    unread: 0,
-  },
-  // Email · customers
-  {
-    id: "c5",
-    companyId: "vertex",
-    company: "Vertex Labs",
-    contact: "Daniel Okafor",
-    channel: "email",
-    party: "customer",
-    lastMessage: "Sent over the opening balance spreadsheet.",
-    lastMessageAt: "8/12/26",
-    unread: 1,
-  },
-  {
-    id: "c6",
-    companyId: "harbor",
-    company: "Harbor Coffee Roasters",
-    contact: "Tom Becker",
-    channel: "email",
-    party: "customer",
-    lastMessage: "Thanks, that clears it up.",
-    lastMessageAt: "8/03/26",
-    unread: 0,
-  },
-  // Email · specialists
-  {
-    id: "c7",
-    companyId: "harbor",
-    company: "Harbor Coffee Roasters",
-    contact: "Ivan Petrov",
-    channel: "email",
-    party: "specialist",
-    lastMessage: "Federal return filed, confirmation attached.",
-    lastMessageAt: "7/16/26",
-    unread: 0,
-  },
-];
-
-/** N days back at a given clock time, so the mock threads keep their shape. */
-function daysAgo(days: number, hour: number, minute: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  date.setHours(hour, minute, 0, 0);
-  return date.toISOString();
-}
-
-/** Threads, keyed by conversation id. Ends on the conversation's lastMessage. */
-const MESSAGES: Record<string, ChatMessage[]> = {
-  c1: [
-    {
-      id: "c1-1",
-      mine: false,
-      body: "Morning — quick one on payroll.",
-      sentAt: daysAgo(1, 9, 12),
-      attachments: [],
-    },
-    { id: "c1-2", mine: true, body: "Go ahead.", sentAt: daysAgo(1, 9, 15), attachments: [] },
-    {
-      id: "c1-3",
-      mine: false,
-      body: "Can you confirm the July payroll totals before Friday?",
-      sentAt: daysAgo(0, 8, 41),
-      attachments: [],
-    },
-  ],
-  c2: [
-    {
-      id: "c2-1",
-      mine: false,
-      body: "Are we still on track for the opening balances?",
-      sentAt: daysAgo(4, 16, 3),
-      attachments: [],
-    },
-  ],
-  c3: [
-    {
-      id: "c3-1",
-      mine: true,
-      body: "How is the July run looking?",
-      sentAt: daysAgo(1, 14, 20),
-      attachments: [],
-    },
-    {
-      id: "c3-2",
-      mine: false,
-      body: "Payroll register is ready for your review.",
-      sentAt: daysAgo(0, 10, 5),
-      attachments: [],
-    },
-  ],
-  c4: [
-    {
-      id: "c4-1",
-      mine: false,
-      body: "Need the articles of incorporation before I can start.",
-      sentAt: daysAgo(8, 11, 47),
-      attachments: [],
-    },
-  ],
-};
-
-const DOCUMENTS: ManagerDocument[] = [
-  {
-    id: "d1",
-    name: "june-bank-statement.pdf",
-    companyId: "harbor",
-    company: "Harbor Coffee Roasters",
-    project: "Q2 bookkeeping close",
-    owner: "Priya Nair",
-    uploadedAt: "7/02/26",
-    size: 204_800,
-  },
-  {
-    id: "d2",
-    name: "payroll-register-july.xlsx",
-    companyId: "harbor",
-    company: "Harbor Coffee Roasters",
-    project: "July payroll run",
-    owner: "Rosa Delgado",
-    uploadedAt: "7/28/26",
-    size: 1_887_437,
-  },
-  {
-    id: "d3",
-    name: "w9-forms.zip",
-    companyId: "harbor",
-    company: "Harbor Coffee Roasters",
-    project: "July payroll run",
-    owner: "Tom Becker",
-    uploadedAt: "7/30/26",
-    size: 12_582_912,
-  },
-  {
-    // No project: files arrive before there is anything to attach them to.
-    id: "d4",
-    name: "articles-of-incorporation.pdf",
-    companyId: "vertex",
-    company: "Vertex Labs",
-    project: null,
-    owner: "Daniel Okafor",
-    uploadedAt: "8/11/26",
-    size: 737_280,
-  },
-  {
-    id: "d5",
-    name: "contractor-roster.xlsx",
-    companyId: "vertex",
-    company: "Vertex Labs",
-    project: "Contractor onboarding",
-    owner: "Rosa Delgado",
-    uploadedAt: "8/13/26",
-    size: 96_256,
-  },
-];
-
-const mock = {
-  async ok(): Promise<void> {
-    await delay();
-  },
-
-  async conversations(filter: ConversationFilter): Promise<Conversation[]> {
-    await delay();
-    const rows = CONVERSATIONS.filter(
-      (c) =>
-        (!filter.companyId || c.companyId === filter.companyId) &&
-        (!filter.channel || c.channel === filter.channel) &&
-        (!filter.party || c.party === filter.party),
-    );
-    return sortByUnreadThenRecent(rows);
-  },
-
-  async messages(conversationId: string): Promise<ChatMessage[]> {
-    await delay(150);
-    // A copy, not the fixture itself. The view holds what it is handed in
-    // state and appends each send to it — hand back the live array and the
-    // send lands in it twice, once from here and once from the append.
-    return [...(MESSAGES[conversationId] ?? [])];
-  },
-
-  async sendMessage(
-    conversationId: string,
-    body: string,
-  ): Promise<ChatMessage> {
-    await delay(150);
-    const thread = (MESSAGES[conversationId] ??= []);
-    const message: ChatMessage = {
-      id: `${conversationId}-${thread.length + 1}`,
-      mine: true,
-      body,
-      sentAt: new Date().toISOString(),
-      attachments: [],
-    };
-    thread.push(message);
-    return message;
-  },
-
-  async sendAttachment(
-    conversationId: string,
-    file: File,
-  ): Promise<ChatMessage> {
-    await delay(150);
-    const thread = (MESSAGES[conversationId] ??= []);
-    const message: ChatMessage = {
-      id: `${conversationId}-${thread.length + 1}`,
-      mine: true,
-      body: "",
-      sentAt: new Date().toISOString(),
-      // Mock ids are negative so a real attachment id can never collide.
-      attachments: [{ id: -Date.now(), name: file.name, size: file.size }],
-    };
-    thread.push(message);
-    return message;
-  },
-
-  async uploadDocument(
-    file: File,
-    meta: { companyId: string; project: string | null; owner: string },
-  ): Promise<ManagerDocument> {
-    await delay();
-    const company = COMPANIES.find((c) => c.id === meta.companyId);
-    if (!company) throw new Error("That company no longer exists.");
-
-    const doc: ManagerDocument = {
-      id: `d${DOCUMENTS.length + 1}`,
-      name: file.name,
-      companyId: company.id,
-      company: company.name,
-      project: meta.project,
-      owner: meta.owner,
-      uploadedAt: toStamp(new Date().toISOString().slice(0, 10)),
-      size: file.size,
-    };
-    DOCUMENTS.push(doc);
-    return doc;
-  },
-
-  async documents(
-    companyId?: string,
-    project?: string,
-  ): Promise<ManagerDocument[]> {
-    await delay();
-    const rows = DOCUMENTS.filter(
-      (d) =>
-        (!companyId || d.companyId === companyId) &&
-        (!project || d.project === project),
-    );
-    return [...rows].sort(
-      (a, b) =>
-        parseDeadline(b.uploadedAt).getTime() -
-        parseDeadline(a.uploadedAt).getTime(),
-    );
-  },
-
-  async profile(): Promise<ManagerProfile> {
-    await delay(150);
-    return {
-      name: "Alex Morgan",
-      email: "alex.morgan@finopsys.ai",
-      phone: "5550188",
-      // Nowhere to serve an image from without storage, so the initials avatar
-      // stands in — which is the same fallback a real account with no picture
-      // gets.
-      avatarUrl: null,
-    };
-  },
-
-  async companies(): Promise<ClientCompany[]> {
-    await delay();
-    return COMPANIES;
-  },
-
-  async company(id: string): Promise<ClientCompanyDetail | null> {
-    await delay();
-    return COMPANIES.find((c) => c.id === id) ?? null;
-  },
-
-  async customers(companyId?: string): Promise<ManagerCustomer[]> {
-    await delay();
-    if (!companyId) return CUSTOMERS;
-    return CUSTOMERS.filter((c) => c.companyIds.includes(companyId));
-  },
-
-  async customer(email: string): Promise<ManagerCustomer | null> {
-    await delay();
-    return CUSTOMERS.find((c) => c.email === email) ?? null;
-  },
-
-  async tasks(projectId: string): Promise<ProjectTask[]> {
-    await delay();
-    return TASKS.filter((t) => t.projectId === projectId);
-  },
-
-  /**
-   * Adds the row rather than resolving empty. The modal refreshes the page on
-   * success, and a create that leaves the list unchanged reads as a failure.
-   * The deadline arrives from a date input as `2026-09-01` and is stored in
-   * 1.0's format so it sorts and renders with every other row.
-   */
-  async addTask(
-    projectId: string,
-    task: { name: string; description: string; deadline: string },
-  ): Promise<void> {
-    await delay();
-    TASKS.push({
-      id: `t${TASKS.length + 1}`,
-      projectId,
-      name: task.name,
-      description: task.description,
-      status: "To do",
-      deadline: toStamp(task.deadline),
-    });
-  },
-
-  async projects(companyId?: string): Promise<ManagedProject[]> {
-    await delay();
-    if (!companyId) return PROJECTS;
-    return PROJECTS.filter((p) => p.companyId === companyId);
-  },
-
-  async project(id: string): Promise<ManagedProject | null> {
-    await delay();
-    return PROJECTS.find((p) => p.id === id) ?? null;
-  },
-
-  async availableServices(companyId: string): Promise<string[]> {
-    await delay(150);
-    return COMPANIES.find((c) => c.id === companyId)?.activeServices ?? [];
-  },
-
-  /**
-   * Pushes the row rather than resolving empty. The dialog refreshes the page
-   * on success, and a create that leaves the table unchanged reads as failure.
-   */
-  async createProject(
-    companyId: string,
-    input: NewProjectInput,
-  ): Promise<ManagedProject> {
-    await delay();
-    const company = COMPANIES.find((c) => c.id === companyId);
-    if (!company) throw new Error("That company is not on your book.");
-    if (!company.activeServices.includes(input.service)) {
-      throw new Error(`${input.service} is not active on this company.`);
-    }
-
-    const project: ManagedProject = {
-      id: `p${PROJECTS.length + 1}`,
-      name: input.name,
-      company: company.name,
-      companyId,
-      service: input.service,
-      deadline: toStamp(input.deadline),
-      status: "Not started",
-      // Derived from the company's staffing on the real backend, and there is
-      // none in the fixtures — an unassigned project is the queue this portal
-      // exists to clear anyway.
-      specialist: null,
-      createdBy: (await mock.profile()).name,
-      progress: 0,
-      createdOn: toStamp(new Date().toISOString().slice(0, 10)),
-    };
-    PROJECTS.push(project);
-    return project;
-  },
-
-  async specialists(companyId?: string): Promise<Specialist[]> {
-    await delay();
-    if (!companyId) return SPECIALISTS;
-    const onCompany = new Set(
-      PROJECTS.filter((p) => p.companyId === companyId)
-        .map((p) => p.specialist)
-        .filter(Boolean),
-    );
-    return SPECIALISTS.filter((s) => onCompany.has(s.name));
-  },
-
-  /**
-   * The staffing lines the live endpoint would answer with.
-   *
-   * Eligibility is matched on the first three letters of the speciality, which
-   * is all the fixtures need: they carry "Payroll Specialist" against a
-   * "Payroll" service, and 1.0's misspelled "Bookkeping Specialist" against
-   * "Bookkeeping". The real backend matches on the specific-role CODE and is the
-   * only place that decision is load-bearing.
-   */
-  async staffing(companyId: string): Promise<StaffingLine[]> {
-    await delay();
-    const company = COMPANIES.find((c) => c.id === companyId);
-    const stem = (s: string) => s.slice(0, 3).toLowerCase();
-
-    return (company?.activeServices ?? []).map((service) => ({
-      code: service.toUpperCase(),
-      name: service,
-      assigned: null,
-      options: SPECIALISTS.filter(
-        (s) => stem(s.speciality) === stem(service),
-      ).map((s) => ({
-        // The fixtures have no user ids; their position stands in for one, which
-        // is enough for a dialog that only round-trips the value.
-        userId: SPECIALISTS.indexOf(s) + 1,
-        name: s.name,
-        email: s.email,
-      })),
-    }));
-  },
-
-  async specialist(email: string): Promise<SpecialistDetail | null> {
-    await delay();
-    return SPECIALISTS.find((s) => s.email === email) ?? null;
-  },
-
-  async specialistTasks(
-    email: string,
-    companyId?: string,
-  ): Promise<SpecialistTask[]> {
-    await delay();
-    const specialist = SPECIALISTS.find((s) => s.email === email);
-    if (!specialist) return [];
-
-    // Assignment is project-level in 1.0 — a task has no assignee of its own,
-    // so a specialist's work is every task on the projects routed to them.
-    return PROJECTS.filter(
-      (p) =>
-        p.specialist === specialist.name &&
-        (!companyId || p.companyId === companyId),
-    ).flatMap(
-      (project) =>
-        TASKS.filter((t) => t.projectId === project.id).map((task) => ({
-          ...task,
-          project: project.name,
-        })),
-    );
-  },
-
-  async setTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
-    await delay(150);
-    const task = TASKS.find((t) => t.id === taskId);
-    if (!task) throw new Error("That task no longer exists.");
-    task.status = status;
-  },
-};
-
 /** Projects with nobody working them. The manager's queue. */
 export function unassigned(projects: ManagedProject[]): ManagedProject[] {
   return projects.filter((p) => p.specialist === null);
@@ -2015,8 +1247,8 @@ export function messageTime(sentAt: string): string {
 
 /**
  * The reverse: an `<input type="date">` value (`2026-09-01`) into 1.0's
- * `9/01/26`. Month unpadded, day padded — that is what the fixtures carry, and
- * a row written in one format inside a column of another reads as a bug.
+ * `9/01/26`. Month unpadded, day padded — that is 1.0's own format, and a row
+ * written in one format inside a column of another reads as a bug.
  */
 export function toStamp(iso: string): string {
   const [year, month, day] = iso.split("-");

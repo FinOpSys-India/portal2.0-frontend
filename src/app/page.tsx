@@ -36,9 +36,9 @@ type Portal = {
  * URL, and the browser back button did nothing — fine as a scratch tool, not a
  * page anyone should land on.
  *
- * The links are a shortcut past auth while the backend is mocked. Real entry
- * is Sign in: the session resolves a role and lands on the right portal by
- * itself, which is why no card asks anyone to pick their own role.
+ * The links are a shortcut straight into a portal for someone already signed
+ * in. Real entry is Sign in: the session resolves a role and lands on the right
+ * portal by itself, which is why no card asks anyone to pick their own role.
  */
 export default async function HomePage() {
   // The one page a signed-out visitor is meant to reach, so the lookup behind
@@ -99,8 +99,7 @@ export default async function HomePage() {
         />
         <h1 className="mt-8 text-3xl font-bold tracking-tight">Portals</h1>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          Four portals share one login. Sign in and you land on yours — or open
-          one directly while the backend is mocked.
+          Four portals share one login. Sign in and you land on yours.
         </p>
       </header>
 

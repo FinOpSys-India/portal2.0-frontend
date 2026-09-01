@@ -14,7 +14,7 @@
  * but because an admin is never one of a conversation's two sides.
  */
 
-import { BASE, del, get, post } from "@/lib/http";
+import { del, get, post } from "@/lib/http";
 import { personName, toChatMessage, type BackendMessage } from "@/lib/portal";
 import type { ChatMessage } from "@/lib/manager";
 
@@ -93,7 +93,6 @@ export const chatApi = {
     companyId: string,
     kind: "customer" | "specialist",
   ): Promise<ChatContact[]> {
-    if (!BASE) return mock.contacts(kind);
     const scope = `companyId=${encodeURIComponent(companyId)}`;
     const data = await get<{ contacts: BackendContact[] }>(
       `/chat/contacts/${kind === "specialist" ? "specialists" : "customers"}?${scope}`,
@@ -109,7 +108,6 @@ export const chatApi = {
    * anyone reached the bottom of it.
    */
   async downloadUrl(attachmentId: number): Promise<string> {
-    if (!BASE) return mock.downloadUrl();
     const data = await get<{ url: string }>(
       `/chat/attachments/${attachmentId}/download-url`,
     );
@@ -124,7 +122,6 @@ export const chatApi = {
    * the same statement.
    */
   async markRead(conversationId: string): Promise<number> {
-    if (!BASE) return mock.zero();
     const data = await post<{ unreadCount: number }>(
       `/chat/conversations/${encodeURIComponent(conversationId)}/read`,
       {},
@@ -134,7 +131,6 @@ export const chatApi = {
 
   /** Everything unread across every thread on one company. The nav badge. */
   async unreadCount(companyId: string): Promise<number> {
-    if (!BASE) return mock.zero();
     const data = await get<{ unreadCount: number }>(
       `/chat/unread-count?companyId=${encodeURIComponent(companyId)}`,
     );
@@ -147,7 +143,6 @@ export const chatApi = {
    * is true — the check here is the courtesy, the one there is the rule.
    */
   async deleteMessage(messageId: string): Promise<void> {
-    if (!BASE) return mock.ok();
     await del(`/chat/messages/${encodeURIComponent(messageId)}`);
   },
 };
@@ -155,69 +150,3 @@ export const chatApi = {
 /** Re-exported so a screen importing the thread's shape needs one import. */
 export type { ChatMessage };
 export { toChatMessage };
-
-/* ---------------------------------------------------------------- mock ---- */
-
-const delay = (ms = 200) => new Promise((r) => setTimeout(r, ms));
-
-const CONTACTS: Record<"customer" | "specialist", ChatContact[]> = {
-  customer: [
-    {
-      userId: 21,
-      name: "Priya Nair",
-      email: "priya.nair@example.com",
-      roleLabel: "Owner",
-      conversationId: "c-1",
-      lastMessage: "Thanks, that clears it up.",
-      lastMessageAt: new Date().toISOString(),
-      unread: 2,
-    },
-    {
-      // Never messaged. The case the contacts endpoint exists for, and the one
-      // the conversations-only inbox could not show at all.
-      userId: 22,
-      name: "Tom Becker",
-      email: "tom.becker@example.com",
-      roleLabel: "Team",
-      conversationId: null,
-      lastMessage: "",
-      lastMessageAt: "",
-      unread: 0,
-    },
-  ],
-  specialist: [
-    {
-      userId: 31,
-      name: "Rosa Delgado",
-      email: "rosa.delgado@finopsys.ai",
-      roleLabel: "Payroll",
-      conversationId: "c-2",
-      lastMessage: "Payroll register is ready for your review.",
-      lastMessageAt: new Date().toISOString(),
-      unread: 0,
-    },
-  ],
-};
-
-const mock = {
-  async contacts(kind: "customer" | "specialist"): Promise<ChatContact[]> {
-    await delay();
-    return CONTACTS[kind];
-  },
-
-  async downloadUrl(): Promise<string> {
-    await delay();
-    // Nowhere real to point without storage. Returning "" lets the caller show
-    // its own failure rather than navigating to a broken tab.
-    return "";
-  },
-
-  async zero(): Promise<number> {
-    await delay();
-    return 0;
-  },
-
-  async ok(): Promise<void> {
-    await delay();
-  },
-};

@@ -6,7 +6,7 @@
  * admin by email, manager by email, customer by name. They agree here instead.
  */
 
-import { BASE, get } from "@/lib/http";
+import { get } from "@/lib/http";
 
 /** `companyDto.toDirectoryUser`, verbatim. Every people endpoint spreads it. */
 export interface DirectoryUser {
@@ -66,7 +66,6 @@ export interface RoleCatalog {
 let catalog: Promise<RoleCatalog[]> | null = null;
 
 export function roles(): Promise<RoleCatalog[]> {
-  if (!BASE) return Promise.resolve(MOCK_ROLES);
   catalog ??= get<{ roles: RoleCatalog[] }>("/roles")
     .then((d) => d.roles)
     .catch((err) => {
@@ -90,7 +89,19 @@ export async function roleIds(
   code: string,
   specific?: string | null,
 ): Promise<{ roleId: number; specificRoleId: number | null }> {
-  const all = await roles();
+  return resolveRoleIds(await roles(), code, specific);
+}
+
+/**
+ * The matching itself, separated from the fetch so it can be checked against a
+ * catalog written out in a test. It is the part that can be silently wrong —
+ * the request either answers or throws.
+ */
+export function resolveRoleIds(
+  all: RoleCatalog[],
+  code: string,
+  specific?: string | null,
+): { roleId: number; specificRoleId: number | null } {
   const role = all.find((r) => r.code === code);
   if (!role) throw new Error(`Unknown role: ${code}`);
 
@@ -111,37 +122,3 @@ export async function roleIds(
 
   return { roleId: role.roleId, specificRoleId: match.specificRoleId };
 }
-
-/** Mirrors the seed, so invite forms still resolve ids with no backend. */
-const MOCK_ROLES: RoleCatalog[] = [
-  { roleId: 1, code: "ADMIN", name: "Administrator", requiresSpecificRole: false, specificRoles: [] },
-  {
-    roleId: 2,
-    code: "ACCOUNTING_MANAGER",
-    name: "Accounting Manager",
-    requiresSpecificRole: false,
-    specificRoles: [],
-  },
-  {
-    roleId: 3,
-    code: "SPECIALIST",
-    name: "Specialist",
-    requiresSpecificRole: true,
-    specificRoles: [
-      { specificRoleId: 3, code: "SPECIALIST_1", name: "Payroll Specialist" },
-      { specificRoleId: 4, code: "SPECIALIST_2", name: "Tax Specialist" },
-      { specificRoleId: 5, code: "SPECIALIST_3", name: "Bookkeeping Specialist" },
-      { specificRoleId: 6, code: "SPECIALIST_4", name: "FP&A Specialist" },
-    ],
-  },
-  {
-    roleId: 4,
-    code: "CUSTOMER",
-    name: "Customer",
-    requiresSpecificRole: true,
-    specificRoles: [
-      { specificRoleId: 1, code: "OWNER", name: "Owner" },
-      { specificRoleId: 2, code: "TEAM", name: "Team" },
-    ],
-  },
-];

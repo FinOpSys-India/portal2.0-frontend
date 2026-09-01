@@ -2,13 +2,7 @@
  * Specialist portal API boundary.
  *
  * A specialist works the projects an accounting manager routes to them, so
- * every list here is the manager's data narrowed to one person. The mock
- * therefore delegates to managerApi rather than seeding a second copy — two
- * fixtures for one dataset is how a portal starts disagreeing with itself.
- *
- * Chat is the exception. 1.0 stores a thread per pair and each side has its own
- * idea of who "me" is, so the specialist's half of the manager conversation is
- * seeded here rather than read back from the manager's with `mine` inverted.
+ * every list here is the shared endpoint narrowed to one person by the session.
  */
 
 import {
@@ -30,7 +24,7 @@ import {
   type SpecialistTask,
   type TaskStatus,
 } from "@/lib/manager";
-import { BASE, get, getOrNull, patch } from "@/lib/http";
+import { get, getOrNull, patch } from "@/lib/http";
 import { fullName } from "@/lib/directory";
 import {
   personName,
@@ -96,7 +90,6 @@ export async function companyScope(
 export const specialistApi = {
   /** The signed-in specialist. The session decides who that is, not the caller. */
   async profile(): Promise<SpecialistDetail> {
-    if (!BASE) return mock.profile();
     const [me, projects] = await Promise.all([
       get<{
         firstName: string;
@@ -124,11 +117,21 @@ export const specialistApi = {
     };
   },
 
-  /** The accounting manager they report to — their only counterparty. */
-  async manager(): Promise<ManagerProfile> {
-    if (!BASE) return mock.manager();
+  /**
+   * The accounting manager they report to — their only counterparty.
+   *
+   * SCOPED WHEN THE CALLER NAMES A COMPANY. A specialist works several, each
+   * with its own manager, so "the first company that has one" is the right
+   * answer only on screens with no company in hand. Unscoped keeps that
+   * fallback rather than returning nobody.
+   */
+  async manager(companyId?: string): Promise<ManagerProfile> {
     const companies = await myCompanies();
-    const am = companies.find((c) => c.accountingManager)?.accountingManager;
+    const am = (
+      companyId
+        ? companies.find((c) => String(c.id) === companyId)
+        : companies.find((c) => c.accountingManager)
+    )?.accountingManager;
     return {
       name: personName(am),
       email: am?.email ?? "",
@@ -141,13 +144,11 @@ export const specialistApi = {
 
   /** Companies they are working for, i.e. hold an assignment on. */
   async companies(): Promise<ClientCompany[]> {
-    if (!BASE) return mock.companies();
     return (await myCompanies()).map(toClientCompany);
   },
 
   /** `data: { company }`, not the row — read a level too high and every field renders empty. */
   async company(id: string): Promise<ClientCompanyDetail | null> {
-    if (!BASE) return mock.company(id);
     const data = await getOrNull<{ company: BackendCompany }>(
       `/companies/${encodeURIComponent(id)}`,
     );
@@ -156,7 +157,6 @@ export const specialistApi = {
 
   /** Projects assigned to them, optionally narrowed to one company. */
   async projects(companyId?: string): Promise<ManagedProject[]> {
-    if (!BASE) return mock.projects(companyId);
     const ids = await scopeIds(companyId);
     const pages = await Promise.all(
       ids.map(async (id) => {
@@ -171,7 +171,6 @@ export const specialistApi = {
 
   /** One project. Null when it is not theirs — not-found and not-yours look alike. */
   async project(id: string): Promise<ManagedProject | null> {
-    if (!BASE) return mock.project(id);
     // `getOrNull`, not `.catch(() => null)`. That swallowed everything — a 403,
     // a dead backend, and now the redirect an unauthenticated server read
     // raises, which would have turned "please log in" into "no such project".
@@ -182,7 +181,6 @@ export const specialistApi = {
   },
 
   async tasks(projectId: string): Promise<ProjectTask[]> {
-    if (!BASE) return mock.tasks(projectId);
     // ponytail: 100 is the task list's maxLimit, one page for the whole panel.
     const data = await get<{ tasks: BackendTask[] }>(
       `/projects/${encodeURIComponent(projectId)}/tasks?limit=100`,
@@ -199,7 +197,6 @@ export const specialistApi = {
    * the next tab deliberately refuses to name to them.
    */
   async allTasks(companyId?: string): Promise<SpecialistTask[]> {
-    if (!BASE) return mock.allTasks(companyId);
     const [ids, me] = await Promise.all([scopeIds(companyId), myUserId()]);
     const pages = await Promise.all(
       ids.map(async (id) => {
@@ -227,7 +224,6 @@ export const specialistApi = {
   },
 
   setTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
-    if (!BASE) return managerApi.setTaskStatus(taskId, status);
     return patch(`/tasks/${encodeURIComponent(taskId)}/status`, {
       status: taskStatusCode(status),
     });
@@ -238,7 +234,6 @@ export const specialistApi = {
     companyId?: string,
     project?: string,
   ): Promise<ManagerDocument[]> {
-    if (!BASE) return mock.documents(companyId, project);
     const names = new Map(
       (await myCompanies()).map((c) => [String(c.id), c.companyName]),
     );
@@ -253,7 +248,6 @@ export const specialistApi = {
     file: File,
     meta: { companyId: string; project: string | null },
   ): Promise<ManagerDocument> {
-    if (!BASE) return mock.uploadDocument(file, meta);
     return uploadCompanyDocument(file, meta);
   },
 
@@ -272,7 +266,6 @@ export const specialistApi = {
    * two threads.
    */
   async thread(companyId?: string): Promise<ManagerThread> {
-    if (!BASE) return mock.thread();
     const [id] = await scopeIds(companyId);
     if (!id) return { id: null, contact: "", unread: 0 };
 
@@ -285,21 +278,18 @@ export const specialistApi = {
   },
 
   async messages(companyId?: string): Promise<ChatMessage[]> {
-    if (!BASE) return mock.messages();
     const id = await threadId(companyId);
     if (!id) return [];
     return managerApi.messages(id);
   },
 
   async sendMessage(body: string, companyId?: string): Promise<ChatMessage> {
-    if (!BASE) return mock.sendMessage(body);
     const id = await threadId(companyId);
     if (!id) throw new Error("No company to message about.");
     return managerApi.sendMessage(id, body);
   },
 
   async sendAttachment(file: File, companyId?: string): Promise<ChatMessage> {
-    if (!BASE) return mock.sendAttachment(file);
     const id = await threadId(companyId);
     if (!id) throw new Error("No company to message about.");
     return sendChatAttachment(id, file);
@@ -311,7 +301,6 @@ export const specialistApi = {
     message: string;
     companyId?: string;
   }): Promise<void> {
-    if (!BASE) return managerApi.sendEmail(input);
     const companyId = input.companyId ?? (await scopeIds())[0];
     await sendEmailAs({ ...input, companyId });
   },
@@ -330,177 +319,3 @@ async function threadId(companyId?: string): Promise<string | null> {
   if (!id) return null;
   return String((await openConversation(id)).id);
 }
-
-/* ---------------------------------------------------------------- mock ---- */
-
-const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
-
-/**
- * Who the mock is signed in as.
- *
- * The real backend reads this off the session; here it is a constant, chosen
- * to match a specialist who already carries work in the manager's fixtures.
- */
-const ME = "rosa.delgado@finopsys.ai";
-
-/** The specialist's half of the manager thread. `mine` is the specialist. */
-const THREAD: ChatMessage[] = [
-  {
-    id: "sm-1",
-    mine: false,
-    body: "How is the July run looking?",
-    sentAt: daysAgo(1, 14, 20),
-    attachments: [],
-  },
-  {
-    id: "sm-2",
-    mine: true,
-    body: "Payroll register is ready for your review.",
-    sentAt: daysAgo(0, 10, 5),
-    attachments: [],
-  },
-];
-
-/** N days back at a given clock time, so the mock thread keeps its shape. */
-function daysAgo(days: number, hour: number, minute: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  date.setHours(hour, minute, 0, 0);
-  return date.toISOString();
-}
-
-/** The signed-in specialist's record, or a throw — every page needs it. */
-async function me(): Promise<SpecialistDetail> {
-  const specialist = await managerApi.specialist(ME);
-  if (!specialist) throw new Error("Your specialist record is missing.");
-  return specialist;
-}
-
-/** Projects routed to them. Assignment is by name, as it is in 1.0. */
-async function myProjects(companyId?: string): Promise<ManagedProject[]> {
-  const [{ name }, projects] = await Promise.all([
-    me(),
-    managerApi.projects(companyId),
-  ]);
-  return projects.filter((p) => p.specialist === name);
-}
-
-const mock = {
-  profile: me,
-
-  manager: managerApi.profile,
-
-  async companies(): Promise<ClientCompany[]> {
-    const [projects, companies] = await Promise.all([
-      myProjects(),
-      managerApi.companies(),
-    ]);
-    const mine = new Set(projects.map((p) => p.companyId));
-    return companies.filter((c) => mine.has(c.id));
-  },
-
-  async company(id: string): Promise<ClientCompanyDetail | null> {
-    const companies = await mock.companies();
-    if (!companies.some((c) => c.id === id)) return null;
-    return managerApi.company(id);
-  },
-
-  projects: myProjects,
-
-  async project(id: string): Promise<ManagedProject | null> {
-    const projects = await myProjects();
-    return projects.find((p) => p.id === id) ?? null;
-  },
-
-  async tasks(projectId: string): Promise<ProjectTask[]> {
-    // Guarded rather than passed straight through: a project id is guessable,
-    // and this is the only thing standing between one and another's task list.
-    const project = await mock.project(projectId);
-    if (!project) return [];
-    return managerApi.tasks(projectId);
-  },
-
-  async allTasks(companyId?: string): Promise<SpecialistTask[]> {
-    const [tasks, projects] = await Promise.all([
-      managerApi.specialistTasks(ME),
-      myProjects(companyId),
-    ]);
-    if (!companyId) return tasks;
-
-    // specialistTasks spans every company; the switcher narrows it by which
-    // project each task sits on.
-    const scope = new Set(projects.map((p) => p.name));
-    return tasks.filter((t) => scope.has(t.project));
-  },
-
-  async documents(
-    companyId?: string,
-    project?: string,
-  ): Promise<ManagerDocument[]> {
-    const [documents, companies] = await Promise.all([
-      managerApi.documents(companyId, project),
-      mock.companies(),
-    ]);
-    const mine = new Set(companies.map((c) => c.id));
-    return documents.filter((d) => mine.has(d.companyId));
-  },
-
-  async uploadDocument(
-    file: File,
-    meta: { companyId: string; project: string | null },
-  ): Promise<ManagerDocument> {
-    // Checked here rather than trusted from the form: the company id comes off
-    // a URL param, and this is what stops a file landing on someone else's
-    // company. The server has to repeat it — a mock is not a boundary.
-    const companies = await mock.companies();
-    if (!companies.some((c) => c.id === meta.companyId)) {
-      throw new Error("You are not working for that company.");
-    }
-
-    const specialist = await me();
-    return managerApi.uploadDocument(file, {
-      ...meta,
-      owner: specialist.name,
-    });
-  },
-
-  async thread(): Promise<ManagerThread> {
-    const manager = await managerApi.profile();
-    return { id: null, contact: manager.name, unread: 0 };
-  },
-
-  async messages(): Promise<ChatMessage[]> {
-    await delay(150);
-    // A copy, not the fixture itself — see the note on the customer's version.
-    // The view appends each send to what it was handed, so returning the live
-    // array makes every message it sends appear twice.
-    return [...THREAD];
-  },
-
-  async sendMessage(body: string): Promise<ChatMessage> {
-    await delay(150);
-    const message: ChatMessage = {
-      id: `sm-${THREAD.length + 1}`,
-      mine: true,
-      body,
-      sentAt: new Date().toISOString(),
-      attachments: [],
-    };
-    THREAD.push(message);
-    return message;
-  },
-
-  async sendAttachment(file: File): Promise<ChatMessage> {
-    await delay(150);
-    const message: ChatMessage = {
-      id: `sm-${THREAD.length + 1}`,
-      mine: true,
-      body: "",
-      sentAt: new Date().toISOString(),
-      // Mock ids are negative so a real attachment id can never collide.
-      attachments: [{ id: -Date.now(), name: file.name, size: file.size }],
-    };
-    THREAD.push(message);
-    return message;
-  },
-};

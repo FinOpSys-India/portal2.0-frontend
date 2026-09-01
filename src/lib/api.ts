@@ -15,12 +15,9 @@
  *     OTP challenge. There is no verify step after signing up.
  *
  *   - ONE ENDPOINT SERVES VERIFY AND RESEND, selected by `action`.
- *
- * `BASE` unset still means "no backend configured, answer from the mock", so
- * every screen stays clickable without one.
  */
 
-import { BASE, clearAccessToken, get, post, put, storeAccessToken } from "@/lib/http";
+import { clearAccessToken, get, post, put, storeAccessToken } from "@/lib/http";
 import { PAYROLL } from "@/lib/plans";
 
 /** Top-level role codes as the backend spells them. */
@@ -175,9 +172,9 @@ export interface SelectedServices {
 }
 
 /**
- * Exported so the translation can be checked without a backend: with `BASE`
- * unset `createCheckout` answers from its mock, so the one part of it that can
- * silently produce a 400 would otherwise never run in a test.
+ * Exported so the translation can be checked without issuing a request: it is
+ * the one part of `createCheckout` that can silently produce a 400, and a test
+ * that had to reach the backend to see it would never run.
  */
 export function toSelectedServices(input: CheckoutInput): SelectedServices {
   const selected: SelectedServices = {};
@@ -210,7 +207,6 @@ export interface Checkout {
 export const api = {
   /** Step one: password check. Answers 202 with a challenge, not a session. */
   login(email: string, password: string): Promise<OtpChallenge> {
-    if (!BASE) return mock.login(email);
     return post("/auth/login", { email, password });
   },
 
@@ -219,7 +215,6 @@ export const api = {
    * this path, so the caller goes straight to the landing route.
    */
   async signup(input: SignupInput): Promise<Session> {
-    if (!BASE) return mock.session();
     const data = await post<{ tokens: { accessToken: string; expiresInSeconds: number } }>(
       "/auth/signup",
       input,
@@ -243,7 +238,6 @@ export const api = {
 
   /** Step two: verify the code and take the session it returns. */
   async verifyOtp(challengeId: string, otp: string): Promise<Session> {
-    if (!BASE) return mock.session();
     const data = await post<{
       user: User;
       accessToken: string;
@@ -255,7 +249,6 @@ export const api = {
 
   /** Same endpoint, other action. Subject to the server's own cooldown. */
   resendOtp(challengeId: string): Promise<{ resendAvailableInSeconds: number }> {
-    if (!BASE) return mock.resend();
     return post("/auth/otp", { action: "resend", challengeId });
   },
 
@@ -274,17 +267,14 @@ export const api = {
    * to do nothing is not.
    */
   async logout(): Promise<void> {
-    if (BASE) {
-      // CSRF header is attached by `request()` — this route is cookie
-      // authenticated, so the backend requires it.
-      await post("/auth/logout").catch(() => {});
-    }
+    // CSRF header is attached by `request()` — this route is cookie
+    // authenticated, so the backend requires it.
+    await post("/auth/logout").catch(() => {});
     clearAccessToken();
   },
 
   /** Opens a reset challenge. Always succeeds — a 404 here enumerates accounts. */
   requestPasswordReset(email: string): Promise<{ challengeId: string }> {
-    if (!BASE) return mock.challenge();
     return post("/auth/password-reset", { email });
   },
 
@@ -295,7 +285,6 @@ export const api = {
    * "resend"`), which nothing caught because no screen calls this yet.
    */
   verifyPasswordResetOtp(challengeId: string, otp: string): Promise<{ resetToken: string }> {
-    if (!BASE) return mock.resetToken();
     return post("/auth/password-reset/otp", {
       action: "verify",
       challengeId,
@@ -307,12 +296,10 @@ export const api = {
   resendPasswordResetOtp(
     challengeId: string,
   ): Promise<{ resendAvailableInSeconds: number }> {
-    if (!BASE) return mock.resend();
     return post("/auth/password-reset/otp", { action: "resend", challengeId });
   },
 
   confirmPasswordReset(resetToken: string, password: string): Promise<void> {
-    if (!BASE) return mock.ok();
     return post("/auth/password-reset/confirm", { resetToken, password });
   },
 
@@ -325,7 +312,6 @@ export const api = {
    * how the two drift apart.
    */
   async onboardingStatus(): Promise<OnboardingStatus> {
-    if (!BASE) return mock.onboardingStatus();
     const data = await get<{ onboarding: OnboardingStatus }>("/onboarding");
     return data.onboarding;
   },
@@ -337,19 +323,16 @@ export const api = {
    * never which one.
    */
   async ownedCompanies(): Promise<OwnedCompany[]> {
-    if (!BASE) return mock.ownedCompanies();
     const data = await get<{ companies: OwnedCompany[] }>("/companies/owned");
     return data.companies;
   },
 
   /** The caller's own profile, used to prefill the locked fields on step 1. */
   me(): Promise<User> {
-    if (!BASE) return mock.me();
     return get("/users/me");
   },
 
   saveUserInfo(input: UserInfoInput): Promise<void> {
-    if (!BASE) return mock.ok();
     return put("/onboarding/profile", input);
   },
 
@@ -359,7 +342,6 @@ export const api = {
    * second company.
    */
   createCompany(input: CompanyInput, idempotencyKey: string): Promise<CompanyCreated> {
-    if (!BASE) return mock.createCompany(input);
     // HEADER, not body. `validateCompanyOnboarding` calls `rejectUnknown` on
     // the body, so the key travelling inside it 400s the request that was
     // supposed to be safe to retry — the one call that most needs to succeed.
@@ -370,7 +352,6 @@ export const api = {
 
   /** Step 3. Prices are looked up server-side from the option ids, never sent. */
   async createCheckout(input: CheckoutInput): Promise<Checkout> {
-    if (!BASE) return mock.createCheckout();
 
     const data = await post<{ checkoutUrl: string; checkoutSessionId: string }>(
       "/billing/checkout",
@@ -385,7 +366,6 @@ export const api = {
 
   /** Where Stripe returns to. Normalized to paid/processing/pending/cancelled/failed. */
   checkoutStatus(sessionId: string): Promise<{ status: string }> {
-    if (!BASE) return mock.checkoutStatus();
     return get(`/billing/checkout-status?sessionId=${encodeURIComponent(sessionId)}`);
   },
 };
@@ -419,104 +399,4 @@ export async function landingPathFor(session: Session): Promise<string> {
   return company
     ? `/on_boarding_form_part_2?email=${email}&compID=${company.id}`
     : `/on_boarding_form_part_1?email=${email}`;
-}
-
-/* ---------------------------------------------------------------- mock ---- */
-
-const delay = (ms = 500) => new Promise((r) => setTimeout(r, ms));
-
-const MOCK_USER: User = {
-  id: 1,
-  firstName: "Test",
-  lastName: "Customer",
-  email: "test@finopsys.ai",
-  role: "CUSTOMER",
-  specificRole: "OWNER",
-};
-
-const mock = {
-  async ok(): Promise<void> {
-    await delay();
-  },
-
-  async login(email: string): Promise<OtpChallenge> {
-    await delay();
-    return {
-      // A real challengeId is a UUID; the shape matters more than the value.
-      challengeId: "00000000-0000-4000-8000-000000000000",
-      maskedEmail: maskEmail(email),
-      expiresInSeconds: 300,
-      resendAvailableInSeconds: 30,
-    };
-  },
-
-  async session(): Promise<Session> {
-    await delay();
-    return { user: MOCK_USER, role: MOCK_USER.role };
-  },
-
-  async resend(): Promise<{ resendAvailableInSeconds: number }> {
-    await delay(300);
-    return { resendAvailableInSeconds: 30 };
-  },
-
-  async challenge(): Promise<{ challengeId: string }> {
-    await delay();
-    return { challengeId: "00000000-0000-4000-8000-000000000000" };
-  },
-
-  async resetToken(): Promise<{ resetToken: string }> {
-    await delay();
-    return { resetToken: "mock-reset-token" };
-  },
-
-  async onboardingStatus(): Promise<OnboardingStatus> {
-    await delay(200);
-    // A finished account, so the no-backend build lands on the portal rather
-    // than trapping every click in a wizard whose steps cannot save anything.
-    return {
-      isOwner: true,
-      profileComplete: true,
-      companyCreated: true,
-      paymentComplete: true,
-      complete: true,
-    };
-  },
-
-  async ownedCompanies(): Promise<OwnedCompany[]> {
-    await delay(200);
-    return [{ id: 1, companyName: "Northwind Trading", status: "ACTIVE" }];
-  },
-
-  async me(): Promise<User> {
-    await delay(200);
-    return MOCK_USER;
-  },
-
-  async createCompany(input: CompanyInput): Promise<CompanyCreated> {
-    await delay();
-    return {
-      company: { id: 1, companyName: input.companyName },
-      primaryAddress: input.address,
-    };
-  },
-
-  async createCheckout(): Promise<Checkout> {
-    await delay();
-    // Nowhere real to send anyone without a backend; land on the app instead
-    // of a dead Stripe URL.
-    return { checkoutUrl: "/comany_select", sessionId: "mock-session" };
-  },
-
-  async checkoutStatus(): Promise<{ status: string }> {
-    await delay();
-    return { status: "paid" };
-  },
-};
-
-/** Mock-only. The real masked address is produced by the server. */
-function maskEmail(email: string): string {
-  const [name = "", domain = ""] = email.split("@");
-  if (!domain) return email;
-  return `${name.slice(0, 1)}***${name.slice(-1)}@${domain}`;
 }
