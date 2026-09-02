@@ -4,7 +4,12 @@ import { ChipsCell, DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { RoleBadge } from "@/components/admin/role-badge";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { companyScope, managerApi, type ManagerCustomer } from "@/lib/manager";
+import {
+  companyScope,
+  managerApi,
+  type ManagerCustomer,
+  scopeName,
+} from "@/lib/manager";
 
 export const metadata: Metadata = { title: "Customers" };
 
@@ -24,7 +29,7 @@ export default async function ManagerCustomersPage({
 
   return (
     <>
-      <PageHeader title="Customers" />
+      <PageHeader title="Customers" scope={await scopeName(company)} />
 
       <DataTable<ManagerCustomer>
         page={1}

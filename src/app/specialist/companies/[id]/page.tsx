@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
-import { AvatarStack, InitialsAvatar } from "@/components/admin/initials-avatar";
+import {
+  AvatarStack,
+  InitialsAvatar,
+} from "@/components/admin/initials-avatar";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { specialistApi } from "@/lib/specialist";
 

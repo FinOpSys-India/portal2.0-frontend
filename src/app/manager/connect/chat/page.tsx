@@ -28,9 +28,7 @@ export default async function ManagerChatPage({
    * is the same reason `companyId` is required everywhere else in chat.
    */
   const companyId = await companyScope(company);
-  const contacts = companyId
-    ? await chatApi.contacts(companyId, forParty)
-    : [];
+  const contacts = companyId ? await chatApi.contacts(companyId, forParty) : [];
 
   return (
     <ChatInbox

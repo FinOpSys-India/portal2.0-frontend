@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
+import { toast } from "@/components/ui/toast";
 import { customerApi } from "@/lib/customer";
 import { newProjectSchema, type NewProjectValues } from "@/lib/schemas";
 
@@ -44,6 +45,7 @@ export function NewProject({
       await customerApi.createProject(workspaceId, values);
       setOpen(false);
       form.reset();
+      toast.success(`Project “${values.name}” created.`);
       router.refresh();
     } catch (err) {
       setFailure(

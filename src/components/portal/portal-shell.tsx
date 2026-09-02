@@ -210,10 +210,26 @@ function BackLink({
 /** Page title with an optional action on the right. */
 export function PageHeader({
   title,
+  scope,
   description,
   action,
 }: {
   title: string;
+  /**
+   * The company this page is narrowed to, named beside the title.
+   *
+   * The manager and specialist portals read ONE company at a time — there is no
+   * all-companies view — so a bare "Projects" or "All Projects" over a filtered
+   * table claims a breadth the screen does not have. The switcher in the top bar
+   * says which company is active, but it is a pill in the far corner of the
+   * chrome, and nothing in the reader's line of sight tied it to the rows.
+   *
+   * Inside the h1 rather than as a `description`: it is part of what the page
+   * IS, and a screen reader announcing "Projects, Acme Ltd" is the whole point.
+   * Muted, because the heading is still "Projects" — the company is which one,
+   * not what.
+   */
+  scope?: string;
   description?: string;
   action?: React.ReactNode;
 }) {
@@ -222,7 +238,15 @@ export function PageHeader({
     // line, so the action should sit level with it.
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {title}
+          {scope ? (
+            <span className="font-medium text-muted-foreground">
+              {" · "}
+              {scope}
+            </span>
+          ) : null}
+        </h1>
         {description ? (
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         ) : null}

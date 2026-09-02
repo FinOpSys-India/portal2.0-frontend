@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
+import { toast } from "@/components/ui/toast";
 import type { InviteInput, InviteResult } from "@/lib/admin";
 
 const baseSchema = z.object({
@@ -90,6 +91,7 @@ export function InviteDialog({
 
       setOpen(false);
       form.reset();
+      toast.success(`Invitation sent to ${values.email}.`);
       // The new row lives on the server; re-fetch rather than guess at it.
       router.refresh();
     } catch (err) {

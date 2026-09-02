@@ -87,6 +87,22 @@ export async function companyScope(
   return companyId ?? (await specialistApi.companies())[0]?.id;
 }
 
+/**
+ * The scoped company's NAME, for a header that must not claim more than it
+ * shows.
+ *
+ * Pages already resolve the id through `companyScope`; this turns it into the
+ * word the reader recognises. `specialistApi.companies()` is request-cached, so the
+ * lookup costs nothing beyond the call the page was making anyway.
+ */
+export async function scopeName(
+  companyId?: string,
+): Promise<string | undefined> {
+  if (!companyId) return undefined;
+  return (await specialistApi.companies()).find((c) => c.id === companyId)
+    ?.name;
+}
+
 export const specialistApi = {
   /** The signed-in specialist. The session decides who that is, not the caller. */
   async profile(): Promise<SpecialistDetail> {
@@ -113,7 +129,9 @@ export const specialistApi = {
       speciality: SPECIALITY[me.specificRole ?? ""] ?? "",
       activeProjects: projects.length,
       phone: me.phone ?? "",
-      address: [a.addressLine1, a.city, a.state, a.zip].filter(Boolean).join(", "),
+      address: [a.addressLine1, a.city, a.state, a.zip]
+        .filter(Boolean)
+        .join(", "),
     };
   },
 

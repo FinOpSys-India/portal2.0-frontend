@@ -6,11 +6,7 @@ import {
   ScopeBreadcrumb,
 } from "@/components/portal/file-list";
 import { ProjectFilter } from "@/components/portal/project-filter";
-import {
-  companyScope,
-  managerApi,
-  type ManagerDocument,
-} from "@/lib/manager";
+import { companyScope, managerApi, type ManagerDocument } from "@/lib/manager";
 import { ManagerUploadFile } from "./upload-file";
 
 export const metadata: Metadata = { title: "Files" };
@@ -71,13 +67,10 @@ export default async function ManagerDocumentsPage({
           </>
         }
         empty={
-          project
-            ? "No documents on this project yet."
-            : "No documents yet."
+          project ? "No documents on this project yet." : "No documents yet."
         }
         columns={DOCUMENT_COLUMNS}
       />
     </>
   );
 }
-

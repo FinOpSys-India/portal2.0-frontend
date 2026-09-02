@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
+import { toast } from "@/components/ui/toast";
 import { customerApi } from "@/lib/customer";
 import {
   inviteTeammateSchema,
@@ -41,6 +42,7 @@ export function InviteTeammate({ workspaceId }: { workspaceId: string }) {
       await customerApi.inviteTeammate(workspaceId, values);
       setOpen(false);
       form.reset();
+      toast.success(`Invitation sent to ${values.email}.`);
       router.refresh();
     } catch (err) {
       setFailure(

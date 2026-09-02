@@ -4,7 +4,12 @@ import { DataTable, ListCell } from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { AssignCompanySpecialist } from "@/components/manager/assign-company-specialist";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { companyScope, managerApi, type ClientCompany } from "@/lib/manager";
+import {
+  type ClientCompany,
+  companyScope,
+  managerApi,
+  scopeName,
+} from "@/lib/manager";
 
 export const metadata: Metadata = { title: "Companies" };
 
@@ -32,7 +37,7 @@ export default async function ManagerCompaniesPage({
 
   return (
     <>
-      <PageHeader title="Companies" />
+      <PageHeader title="Companies" scope={await scopeName(company)} />
 
       <DataTable<ClientCompany>
         page={1}

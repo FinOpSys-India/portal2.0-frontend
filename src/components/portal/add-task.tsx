@@ -22,6 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
+import { toast } from "@/components/ui/toast";
 import { managerApi } from "@/lib/manager";
 import { newTaskSchema, type NewTaskValues } from "@/lib/schemas";
 import { specialistApi } from "@/lib/specialist";
@@ -79,6 +80,7 @@ export function AddTask({
       await ADD[from](projectId, task);
       setOpen(false);
       form.reset();
+      toast.success(`Task “${task.name}” added.`);
       // The new row lives on the server; re-fetch rather than guess at it.
       router.refresh();
     } catch (err) {

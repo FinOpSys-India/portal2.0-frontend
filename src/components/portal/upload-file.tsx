@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import {
   ACCEPTED_UPLOAD_EXTENSIONS as ACCEPT,
@@ -108,6 +109,7 @@ export function UploadFile({
       await upload(file, { companyId, project: project || null });
       setOpen(false);
       reset();
+      toast.success(`${file.name} uploaded.`);
       // The new row lives on the server; re-fetch rather than guess at it.
       router.refresh();
     } catch (err) {

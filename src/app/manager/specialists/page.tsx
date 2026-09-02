@@ -3,7 +3,12 @@ import type { Metadata } from "next";
 import { DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { companyScope, managerApi, type Specialist } from "@/lib/manager";
+import {
+  companyScope,
+  managerApi,
+  scopeName,
+  type Specialist,
+} from "@/lib/manager";
 
 export const metadata: Metadata = { title: "Specialists" };
 
@@ -26,7 +31,7 @@ export default async function ManagerSpecialistsPage({
 
   return (
     <>
-      <PageHeader title="Specialists" />
+      <PageHeader title="Specialists" scope={await scopeName(company)} />
 
       <DataTable<Specialist>
         page={1}

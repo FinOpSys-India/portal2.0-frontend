@@ -370,7 +370,9 @@ export function acceptAttachments<T extends { name: string; size: number }>(
     if (files.some((f) => f.name === file.name && f.size === file.size)) {
       continue;
     }
-    if (!ACCEPTED_UPLOAD_EXTENSIONS.includes(fileKind(file.name).toLowerCase())) {
+    if (
+      !ACCEPTED_UPLOAD_EXTENSIONS.includes(fileKind(file.name).toLowerCase())
+    ) {
       refused.push(`${file.name} is not a supported file type.`);
       continue;
     }
@@ -412,9 +414,7 @@ export function fileKind(name: string): string {
  * going back must land on the list the reader left, still narrowed.
  */
 export function scoped(path: string, companyId?: string): string {
-  return companyId
-    ? `${path}?company=${encodeURIComponent(companyId)}`
-    : path;
+  return companyId ? `${path}?company=${encodeURIComponent(companyId)}` : path;
 }
 
 /**
@@ -431,6 +431,21 @@ export async function companyScope(
   companyId?: string,
 ): Promise<string | undefined> {
   return companyId ?? (await managerApi.companies())[0]?.id;
+}
+
+/**
+ * The scoped company's NAME, for a header that must not claim more than it
+ * shows.
+ *
+ * Pages already resolve the id through `companyScope`; this turns it into the
+ * word the reader recognises. `managerApi.companies()` is request-cached, so the
+ * lookup costs nothing beyond the call the page was making anyway.
+ */
+export async function scopeName(
+  companyId?: string,
+): Promise<string | undefined> {
+  if (!companyId) return undefined;
+  return (await managerApi.companies()).find((c) => c.id === companyId)?.name;
 }
 
 /* ---------------------------------------------------------------- live ---- */
@@ -780,7 +795,8 @@ export const managerApi = {
     // list says how much they are carrying.
     const load = new Map<string, number>();
     for (const p of projects) {
-      if (p.specialist) load.set(p.specialist, (load.get(p.specialist) ?? 0) + 1);
+      if (p.specialist)
+        load.set(p.specialist, (load.get(p.specialist) ?? 0) + 1);
     }
 
     return rows.map((row) => ({
@@ -858,7 +874,6 @@ export const managerApi = {
     });
   },
 
-
   /** `PATCH`, and the status is the backend's own code, not the label. */
   async setTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
     await patch(`/tasks/${encodeURIComponent(taskId)}/status`, {
@@ -924,12 +939,13 @@ export const managerApi = {
     companyId: string,
     byService: Record<string, number>,
   ): Promise<void> {
-
     await put(`/companies/${encodeURIComponent(companyId)}/specialists`, {
-      assignments: Object.entries(byService).map(([code, specialistUserId]) => ({
-        specializationCode: code,
-        specialistUserId,
-      })),
+      assignments: Object.entries(byService).map(
+        ([code, specialistUserId]) => ({
+          specializationCode: code,
+          specialistUserId,
+        }),
+      ),
     });
     await post("/projects/sync-specialists", { companyId: Number(companyId) });
   },
@@ -941,7 +957,9 @@ export const managerApi = {
    * and nothing lists what was sent — so an email filter returns nothing rather
    * than inventing rows.
    */
-  async conversations(filter: ConversationFilter = {}): Promise<Conversation[]> {
+  async conversations(
+    filter: ConversationFilter = {},
+  ): Promise<Conversation[]> {
     if (filter.channel === "email") return [];
 
     const [names, rows] = await Promise.all([
@@ -949,25 +967,27 @@ export const managerApi = {
       fetchConversations(filter.companyId),
     ]);
 
-    return rows
-      .map((c) => ({
-        id: String(c.id),
-        companyId: String(c.companyId),
-        company: c.companyName ?? names.get(String(c.companyId)) ?? "",
-        contact: personName(c.counterpart),
-        channel: "chat" as Channel,
-        // The backend's own word for which side of the account the other person
-        // sits on. CUSTOMER covers owner and teammate alike.
-        party: (c.participantKind === "SPECIALIST"
-          ? "specialist"
-          : "customer") as Party,
-        lastMessage: c.lastMessage?.body ?? "",
-        lastMessageAt: c.lastMessageAt ?? "",
-        unread: c.unreadCount ?? 0,
-      }))
-      .filter((c) => !filter.party || c.party === filter.party)
-      // Unread first — the threads owing a reply.
-      .sort((a, b) => b.unread - a.unread);
+    return (
+      rows
+        .map((c) => ({
+          id: String(c.id),
+          companyId: String(c.companyId),
+          company: c.companyName ?? names.get(String(c.companyId)) ?? "",
+          contact: personName(c.counterpart),
+          channel: "chat" as Channel,
+          // The backend's own word for which side of the account the other person
+          // sits on. CUSTOMER covers owner and teammate alike.
+          party: (c.participantKind === "SPECIALIST"
+            ? "specialist"
+            : "customer") as Party,
+          lastMessage: c.lastMessage?.body ?? "",
+          lastMessageAt: c.lastMessageAt ?? "",
+          unread: c.unreadCount ?? 0,
+        }))
+        .filter((c) => !filter.party || c.party === filter.party)
+        // Unread first — the threads owing a reply.
+        .sort((a, b) => b.unread - a.unread)
+    );
   },
 
   /**
@@ -994,7 +1014,10 @@ export const managerApi = {
    * company, including people with no thread yet, and this is what those rows
    * call when clicked.
    */
-  async openThread(companyId: string, participantUserId: number): Promise<string> {
+  async openThread(
+    companyId: string,
+    participantUserId: number,
+  ): Promise<string> {
     return String((await openConversation(companyId, participantUserId)).id);
   },
 
@@ -1008,7 +1031,10 @@ export const managerApi = {
     return data.messages.map(toChatMessage).reverse();
   },
 
-  async sendMessage(conversationId: string, body: string): Promise<ChatMessage> {
+  async sendMessage(
+    conversationId: string,
+    body: string,
+  ): Promise<ChatMessage> {
     // `data` is the stored message itself, same as `openConversation` above.
     const message = await post<BackendMessage>(
       `/chat/conversations/${encodeURIComponent(conversationId)}/messages`,
@@ -1312,7 +1338,10 @@ export async function uploadCompanyDocument(
   );
 
   return toManagerDocument(
-    { ...result.documents[0], project: { id: target.id, projectName: target.projectName } },
+    {
+      ...result.documents[0],
+      project: { id: target.id, projectName: target.projectName },
+    },
     { companyId: meta.companyId, companyName: target.companyName ?? "" },
   );
 }
@@ -1407,7 +1436,7 @@ export function sortByUnreadThenRecent(
   conversations: Conversation[],
 ): Conversation[] {
   return [...conversations].sort((a, b) => {
-    if ((a.unread > 0) !== (b.unread > 0)) return a.unread > 0 ? -1 : 1;
+    if (a.unread > 0 !== b.unread > 0) return a.unread > 0 ? -1 : 1;
     return (
       parseDeadline(b.lastMessageAt).getTime() -
       parseDeadline(a.lastMessageAt).getTime()

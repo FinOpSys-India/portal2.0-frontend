@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AddTask } from "@/components/portal/add-task";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { TaskTable } from "@/components/portal/task-table";
-import { companyScope, specialistApi } from "@/lib/specialist";
+import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
 
 export const metadata: Metadata = { title: "Tasks" };
 
@@ -36,7 +36,9 @@ export default async function SpecialistTasksPage({
   return (
     <>
       <PageHeader
-        title="All Tasks"
+        // Not "All Tasks" — one company's, like every list in this portal.
+        title="Tasks"
+        scope={await scopeName(company)}
         action={
           <AddTask
             from="specialist"

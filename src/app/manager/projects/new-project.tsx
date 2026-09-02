@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
+import { toast } from "@/components/ui/toast";
 import { managerApi } from "@/lib/manager";
 import { managerProjectSchema, type ManagerProjectValues } from "@/lib/schemas";
 
@@ -99,6 +100,7 @@ export function NewProject({
       await managerApi.createProject(values.companyId, values);
       setOpen(false);
       reset();
+      toast.success(`Project “${values.name}” created.`);
       router.refresh();
     } catch (err) {
       setFailure(

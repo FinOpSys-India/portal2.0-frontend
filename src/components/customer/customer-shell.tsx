@@ -15,10 +15,18 @@ import { PortalShell, type NavItem } from "@/components/portal/portal-shell";
 import { WorkspacePill } from "@/components/portal/workspace-pill";
 import type { Workspace } from "@/lib/customer";
 
+/**
+ * Labels are the destinations' own headings, as in the staff portals.
+ *
+ * "Company" stays singular against the plural rule because the destination is
+ * singular: a customer has exactly one company here, and the page is titled
+ * "Company". The rule is that a label names where it goes — pluralising this
+ * one would promise a list that does not exist.
+ */
 const SEGMENTS = [
   { segment: "projects", label: "Projects", icon: FolderKanban },
   { segment: "connect", label: "Connect", icon: MessageSquare },
-  { segment: "files", label: "Files", icon: Paperclip },
+  { segment: "files", label: "All Documents", icon: Paperclip },
   { segment: "company", label: "Company", icon: Building2 },
   { segment: "team", label: "Team", icon: Users },
   { segment: "profile", label: "Profile", icon: UserRound },

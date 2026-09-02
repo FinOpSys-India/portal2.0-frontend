@@ -92,7 +92,7 @@ export default async function PaymentSuccessPage({
         <AuthHeading title={outcome.title}>{outcome.body}</AuthHeading>
 
         <Link
-          href={settled ? "/comany_select" : "/on_boarding_form_part_2"}
+          href={settled ? "/company_select" : "/on_boarding_form_part_2"}
           className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
         >
           {settled ? "Go to your workspace" : "Back to plans"}
@@ -106,7 +106,7 @@ export default async function PaymentSuccessPage({
             <p className="text-center text-xs text-muted-foreground">
               Taking you to your workspace&hellip;
             </p>
-            <RedirectAfter to="/comany_select" />
+            <RedirectAfter to="/company_select" />
           </>
         ) : null}
       </AuthCard>

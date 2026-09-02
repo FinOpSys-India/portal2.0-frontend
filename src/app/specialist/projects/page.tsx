@@ -4,8 +4,8 @@ import { DataTable } from "@/components/admin/data-table";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ProgressBar } from "@/components/portal/progress-bar";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { scoped, type ManagedProject } from "@/lib/manager";
-import { companyScope, specialistApi } from "@/lib/specialist";
+import { type ManagedProject, scoped } from "@/lib/manager";
+import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -27,7 +27,7 @@ export default async function SpecialistProjectsPage({
 
   return (
     <>
-      <PageHeader title="Projects" />
+      <PageHeader title="Projects" scope={await scopeName(company)} />
 
       <DataTable<ManagedProject>
         page={1}
@@ -54,9 +54,7 @@ export default async function SpecialistProjectsPage({
           },
           {
             header: "Deadline",
-            cell: (row) => (
-              <span className="tabular-nums">{row.deadline}</span>
-            ),
+            cell: (row) => <span className="tabular-nums">{row.deadline}</span>,
           },
           {
             header: "Project Progress",

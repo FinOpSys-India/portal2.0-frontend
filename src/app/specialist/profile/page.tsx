@@ -20,7 +20,10 @@ export default async function SpecialistProfilePage() {
 
   return (
     <>
-      <PageHeader title="User Information" />
+      {/* "User Info", as the tab title, the sidebar and the manager's copy of
+          this page all call it. The page used to be the one thing on screen
+          calling it something else. */}
+      <PageHeader title="User Info" />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid gap-6">

@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "@/components/ui/toast";
 import { managerApi, type TaskStatus } from "@/lib/manager";
 import { specialistApi } from "@/lib/specialist";
 
@@ -49,6 +50,13 @@ export function TaskStatusMenu({
     try {
       await SET[from](taskId, next);
       router.refresh();
+    } catch (err) {
+      // A badge is not a form — there is nowhere in this menu to put a
+      // message, so a failed move used to leave the old status on screen and
+      // say nothing, which reads as a click that did not register.
+      toast.error(
+        err instanceof Error ? err.message : "Could not move that task.",
+      );
     } finally {
       setPending(false);
     }

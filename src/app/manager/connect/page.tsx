@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import { Mail, MessageSquare } from "lucide-react";
 
 import { ConnectCard } from "@/components/portal/connect-card";
-import { companyScope, managerApi, totalUnread, type Party } from "@/lib/manager";
+import {
+  companyScope,
+  managerApi,
+  totalUnread,
+  type Party,
+} from "@/lib/manager";
 
 export const metadata: Metadata = { title: "Connect" };
 
@@ -63,6 +68,13 @@ export default async function ManagerConnectPage({
 
   return (
     <div className="grid gap-6">
+      {/* The hub draws two equal sections and no title above them, so its
+          heading outline started at h2. sr-only rather than a visible title:
+          the design has no room for one, and the customer and specialist hubs
+          — which have a single section — already carry the h1 in that
+          section's own heading. */}
+      <h1 className="sr-only">Connect</h1>
+
       {SECTIONS.map((section) => (
         <section
           key={section.party}

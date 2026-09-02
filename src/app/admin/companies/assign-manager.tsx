@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "@/components/ui/toast";
 import { adminApi, type ManagerOption } from "@/lib/admin";
 
 /**
@@ -50,13 +51,18 @@ export function AssignManager({
   const [pending, setPending] = React.useState<"save" | "remove" | null>(null);
   const [failure, setFailure] = React.useState<string | null>(null);
 
-  async function run(action: "save" | "remove", write: () => Promise<void>) {
+  async function run(
+    action: "save" | "remove",
+    write: () => Promise<void>,
+    done: string,
+  ) {
     setFailure(null);
     setPending(action);
     try {
       await write();
       setOpen(false);
       setManager("");
+      toast.success(done);
       router.refresh();
     } catch (err) {
       setFailure(err instanceof Error ? err.message : "Could not save.");
@@ -70,7 +76,11 @@ export function AssignManager({
       setFailure("Pick a manager first.");
       return;
     }
-    run("save", () => adminApi.assignManager(companyId, Number(manager)));
+    run(
+      "save",
+      () => adminApi.assignManager(companyId, Number(manager)),
+      `${managers.find((m) => String(m.userId) === manager)?.name ?? "Accounting manager"} now manages this company.`,
+    );
   }
 
   return (
@@ -159,7 +169,11 @@ export function AssignManager({
                 variant="outline"
                 disabled={pending !== null}
                 onClick={() =>
-                  run("remove", () => adminApi.removeManager(companyId))
+                  run(
+                    "remove",
+                    () => adminApi.removeManager(companyId),
+                    "This company has no accounting manager now.",
+                  )
                 }
                 className="w-full text-destructive hover:text-destructive"
               >

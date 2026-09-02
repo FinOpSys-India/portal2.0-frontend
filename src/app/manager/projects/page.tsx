@@ -4,7 +4,12 @@ import { DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { ProgressBar } from "@/components/portal/progress-bar";
-import { companyScope, managerApi, type ManagedProject } from "@/lib/manager";
+import {
+  companyScope,
+  type ManagedProject,
+  managerApi,
+  scopeName,
+} from "@/lib/manager";
 
 import { NewProject } from "./new-project";
 
@@ -27,7 +32,10 @@ export default async function ManagerProjectsPage({
           portal simply had no control that called it, so every job had to be
           opened from the client's side of the account. */}
       <PageHeader
-        title="All Projects"
+        // Not "All Projects". The portal reads one company at a time, so the
+        // table below has never been all of anything — it is this company's.
+        title="Projects"
+        scope={await scopeName(company)}
         action={
           <NewProject
             companies={companies.map(({ id, name }) => ({ id, name }))}
