@@ -212,8 +212,9 @@ export const config = {
      * be an infinite redirect, since it is by definition reached with no access
      * cookie. Narrowing this alternative to an exact `login` breaks the hop.
      *
-     * `.+` and not `.*` leaves `/` itself out: the portal picker is the page a
-     * signed-out visitor is supposed to land on.
+     * `.+` and not `.*` leaves `/` itself out: that route is a redirect to
+     * /login, which is public, so guarding it would only be a redirect to a
+     * redirect.
      */
     "/((?!api|_next|login|signup|otp_page_|forgot_password|accept-invitation|.*\\.).+)",
   ],

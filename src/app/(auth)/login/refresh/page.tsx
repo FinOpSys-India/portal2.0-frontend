@@ -52,7 +52,11 @@ export default function RefreshSessionPage() {
 
   return (
     <main className="flex min-h-svh items-center justify-center">
-      <p className="text-sm text-muted-foreground">Signing you back in…</p>
+      {/* h1, not p: it is the only thing on the screen, and a page whose
+          heading outline is empty announces as untitled. */}
+      <h1 className="text-sm font-normal text-muted-foreground">
+        Signing you back in…
+      </h1>
     </main>
   );
 }
