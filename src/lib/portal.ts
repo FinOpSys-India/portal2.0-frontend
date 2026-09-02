@@ -275,6 +275,12 @@ export function teamNames(company: BackendCompany): string[] {
     .map(personName);
 }
 
+/** Just the staffed specialists — the Action cell names them once they exist. */
+export function specialistNames(company: BackendCompany): string[] {
+  const team = company.teamMembers ?? company.members;
+  return (team?.specialists ?? []).map(personName);
+}
+
 export function toClientCompany(c: BackendCompany): ClientCompany {
   return {
     id: String(c.id),
@@ -283,6 +289,7 @@ export function toClientCompany(c: BackendCompany): ClientCompany {
     activeServices: (c.activeServices ?? []).map((s) => s.specializationName),
     billingDate: billingDate(c),
     teamMembers: teamNames(c),
+    specialists: specialistNames(c),
   };
 }
 

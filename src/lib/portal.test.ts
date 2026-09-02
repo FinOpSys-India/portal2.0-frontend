@@ -202,6 +202,9 @@ const account = toClientCompany(company);
 assert.equal(account.id, "18");
 assert.deepEqual(account.activeServices, ["Bookkeeping", "Payroll"]);
 assert.deepEqual(account.teamMembers, ["Priya Nair", "Alex Morgan", "Nadia Haddad"]);
+// Specialists alone — the Action cell names who is staffed, and the owner and
+// the manager are not that.
+assert.deepEqual(account.specialists, ["Nadia Haddad"]);
 
 // No subscription is a REAL state — onboarded but never checked out. The cell
 // reads blank; it must not invent a date.

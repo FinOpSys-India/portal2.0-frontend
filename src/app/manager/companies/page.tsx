@@ -76,6 +76,7 @@ export default async function ManagerCompaniesPage({
               <AssignCompanySpecialist
                 companyId={row.id}
                 companyName={row.name}
+                assigned={row.specialists}
               />
             ),
           },

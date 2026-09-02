@@ -53,6 +53,9 @@ export interface ClientCompany {
   /** M/DD/YY. Absent until a subscription starts — 1.0 renders the cell blank. */
   billingDate: string | null;
   teamMembers: string[];
+  /** Staffed specialists, if any. The company list already carries them, so the
+   * Action cell can name who holds the lines without a second round trip. */
+  specialists: string[];
 }
 
 /** Everything the Company Information screen shows. */

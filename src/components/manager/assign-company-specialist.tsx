@@ -38,9 +38,14 @@ import { managerApi, type StaffingLine } from "@/lib/manager";
 export function AssignCompanySpecialist({
   companyId,
   companyName,
+  assigned,
 }: {
   companyId: string;
   companyName: string;
+  /** Who holds the company's lines today. Named in place of the button — a
+   * staffed company should say WHO, not offer the verb again — while staying
+   * the dialog's trigger, so restaffing is still one click. */
+  assigned: string[];
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -116,8 +121,12 @@ export function AssignCompanySpecialist({
     >
       <DialogTrigger asChild>
         {/* relative z-10 keeps the trigger above the row's own click target. */}
-        <Button variant="outline" size="sm" className="relative z-10">
-          Assign Specialist
+        <Button
+          variant={assigned.length > 0 ? "ghost" : "outline"}
+          size="sm"
+          className="relative z-10"
+        >
+          {assigned.length > 0 ? assigned.join(", ") : "Assign Specialist"}
         </Button>
       </DialogTrigger>
 
