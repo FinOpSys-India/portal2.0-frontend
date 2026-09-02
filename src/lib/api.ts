@@ -106,9 +106,17 @@ export interface OnboardingStatus {
   complete: boolean;
 }
 
-/** One company the caller owns. `GET /companies/owned` is unpaginated. */
+/**
+ * One company the caller owns. `GET /companies/owned` is unpaginated.
+ *
+ * `companyId`, NOT `id`: that is what `companyDto.toOwnedCompanyOption` names
+ * the column. Read as `id` it was `undefined`, so the plan step posted an empty
+ * `companyId` to `POST /billing/checkout` and the order summary showed the
+ * validator's "companyId must be a positive integer" — on the one screen a new
+ * owner has to get through to pay.
+ */
 export interface OwnedCompany {
-  id: number;
+  companyId: number;
   companyName: string;
   status: string;
 }
@@ -397,6 +405,6 @@ export async function landingPathFor(session: Session): Promise<string> {
   // the status payload does not name one, so it is looked up here.
   const [company] = await api.ownedCompanies();
   return company
-    ? `/on_boarding_form_part_2?email=${email}&compID=${company.id}`
+    ? `/on_boarding_form_part_2?email=${email}&compID=${company.companyId}`
     : `/on_boarding_form_part_1?email=${email}`;
 }
