@@ -12,8 +12,8 @@ import { BOOKKEEPING_TIERS, TAX_TIERS } from "./plans";
 
 // Every role lands somewhere distinct, and the routes are the 1.0 ones.
 assert.equal(landingPathForRole("ADMIN"), "/list_of_customers");
-assert.equal(landingPathForRole("CUSTOMER"), "/comany_select");
-// NOT /comany_select. That picker lists the companies the caller OWNS, and a
+assert.equal(landingPathForRole("CUSTOMER"), "/company_select");
+// NOT /company_select. That picker lists the companies the caller OWNS, and a
 // manager owns none — it landed them on an empty chooser with no way out.
 assert.equal(landingPathForRole("ACCOUNTING_MANAGER"), "/manager");
 assert.equal(landingPathForRole("SPECIALIST"), "/project");

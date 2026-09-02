@@ -56,7 +56,7 @@ async function main() {
   // The regression this exists for: a signed-in non-manager used to render the
   // manager layout, take a 403 from /accounting-manager/companies, and get
   // "Something went wrong" on every route under /manager.
-  assert.equal(visit("/manager/projects", tokenFor("CUSTOMER")), at("/comany_select"));
+  assert.equal(visit("/manager/projects", tokenFor("CUSTOMER")), at("/company_select"));
   assert.equal(visit("/manager", tokenFor("ADMIN")), at("/list_of_customers"));
   assert.equal(visit("/admin/customers", tokenFor("SPECIALIST")), at("/project"));
 

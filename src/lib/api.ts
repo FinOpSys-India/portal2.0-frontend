@@ -26,8 +26,8 @@ export type Role = "ADMIN" | "ACCOUNTING_MANAGER" | "SPECIALIST" | "CUSTOMER";
 /** Where each role lands after a verified OTP. Routes match Portal 1.0. */
 const LANDING: Record<Role, string> = {
   ADMIN: "/list_of_customers",
-  CUSTOMER: "/comany_select",
-  // NOT /comany_select — that picker lists GET /companies/owned, and a manager
+  CUSTOMER: "/company_select",
+  // NOT /company_select — that picker lists GET /companies/owned, and a manager
   // owns nothing. Their companies are the ones they are ASSIGNED to
   // (/accounting-manager/companies), which is what the /manager portal loads.
   // Sent to the customer picker, an AM lands on an empty chooser with no way
@@ -37,7 +37,7 @@ const LANDING: Record<Role, string> = {
 };
 
 export function landingPathForRole(role: Role): string {
-  return LANDING[role] ?? "/comany_select";
+  return LANDING[role] ?? "/company_select";
 }
 
 /**
@@ -235,7 +235,7 @@ export const api = {
      * `POST /auth/signup` selects `USER_PUBLIC_FIELDS`, which carries `roleId`
      * and no joined `role.code` — so `user.role` was `undefined`, every session
      * failed the `role !== "CUSTOMER"` test in `landingPathFor`, and
-     * `landingPathForRole(undefined)` fell through to its `/comany_select`
+     * `landingPathForRole(undefined)` fell through to its `/company_select`
      * default. A brand-new customer skipped onboarding entirely and landed on a
      * workspace picker with nothing in it. `POST /auth/otp` returns the code, so
      * only this path was ever wrong, which is why login looked fine.

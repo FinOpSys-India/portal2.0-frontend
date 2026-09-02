@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 
 import { AuthShell } from "@/components/auth/auth-shell";
@@ -14,17 +13,19 @@ export const metadata: Metadata = { title: "Select workspace – FinOpSys" };
 /**
  * Workspace picker, the landing route after a verified OTP.
  *
- * Route name keeps 1.0's typo ("comany") so existing links and the redirect in
- * lib/api.ts keep working. 1.0 shows this screen even with a single company;
- * here one company skips straight through, because a chooser with one choice
- * is a click that teaches nothing.
+ * 1.0 spells this route "/comany_select". The typo is NOT carried over: a
+ * misspelling in a URL is permanent in a way a misspelling on screen is not —
+ * it is bookmarked, pasted into tickets, and read out loud. `redirects()` in
+ * next.config.ts 308s the old path here so 1.0's links keep working, and that
+ * runs ahead of the proxy, so an old link resolves before the auth guard ever
+ * sees it.
+ *
+ * Shown even for a single company, as 1.0 does — a
+ * one-row picker is the only thing that tells an owner which workspace they
+ * are about to enter, and skipping it made the page look broken.
  */
 export default async function WorkspaceSelectPage() {
   const workspaces = await customerApi.workspaces();
-
-  if (workspaces.length === 1) {
-    redirect(`/customer/${workspaces[0].id}/projects`);
-  }
 
   return (
     <AuthShell>
