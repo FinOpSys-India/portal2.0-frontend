@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Trash2, UploadCloud } from "lucide-react";
+import { Trash2, UploadCloud, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 import {
@@ -16,9 +16,17 @@ import { FormAlert } from "@/components/auth/form-alert";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { customerApi } from "@/lib/customer";
-import { managerApi } from "@/lib/manager";
+import {
+  ACCEPTED_UPLOAD_EXTENSIONS,
+  acceptAttachments,
+  formatFileSize,
+  MAX_EMAIL_ATTACHMENT_LABEL,
+  MAX_EMAIL_ATTACHMENTS,
+  managerApi,
+} from "@/lib/manager";
 import { connectEmailSchema, type ConnectEmailValues } from "@/lib/schemas";
 import { specialistApi } from "@/lib/specialist";
+import { cn } from "@/lib/utils";
 
 /**
  * Which portal is writing. Named rather than passed as a function: the callers
@@ -66,6 +74,9 @@ export function EmailCompose({
 }) {
   const [failure, setFailure] = React.useState<string | null>(null);
   const [sent, setSent] = React.useState(false);
+  const [files, setFiles] = React.useState<File[]>([]);
+  const [dragging, setDragging] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   const form = useForm<ConnectEmailValues>({
     resolver: zodResolver(connectEmailSchema),
@@ -76,11 +87,28 @@ export function EmailCompose({
 
   const none = !fixedTo && recipients.length === 0;
 
+  function add(chosen: File[]) {
+    setSent(false);
+    if (!chosen.length) return;
+
+    const { files: next, refused } = acceptAttachments(files, chosen);
+    setFiles(next);
+    setFailure(refused.length ? refused.join(" ") : null);
+  }
+
+  function discard() {
+    form.reset();
+    setFiles([]);
+    setFailure(null);
+    setSent(false);
+  }
+
   async function onSubmit(values: ConnectEmailValues) {
     setFailure(null);
     try {
-      await SEND[from]({ ...values, companyId });
+      await SEND[from]({ ...values, companyId, files });
       form.reset();
+      setFiles([]);
       setSent(true);
     } catch (err) {
       setFailure(err instanceof Error ? err.message : "Could not send.");
@@ -136,20 +164,103 @@ export function EmailCompose({
               placeholder="Message"
             />
 
-            {/* Needs file storage the backend does not have yet. Rendered so
-                the screen matches 1.0, inert so it cannot fail on click. */}
+            {/*
+              An explicit button, not a <label> around a hidden input — the same
+              construction the documents dialog settled on, because the click a
+              <label> forwards is what stops arriving once this sits inside
+              other form machinery. `role`/`tabIndex`/`onKeyDown` put back what
+              dropping the <label> costs: reachable by Tab, operable by Enter
+              and Space.
+
+              Both drag handlers must preventDefault or the browser NAVIGATES to
+              the dropped file, replacing the half-written message with a PDF.
+            */}
             <div
-              aria-disabled
-              className="grid place-items-center gap-2 rounded-xl border border-dashed border-primary/40 bg-muted/30 px-6 py-10 text-center opacity-60"
+              role="button"
+              tabIndex={0}
+              aria-label="Attach files to this email"
+              onClick={() => inputRef.current?.click()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  inputRef.current?.click();
+                }
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragging(false);
+                add(Array.from(event.dataTransfer.files ?? []));
+              }}
+              className={cn(
+                "grid cursor-pointer place-items-center gap-2 rounded-xl border border-dashed bg-muted/30 px-6 py-10 text-center transition-colors duration-150 hover:border-primary/70 focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none",
+                dragging ? "border-primary bg-primary/5" : "border-primary/40",
+              )}
             >
               <UploadCloud
                 className="size-8 text-muted-foreground"
                 aria-hidden
               />
-              <p className="text-sm text-muted-foreground">
-                Attachments arrive with file storage
-              </p>
+              <span className="text-sm text-muted-foreground">
+                Drag and drop files here or browse
+              </span>
+              {/* The limits belong next to the control they constrain. */}
+              <span className="text-xs text-muted-foreground">
+                PDF, Word, Excel, CSV, text or images · up to{" "}
+                {MAX_EMAIL_ATTACHMENTS} files, {MAX_EMAIL_ATTACHMENT_LABEL} in
+                total
+              </span>
+              <input
+                ref={inputRef}
+                type="file"
+                multiple
+                tabIndex={-1}
+                className="sr-only"
+                accept={ACCEPTED_UPLOAD_EXTENSIONS.map((ext) => `.${ext}`).join(
+                  ",",
+                )}
+                onChange={(event) => {
+                  add(Array.from(event.target.files ?? []));
+                  // Cleared so picking the SAME file again still fires `change`
+                  // — otherwise a file removed from the list below could never
+                  // be re-added, and the control would just stop responding.
+                  event.target.value = "";
+                }}
+              />
             </div>
+
+            {files.length ? (
+              <ul className="grid gap-2">
+                {files.map((file) => (
+                  <li
+                    key={`${file.name}:${file.size}`}
+                    className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm"
+                  >
+                    <span className="truncate font-medium">{file.name}</span>
+                    <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
+                      {formatFileSize(file.size)}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0"
+                      aria-label={`Remove ${file.name}`}
+                      onClick={() => {
+                        setFiles((rows) => rows.filter((f) => f !== file));
+                        setFailure(null);
+                      }}
+                    >
+                      <X className="size-4" aria-hidden />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
             <FormAlert>{failure}</FormAlert>
 
@@ -173,11 +284,7 @@ export function EmailCompose({
                 type="button"
                 variant="outline"
                 size="icon"
-                onClick={() => {
-                  form.reset();
-                  setFailure(null);
-                  setSent(false);
-                }}
+                onClick={discard}
                 aria-label="Discard this draft"
                 className="size-11"
               >

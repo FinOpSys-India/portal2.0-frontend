@@ -10,12 +10,15 @@ import { cache } from "react";
 
 import type { CompanyPlan, CustomerRole } from "@/lib/admin";
 import {
+  describeFile,
   get,
   getOrNull,
   patch,
   post,
   put,
+  putSigned,
   uploadViaSignedUrls,
+  type UploadTicket,
 } from "@/lib/http";
 import { fullName } from "@/lib/directory";
 import {
@@ -298,6 +301,103 @@ export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 /** The same number as prose, for the dialog. */
 export const MAX_UPLOAD_LABEL = "25 MB";
+
+/**
+ * Extensions the SERVER accepts, mirroring `utils/documentTypes.js`.
+ *
+ * Shared by every upload control — the documents dialog and the email
+ * composer — because they hit the same allowlist. An allowlist narrower than
+ * the backend's is invisible: the upload never happens, so nothing logs a
+ * rejection.
+ */
+export const ACCEPTED_UPLOAD_EXTENSIONS = [
+  "pdf",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "csv",
+  "txt",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "heic",
+];
+
+/**
+ * What ONE EMAIL may carry across all its attachments, and how many.
+ *
+ * Both are the server's, from `emailMessageService`: 20 MB total (stricter than
+ * the 25 MB per-file cap, because base64 inflates the MIME parts by a third and
+ * the SMTP host would refuse the result) and ten files per message from
+ * `UPLOAD_MAX_DOCUMENTS_PER_REQUEST`.
+ *
+ * ponytail: hardcoded like MAX_UPLOAD_BYTES above, for the same reason — no
+ * endpoint publishes either number.
+ */
+export const MAX_EMAIL_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+export const MAX_EMAIL_ATTACHMENTS = 10;
+export const MAX_EMAIL_ATTACHMENT_LABEL = "20 MB";
+
+/**
+ * The selection rules for an email's attachments, applied to a whole pick.
+ *
+ * A pure function so the branches are testable without a browser, and generic
+ * so the caller gets its `File`s back rather than the structural type this only
+ * needs the two fields of.
+ *
+ * The WHOLE set is re-checked on every add, not just the new files: the total
+ * cap is a property of the set, so three individually-legal files can still
+ * exceed it together. A refused file is named and the rest of the pick is kept
+ * — dropping a valid selection because one file in it was oversized is what
+ * makes people re-pick everything.
+ *
+ * A courtesy, not a control. `POST /emails` re-reads the real sizes out of the
+ * bucket and enforces both caps there; anything checked only in a browser is a
+ * suggestion.
+ */
+export function acceptAttachments<T extends { name: string; size: number }>(
+  current: T[],
+  chosen: T[],
+): { files: T[]; refused: string[] } {
+  const refused: string[] = [];
+  const files = [...current];
+
+  for (const file of chosen) {
+    // The same file picked twice is not an error, it is a no-op — the second
+    // pick says nothing new about what the message should carry.
+    if (files.some((f) => f.name === file.name && f.size === file.size)) {
+      continue;
+    }
+    if (!ACCEPTED_UPLOAD_EXTENSIONS.includes(fileKind(file.name).toLowerCase())) {
+      refused.push(`${file.name} is not a supported file type.`);
+      continue;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      refused.push(
+        `${file.name} is ${formatFileSize(file.size)}; the limit is ${MAX_UPLOAD_LABEL}.`,
+      );
+      continue;
+    }
+    if (files.length >= MAX_EMAIL_ATTACHMENTS) {
+      refused.push(`Only ${MAX_EMAIL_ATTACHMENTS} files fit on one email.`);
+      break;
+    }
+    if (
+      files.reduce((sum, f) => sum + f.size, file.size) >
+      MAX_EMAIL_ATTACHMENT_BYTES
+    ) {
+      refused.push(
+        `Attachments come to more than ${MAX_EMAIL_ATTACHMENT_LABEL} with ${file.name}.`,
+      );
+      continue;
+    }
+    files.push(file);
+  }
+
+  return { files, refused };
+}
 
 /** Uppercase extension, for the type chip. Files without one show "FILE". */
 export function fileKind(name: string): string {
@@ -882,6 +982,7 @@ export const managerApi = {
     subject: string;
     message: string;
     companyId?: string;
+    files?: File[];
   }): Promise<void> {
     await sendEmailAs(input);
   },
@@ -1021,11 +1122,14 @@ export async function sendEmailAs(input: {
   subject: string;
   message: string;
   companyId?: string;
+  files?: File[];
 }): Promise<void> {
   const companyId = input.companyId ?? (await scopeIds())[0];
   if (!companyId) throw new Error("No company to send from.");
 
   const to = await recipientId(companyId, input.to);
+  const files = await uploadEmailAttachments(companyId, input.files ?? []);
+
   await post("/emails", {
     companyId: Number(companyId),
     subject: input.subject,
@@ -1034,7 +1138,39 @@ export async function sendEmailAs(input: {
     // otherwise become markup.
     bodyHtml: `<p>${escapeHtml(input.message).replace(/\n/g, "<br>")}</p>`,
     to: [to],
+    // Omitted entirely with nothing attached: `files: []` is accepted, but the
+    // no-attachment path is meant to be one request and this keeps it one.
+    ...(files.length ? { files } : {}),
   });
+}
+
+/**
+ * Tickets, then bytes, for the files a message is about to carry.
+ *
+ * NOT `uploadViaSignedUrls`: the third step of that helper is a confirm call,
+ * and an email has none — the send IS the confirm, so this returns the
+ * `{ key, fileName }` list for `POST /emails` to carry instead of posting
+ * anything itself. There is no draft to hang an upload off, which is why the
+ * ticket request names the company rather than a message id.
+ *
+ * An upload that is never sent leaves an unreferenced object in the bucket.
+ * That is the backend's stated trade for not putting file bytes through the
+ * API's request-size ceiling, not an oversight here.
+ */
+async function uploadEmailAttachments(
+  companyId: string,
+  files: File[],
+): Promise<{ key: string; fileName: string }[]> {
+  if (!files.length) return [];
+
+  const { uploads } = await post<{ uploads: UploadTicket[] }>(
+    "/emails/attachments/upload-url",
+    { companyId: Number(companyId), files: files.map(describeFile) },
+  );
+
+  await Promise.all(uploads.map((t, i) => putSigned(t.uploadUrl, files[i])));
+
+  return uploads.map((t, i) => ({ key: t.key, fileName: files[i].name }));
 }
 
 function escapeHtml(text: string): string {

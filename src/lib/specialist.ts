@@ -300,6 +300,7 @@ export const specialistApi = {
     subject: string;
     message: string;
     companyId?: string;
+    files?: File[];
   }): Promise<void> {
     const companyId = input.companyId ?? (await scopeIds())[0];
     await sendEmailAs({ ...input, companyId });

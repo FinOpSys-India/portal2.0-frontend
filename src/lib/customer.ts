@@ -382,6 +382,7 @@ export const customerApi = {
     subject: string;
     message: string;
     companyId?: string;
+    files?: File[];
   }): Promise<void> {
     await sendEmailAs(input);
   },

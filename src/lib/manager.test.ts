@@ -10,6 +10,8 @@ import assert from "node:assert/strict";
 
 import {
   INBOXES,
+  MAX_EMAIL_ATTACHMENTS,
+  acceptAttachments,
   dayLabel,
   fileKind,
   formatFileSize,
@@ -164,6 +166,67 @@ assert.equal(
 assert.equal(
   scoped("/manager/projects", "a b&c"),
   "/manager/projects?company=a%20b%26c",
+);
+
+/* ---------------------------------------------------- email attachments -- */
+
+const MB = 1024 * 1024;
+const file = (name: string, mb: number) => ({ name, size: mb * MB });
+
+// The happy path: two legal files land in order.
+assert.deepEqual(
+  acceptAttachments([], [file("a.pdf", 1), file("b.png", 2)]).files.map(
+    (f) => f.name,
+  ),
+  ["a.pdf", "b.png"],
+);
+
+// A type the server's allowlist does not carry is refused, and — the part that
+// matters — the rest of the same pick still arrives.
+const mixed = acceptAttachments([], [file("virus.exe", 1), file("ok.pdf", 1)]);
+assert.deepEqual(mixed.files.map((f) => f.name), ["ok.pdf"]);
+assert.equal(mixed.refused.length, 1);
+assert.match(mixed.refused[0], /virus\.exe/);
+
+// Per-file cap: 25 MB. Enforced before anything is uploaded.
+assert.equal(acceptAttachments([], [file("big.pdf", 26)]).files.length, 0);
+
+// Total cap: 20 MB, and it is a property of the SET — each of these is legal
+// on its own, and the third is what pushes the message over.
+const total = acceptAttachments(
+  [],
+  [file("a.pdf", 9), file("b.pdf", 9), file("c.pdf", 9)],
+);
+assert.deepEqual(total.files.map((f) => f.name), ["a.pdf", "b.pdf"]);
+assert.equal(total.refused.length, 1);
+
+// The cap counts what is ALREADY attached, not just the new pick.
+assert.equal(
+  acceptAttachments([file("already.pdf", 19)], [file("more.pdf", 2)]).files
+    .length,
+  1,
+);
+
+// Count cap, with small files that no size rule would catch.
+const many = acceptAttachments(
+  [],
+  Array.from({ length: MAX_EMAIL_ATTACHMENTS + 3 }, (_, i) =>
+    file(`f${i}.txt`, 0),
+  ),
+);
+assert.equal(many.files.length, MAX_EMAIL_ATTACHMENTS);
+assert.equal(many.refused.length, 1, "one message about the count, not three");
+
+// The same file picked twice is a no-op, not a refusal — otherwise re-dropping
+// a folder would fill the alert with complaints about files already attached.
+const twice = acceptAttachments([file("a.pdf", 1)], [file("a.pdf", 1)]);
+assert.equal(twice.files.length, 1);
+assert.deepEqual(twice.refused, []);
+
+// Same name, different bytes: a genuinely different file, so both are kept.
+assert.equal(
+  acceptAttachments([file("a.pdf", 1)], [file("a.pdf", 2)]).files.length,
+  2,
 );
 
 console.log("manager api: all checks passed");

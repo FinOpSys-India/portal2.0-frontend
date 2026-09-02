@@ -23,40 +23,12 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
+  ACCEPTED_UPLOAD_EXTENSIONS as ACCEPT,
   fileKind,
   formatFileSize,
   MAX_UPLOAD_BYTES,
   MAX_UPLOAD_LABEL,
 } from "@/lib/manager";
-
-/**
- * The constraints the design writes down (docs/specialist-portal.md). They are
- * repeated here so the reader is told before the upload fails, not after — but
- * they are a courtesy, not a control. The server has to enforce both; anything
- * checked only in a browser is a suggestion.
- */
-/**
- * Extensions the SERVER accepts, mirroring `utils/documentTypes.js`.
- *
- * The old list was narrower than the backend's and refused files it would have
- * taken — PNG most obviously, which is what most screenshots and photographed
- * receipts are. An allowlist that disagrees with the server in this direction
- * is invisible: the upload never happens, so nothing logs a rejection.
- */
-const ACCEPT = [
-  "pdf",
-  "doc",
-  "docx",
-  "xls",
-  "xlsx",
-  "csv",
-  "txt",
-  "jpg",
-  "jpeg",
-  "png",
-  "webp",
-  "heic",
-];
 
 export type UploadMeta = { companyId: string; project: string | null };
 
