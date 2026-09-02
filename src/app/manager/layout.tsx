@@ -19,7 +19,15 @@ export const metadata: Metadata = {
  * bell simply starts at zero.
  */
 async function UnreadBell() {
-  const conversations = await managerApi.conversations();
+  /*
+   * Swallowed, not awaited hard. Suspense covers SLOW, not FAILED: an
+   * unhandled throw in here escapes the boundary and the route's error.tsx
+   * replaces the whole page. That is what turned one 504 on the eight-company
+   * conversation sweep into "Something went wrong" on /manager/projects/:id,
+   * whose own project, task and document reads had all returned 200. A count
+   * nobody can read is worth zero, so it renders zero.
+   */
+  const conversations = await managerApi.conversations().catch(() => []);
   return <NotificationBell count={totalUnread(conversations)} />;
 }
 

@@ -23,6 +23,14 @@ export const ACCESS_TOKEN_COOKIE = "accessToken";
  * client reads it and echoes it as a header on /auth/refresh and /auth/logout.
  */
 export const CSRF_COOKIE = "csrfToken";
+
+/**
+ * The backend's refresh cookie, as it lands on THIS origin through the proxy.
+ * HttpOnly, so only a Set-Cookie from a route handler here can expire it —
+ * which is what /login/logout exists to do when the backend's own revoke
+ * never answers.
+ */
+export const REFRESH_TOKEN_COOKIE = "refreshToken";
 export const CSRF_HEADER = "x-csrf-token";
 
 const ORIGIN = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";

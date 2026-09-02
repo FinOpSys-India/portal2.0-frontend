@@ -19,7 +19,12 @@ export default async function SpecialistLayout({
   const [profile, companies, thread] = await Promise.all([
     specialistApi.profile(),
     specialistApi.companies(),
-    specialistApi.thread(),
+    /*
+     * Same reason the manager's bell and the customer's unread count swallow
+     * theirs: this is one number in the top bar, and awaited hard it can take
+     * every specialist route down with it when chat times out.
+     */
+    specialistApi.thread().catch(() => ({ id: null, contact: "", unread: 0 })),
   ]);
 
   return (

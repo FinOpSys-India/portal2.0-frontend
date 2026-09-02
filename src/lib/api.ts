@@ -279,6 +279,16 @@ export const api = {
     // authenticated, so the backend requires it.
     await post("/auth/logout").catch(() => {});
     clearAccessToken();
+
+    /*
+     * The revoke above may have timed out — the backend 504s under a load the
+     * portal itself generates — and `clearAccessToken` only reaches the one
+     * cookie script can write. The refresh cookie is HttpOnly, still valid,
+     * and worth 30 days; left there, the next refresh hop signs the same
+     * person back in. This route expires all three on our own origin, so the
+     * browser ends up logged out whether or not the server heard about it.
+     */
+    await fetch("/login/logout", { method: "POST" }).catch(() => {});
   },
 
   /** Opens a reset challenge. Always succeeds — a 404 here enumerates accounts. */
