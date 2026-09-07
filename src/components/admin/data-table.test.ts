@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 
-import { pageWindow } from "./data-table";
+import { pageWindow, sortRows, type SortableColumn } from "./data-table";
 import { PAGE_SIZE } from "../../lib/admin";
 
 const rows = (n: number) => Array.from({ length: n }, (_, i) => i);
@@ -67,7 +67,52 @@ async function main() {
   assert.equal(none.first, 0);
   assert.equal(none.last, 0);
 
-  console.log("data table paging: all checks passed");
+  /* -------------------------------------------------------------- sorting */
+
+  type Row = { name: string; deadline: string; team: number };
+  const table: Row[] = [
+    { name: "beta", deadline: "8/03/26", team: 2 },
+    { name: "Alpha", deadline: "7/28/26", team: 10 },
+    { name: "", deadline: "1/01/27", team: 0 },
+  ];
+  const columns: SortableColumn<Row>[] = [
+    { header: "Name", cell: (r) => r.name },
+    // Same shape the deadline columns use: parsed, because as text "8/03/26"
+    // sorts before "7/28/26".
+    {
+      header: "Deadline",
+      sortValue: (r) => {
+        const [month, day, year] = r.deadline.split("/").map(Number);
+        return new Date(2000 + year, month - 1, day).getTime();
+      },
+    },
+    { header: "Team", sortValue: (r) => r.team },
+    { header: "Action", sortValue: false, cell: () => "button" },
+  ];
+  const names = (sort?: string, dir?: string) =>
+    sortRows(table, columns, sort, dir).map((r) => r.name);
+
+  // Case-insensitive, and the blank sits last in BOTH directions — an empty
+  // cell is a missing value, not the smallest one.
+  assert.deepEqual(names("Name", "asc"), ["Alpha", "beta", ""]);
+  assert.deepEqual(names("Name", "desc"), ["beta", "Alpha", ""]);
+
+  // Numbers compare as numbers: 10 after 2, not before it.
+  assert.deepEqual(names("Team", "asc"), ["", "beta", "Alpha"]);
+
+  // Dates by their timestamp, so July precedes August precedes January 2027.
+  assert.deepEqual(names("Deadline", "asc"), ["Alpha", "beta", ""]);
+
+  // `sortValue: false`, an unknown column and no column at all all leave the
+  // rows exactly as they came — ?sort= is whatever someone typed.
+  assert.deepEqual(names("Action", "asc"), ["beta", "Alpha", ""]);
+  assert.deepEqual(names("Nonexistent", "asc"), ["beta", "Alpha", ""]);
+  assert.deepEqual(names(undefined, "asc"), ["beta", "Alpha", ""]);
+
+  // The rows handed in are not reordered in place — DataTable pages the result.
+  assert.equal(table[0].name, "beta");
+
+  console.log("data table paging and sorting: all checks passed");
 }
 
 main();
