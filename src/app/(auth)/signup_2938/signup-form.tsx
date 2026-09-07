@@ -113,7 +113,7 @@ export function SignupForm({ invite }: { invite: Invite }) {
 
   return (
     <AuthCard>
-      <AuthHeading title="Create your account">
+      <AuthHeading title="Create Your Account">
         Set a password to finish setting up your FinOpSys account.
       </AuthHeading>
 
@@ -217,7 +217,7 @@ export function SignupForm({ invite }: { invite: Invite }) {
           <FormAlert>{failure}</FormAlert>
 
           <SubmitButton pending={form.formState.isSubmitting}>
-            Create account
+            Create Account
           </SubmitButton>
         </form>
       </Form>

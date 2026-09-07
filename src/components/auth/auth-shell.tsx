@@ -45,9 +45,9 @@ export type Step = { title: string; description: string };
  * payment — so the tracker under-promises how much is left. Counted honestly.
  */
 export const ONBOARDING_STEPS: Step[] = [
-  { title: "Your details", description: "Who you are and how to reach you." },
-  { title: "Your company", description: "The business we'll be working on." },
-  { title: "Your plan", description: "Pick the services you need." },
+  { title: "Your Details", description: "Who you are and how to reach you." },
+  { title: "Your Company", description: "The business we'll be working on." },
+  { title: "Your Plan", description: "Pick the services you need." },
 ];
 
 /**
@@ -300,7 +300,7 @@ export function BackToLogin() {
       )}
     >
       <ChevronLeft className="size-4 shrink-0" aria-hidden />
-      Back to login
+      Back to Login
     </Link>
   );
 }

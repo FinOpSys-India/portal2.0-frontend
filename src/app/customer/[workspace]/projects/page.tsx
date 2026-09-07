@@ -5,6 +5,7 @@ import { DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { customerApi, type Project } from "@/lib/customer";
+import { parseDeadline } from "@/lib/manager";
 import { NewProject } from "./new-project";
 
 export const metadata: Metadata = { title: "Projects" };
@@ -14,9 +15,9 @@ export default async function ProjectsPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
 }) {
-  const [{ workspace }, { page: raw }] = await Promise.all([
+  const [{ workspace }, { page: raw, sort, dir }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -35,6 +36,8 @@ export default async function ProjectsPage({
 
       <DataTable<Project>
         page={page}
+        sort={sort}
+        dir={dir}
         total={projects.length}
         rows={projects}
         basePath={`/customer/${workspace}/projects`}
@@ -46,13 +49,19 @@ export default async function ProjectsPage({
             cell: (row) => <span className="font-medium">{row.name}</span>,
           },
           { header: "Service", cell: (row) => row.service },
-          { header: "Deadline", cell: (row) => row.deadline },
+          {
+            header: "Deadline",
+            sortValue: (row) => parseDeadline(row.deadline).getTime(),
+            cell: (row) => row.deadline,
+          },
           {
             header: "Status",
+            sortValue: (row) => row.status,
             cell: (row) => <StatusBadge status={row.status} />,
           },
           {
             header: "Specialist",
+            sortValue: (row) => row.specialist ?? "",
             cell: (row) =>
               row.specialist ? (
                 <PersonCell name={row.specialist} />

@@ -7,14 +7,31 @@ import { AddTask } from "@/components/portal/add-task";
 import { TaskStatusMenu } from "@/components/portal/task-status-menu";
 import { PageHeader } from "@/components/portal/portal-shell";
 import {
+  SortableHeadRow,
+  sortRows,
+  type SortableColumn,
+} from "@/components/admin/data-table";
+import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { companyScope, managerApi } from "@/lib/manager";
+import {
+  companyScope,
+  managerApi,
+  parseDeadline,
+  type SpecialistTask,
+} from "@/lib/manager";
+
+const COLUMNS: SortableColumn<SpecialistTask>[] = [
+  // The design labels this column "File Name" on a table of tasks. Named for
+  // what it holds.
+  { header: "Task", sortValue: (task) => task.name },
+  { header: "Project", sortValue: (task) => task.project },
+  { header: "Deadline", sortValue: (task) => parseDeadline(task.deadline).getTime() },
+  { header: "Status", sortValue: (task) => task.status },
+];
 
 export const metadata: Metadata = { title: "Specialist" };
 
@@ -35,11 +52,12 @@ export default async function ManagerSpecialistPage({
   searchParams,
 }: {
   params: Promise<{ email: string }>;
-  searchParams: Promise<{ company?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
 }) {
+  const { company: picked, sort, dir } = await searchParams;
   const [{ email }, company] = await Promise.all([
     params,
-    companyScope((await searchParams).company),
+    companyScope(picked),
   ]);
   const specialist = await managerApi.specialist(
     decodeURIComponent(email),
@@ -75,16 +93,7 @@ export default async function ManagerSpecialistPage({
           </div>
 
           <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                {/* The design labels this column "File name" on a table of
-                    tasks. Named for what it holds. */}
-                <TableHead>Task</TableHead>
-                <TableHead>Project</TableHead>
-                <TableHead>Deadline</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
+            <SortableHeadRow columns={COLUMNS} sort={sort} dir={dir} />
             <TableBody>
               {tasks.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
@@ -96,7 +105,7 @@ export default async function ManagerSpecialistPage({
                   </TableCell>
                 </TableRow>
               ) : (
-                tasks.map((task) => (
+                sortRows(tasks, COLUMNS, sort, dir).map((task) => (
                   <TableRow key={task.id}>
                     <TableCell>
                       <span className="font-medium">{task.name}</span>
@@ -137,7 +146,7 @@ export default async function ManagerSpecialistPage({
           <DetailSection title="Personal Details" className="flex-1">
             <DetailRow label="Full Name" value={specialist.name} />
             <DetailRow label="Email Address" value={specialist.email} />
-            <DetailRow label="Phone number" value={specialist.phone} />
+            <DetailRow label="Phone Number" value={specialist.phone} />
             <DetailRow label="Address" value={specialist.address} />
           </DetailSection>
         </div>

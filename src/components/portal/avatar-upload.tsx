@@ -165,7 +165,7 @@ export function AvatarUpload({
           disabled={pending}
           className="rounded-xs text-xs text-muted-foreground underline-offset-4 hover:text-destructive hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 disabled:opacity-60"
         >
-          Remove photo
+          Remove Photo
         </button>
       ) : (
         <p className="text-xs text-muted-foreground">

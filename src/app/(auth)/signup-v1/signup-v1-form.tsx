@@ -74,7 +74,7 @@ export function SignupV1Form({ invite }: { invite: Invite }) {
   return (
     <form onSubmit={onSubmit} noValidate>
       <h1 className="text-[40px] leading-tight font-bold tracking-tight text-black">
-        Sign up
+        Sign Up
       </h1>
       <p className="mt-3 text-base text-[#525252]">
         Sign up to access your FinOpSys account

@@ -79,7 +79,7 @@ export function AssignManager({
     run(
       "save",
       () => adminApi.assignManager(companyId, Number(manager)),
-      `${managers.find((m) => String(m.userId) === manager)?.name ?? "Accounting manager"} now manages this company.`,
+      `${managers.find((m) => String(m.userId) === manager)?.name ?? "Accounting Manager"} now manages this company.`,
     );
   }
 
@@ -109,7 +109,7 @@ export function AssignManager({
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              {current ? "Change accounting manager" : "Assign accounting manager"}
+              {current ? "Change Accounting Manager" : "Assign Accounting Manager"}
             </DialogTitle>
           </DialogHeader>
 

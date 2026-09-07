@@ -11,9 +11,9 @@ export const metadata: Metadata = { title: "Companies" };
 export default async function CompaniesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
 }) {
-  const { page: raw } = await searchParams;
+  const { page: raw, sort, dir } = await searchParams;
   const page = Math.max(1, Number(raw) || 1);
   // The assignable managers come back with the rows — same request, so the
   // dropdown cannot list someone the table does not know about.
@@ -26,6 +26,8 @@ export default async function CompaniesPage({
 
       <DataTable<Company>
         page={page}
+        sort={sort}
+        dir={dir}
         total={total}
         rows={rows}
         basePath="/admin/companies"
@@ -39,14 +41,18 @@ export default async function CompaniesPage({
           },
           {
             header: "Company Owner",
+            sortValue: (row) => row.owner,
             cell: (row) => <PersonCell name={row.owner} />,
           },
           {
             header: "Active Services",
+            sortValue: (row) => row.activeServices.join(", "),
             cell: (row) => <ListCell items={row.activeServices} />,
           },
           {
             header: "Billing Date",
+            // M/D/YYYY on screen, which as text puts October before February.
+            sortValue: (row) => Date.parse(row.billingDate ?? "") || 0,
             cell: (row) =>
               row.billingDate ?? (
                 <span className="text-muted-foreground">—</span>
@@ -54,10 +60,14 @@ export default async function CompaniesPage({
           },
           {
             header: "Team Members",
+            // Faces carry no text to sort — how many there are is the one thing
+            // the column says that can be ordered.
+            sortValue: (row) => row.teamMembers.length,
             cell: (row) => <AvatarStack names={row.teamMembers} />,
           },
           {
             header: "Accounting Manager",
+            sortValue: (row) => row.accountingManager ?? "",
             /*
              * The one thing admin can write, and it is rendered for EVERY row
              * now — assigned or not. Showing the control only where the cell

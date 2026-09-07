@@ -11,9 +11,9 @@ export const metadata: Metadata = { title: "Accounting Managers" };
 export default async function AccountingManagersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
 }) {
-  const { page: raw } = await searchParams;
+  const { page: raw, sort, dir } = await searchParams;
   const page = Math.max(1, Number(raw) || 1);
   const { rows, total } = await adminApi.accountingManagers(page);
 
@@ -25,14 +25,21 @@ export default async function AccountingManagersPage({
           page would show that the row does not. */}
       <DataTable<AccountingManager>
         page={page}
+        sort={sort}
+        dir={dir}
         total={total}
         rows={rows}
         basePath="/admin/accounting-managers"
         empty="No accounting managers yet."
         columns={[
-          { header: "Name", cell: (row) => <PersonCell name={row.name} /> },
+          {
+            header: "Name",
+            sortValue: (row) => row.name,
+            cell: (row) => <PersonCell name={row.name} />,
+          },
           {
             header: "Assigned Companies",
+            sortValue: (row) => row.companies.join(", "),
             cell: (row) => <ChipsCell items={row.companies} />,
           },
           {

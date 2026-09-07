@@ -27,10 +27,12 @@ export const metadata: Metadata = { title: "Project" };
  */
 export default async function SpecialistProjectPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ sort?: string; dir?: string }>;
 }) {
-  const { id } = await params;
+  const [{ id }, { sort, dir }] = await Promise.all([params, searchParams]);
 
   // Null covers both "no such project" and "not yours" — the second must not
   // be distinguishable from the first, or the id becomes a lookup oracle.
@@ -63,7 +65,12 @@ export default async function SpecialistProjectPage({
               />
             </div>
 
-            <ProjectTaskTable tasks={tasks} from="specialist" />
+            <ProjectTaskTable
+              tasks={tasks}
+              from="specialist"
+              sort={sort}
+              dir={dir}
+            />
           </section>
 
           <DetailSection title="Project Details">

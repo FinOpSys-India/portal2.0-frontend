@@ -24,7 +24,12 @@ export const metadata: Metadata = { title: "Tasks" };
 export default async function SpecialistTasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; page?: string }>;
+  searchParams: Promise<{
+    company?: string;
+    page?: string;
+    sort?: string;
+    dir?: string;
+  }>;
 }) {
   const params = await searchParams;
   const company = await companyScope(params.company);
@@ -51,6 +56,8 @@ export default async function SpecialistTasksPage({
         tasks={tasks}
         from="specialist"
         page={Number(params.page) || 1}
+        sort={params.sort}
+        dir={params.dir}
         empty={
           projects.length > 0
             ? "No tasks on your projects yet."

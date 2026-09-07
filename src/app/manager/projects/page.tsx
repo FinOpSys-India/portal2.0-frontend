@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/portal/portal-shell";
 import { ProgressBar } from "@/components/portal/progress-bar";
 import {
   companyScope,
+  parseDeadline,
   type ManagedProject,
   managerApi,
   scopeName,
@@ -18,9 +19,10 @@ export const metadata: Metadata = { title: "Projects" };
 export default async function ManagerProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
 }) {
-  const company = await companyScope((await searchParams).company);
+  const { company: picked, sort, dir } = await searchParams;
+  const company = await companyScope(picked);
   const [projects, companies] = await Promise.all([
     managerApi.projects(company),
     managerApi.companies(),
@@ -48,6 +50,8 @@ export default async function ManagerProjectsPage({
           is not a column there, it lives on the project detail. */}
       <DataTable<ManagedProject>
         page={1}
+        sort={sort}
+        dir={dir}
         total={projects.length}
         rows={projects}
         basePath="/manager/projects"
@@ -60,11 +64,17 @@ export default async function ManagerProjectsPage({
           },
           { header: "Service Type", cell: (row) => row.service },
           { header: "Created By", cell: (row) => row.createdBy },
-          { header: "Deadline", cell: (row) => row.deadline },
+          {
+            header: "Deadline",
+            // M/DD/YY: "8/03/26" sorts before "7/28/26" as text.
+            sortValue: (row) => parseDeadline(row.deadline).getTime(),
+            cell: (row) => row.deadline,
+          },
           {
             // Read-only: it follows the company's staffing for this project's
             // service line, which is the Companies screen's Assign Specialist.
             header: "Specialist",
+            sortValue: (row) => row.specialist ?? "",
             cell: (row) =>
               row.specialist ? (
                 <PersonCell name={row.specialist} />
@@ -74,6 +84,7 @@ export default async function ManagerProjectsPage({
           },
           {
             header: "Project Progress",
+            sortValue: (row) => row.progress,
             cell: (row) => <ProgressBar value={row.progress} />,
           },
         ]}

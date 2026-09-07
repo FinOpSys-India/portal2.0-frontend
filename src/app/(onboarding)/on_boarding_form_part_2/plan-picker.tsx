@@ -97,7 +97,7 @@ export function PlanPicker({
 
   return (
     <form onSubmit={onSubmit} className="space-y-8">
-      <AuthHeading title="Your plan">
+      <AuthHeading title="Your Plan">
         Pick the services you need. Change them any time.
       </AuthHeading>
 
@@ -219,7 +219,7 @@ export function PlanPicker({
                 href="mailto:hello@finopsys.ai"
                 className="font-medium text-primary underline-offset-4 hover:underline"
               >
-                Talk to us
+                Talk to Us
               </a>{" "}
               about custom pricing.
             </p>
@@ -228,7 +228,7 @@ export function PlanPicker({
 
         <aside className="lg:sticky lg:top-8">
           <div className="rounded-xl border border-border p-5">
-            <h2 className="text-sm font-semibold">Order summary</h2>
+            <h2 className="text-sm font-semibold">Order Summary</h2>
 
             {empty ? (
               <p className="mt-4 text-sm text-muted-foreground">
@@ -274,7 +274,7 @@ export function PlanPicker({
 
             <div className="mt-4">
               <SubmitButton pending={pending} disabled={empty}>
-                Get started
+                Get Started
               </SubmitButton>
             </div>
 
@@ -305,7 +305,7 @@ export function PlanPicker({
 function CustomPlanCard() {
   return (
     <div className="mt-4 rounded-xl border border-border p-5">
-      <h2 className="text-sm font-semibold">Custom plan</h2>
+      <h2 className="text-sm font-semibold">Custom Plan</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Our team will help you customize your requirements. Book a sales call
         and we&rsquo;ll price it around you.
@@ -316,7 +316,7 @@ function CustomPlanCard() {
             Radix sets type="button", which matters inside this <form>. */}
         <DialogTrigger asChild>
           <Button variant="outline" size="lg" className="mt-4 w-full">
-            Connect with us
+            Connect with Us
           </Button>
         </DialogTrigger>
 

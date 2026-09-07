@@ -173,7 +173,7 @@ export function InviteDialog({
             <FormAlert>{failure}</FormAlert>
 
             <SubmitButton pending={form.formState.isSubmitting}>
-              Send invite
+              Send Invite
             </SubmitButton>
           </form>
         </Form>

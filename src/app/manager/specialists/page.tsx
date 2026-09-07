@@ -24,9 +24,10 @@ export const metadata: Metadata = { title: "Specialists" };
 export default async function ManagerSpecialistsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
 }) {
-  const company = await companyScope((await searchParams).company);
+  const { company: picked, sort, dir } = await searchParams;
+  const company = await companyScope(picked);
   const specialists = await managerApi.specialists(company);
 
   return (
@@ -35,6 +36,8 @@ export default async function ManagerSpecialistsPage({
 
       <DataTable<Specialist>
         page={1}
+        sort={sort}
+        dir={dir}
         total={specialists.length}
         rows={specialists}
         basePath={`/manager/specialists${company ? `?company=${encodeURIComponent(company)}` : ""}`}
@@ -47,7 +50,11 @@ export default async function ManagerSpecialistsPage({
             : "No specialists yet."
         }
         columns={[
-          { header: "Name", cell: (row) => <PersonCell name={row.name} /> },
+          {
+            header: "Name",
+            sortValue: (row) => row.name,
+            cell: (row) => <PersonCell name={row.name} />,
+          },
           { header: "Service Speciality", cell: (row) => row.speciality },
           {
             header: "Email",

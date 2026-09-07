@@ -6,8 +6,8 @@ import { SPECIALIST_ROLES, adminApi } from "@/lib/admin";
 export function InviteSpecialist() {
   return (
     <InviteDialog
-      trigger="Invite specialist"
-      title="Invite a specialist"
+      trigger="Invite Specialist"
+      title="Invite a Specialist"
       roles={SPECIALIST_ROLES}
       onInvite={adminApi.inviteSpecialist}
     />

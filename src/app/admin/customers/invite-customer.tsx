@@ -6,8 +6,8 @@ import { adminApi } from "@/lib/admin";
 export function InviteCustomer() {
   return (
     <InviteDialog
-      trigger="Invite customer"
-      title="Invite a customer"
+      trigger="Invite Customer"
+      title="Invite a Customer"
       onInvite={adminApi.inviteCustomer}
     />
   );

@@ -23,9 +23,9 @@ export default async function FilesPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string }>;
-  searchParams: Promise<{ project?: string; page?: string }>;
+  searchParams: Promise<{ project?: string; page?: string; sort?: string; dir?: string }>;
 }) {
-  const [{ workspace }, { project, page: raw }] = await Promise.all([
+  const [{ workspace }, { project, page: raw, sort, dir }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -49,6 +49,8 @@ export default async function FilesPage({
 
       <DataTable<CustomerFile>
         page={page}
+        sort={sort}
+        dir={dir}
         total={files.length}
         rows={files}
         basePath={`/customer/${workspace}/files`}

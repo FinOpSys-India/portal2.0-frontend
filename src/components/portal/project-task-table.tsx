@@ -1,14 +1,25 @@
 import { TaskStatusBadge } from "@/components/portal/task-status-badge";
 import { TaskStatusMenu } from "@/components/portal/task-status-menu";
 import {
+  SortableHeadRow,
+  sortRows,
+  type SortableColumn,
+} from "@/components/admin/data-table";
+import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { ProjectTask } from "@/lib/manager";
+import { parseDeadline, type ProjectTask } from "@/lib/manager";
+
+const COLUMNS: SortableColumn<ProjectTask>[] = [
+  { header: "Name", sortValue: (task) => task.name },
+  { header: "Description", sortValue: (task) => task.description },
+  { header: "Status", sortValue: (task) => task.status },
+  // M/DD/YY: "8/03/26" sorts before "7/28/26" as text.
+  { header: "Deadline", sortValue: (task) => parseDeadline(task.deadline).getTime() },
+];
 
 /**
  * The task list on a project detail page, in 1.0's four columns.
@@ -23,20 +34,17 @@ import type { ProjectTask } from "@/lib/manager";
 export function ProjectTaskTable({
   tasks,
   from,
+  sort,
+  dir,
 }: {
   tasks: ProjectTask[];
   from: "manager" | "specialist";
+  sort?: string;
+  dir?: string;
 }) {
   return (
     <Table>
-      <TableHeader>
-        <TableRow className="hover:bg-transparent">
-          <TableHead>Name</TableHead>
-          <TableHead>Description</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Deadline</TableHead>
-        </TableRow>
-      </TableHeader>
+      <SortableHeadRow columns={COLUMNS} sort={sort} dir={dir} />
       <TableBody>
         {tasks.length === 0 ? (
           <TableRow className="hover:bg-transparent">
@@ -48,7 +56,7 @@ export function ProjectTaskTable({
             </TableCell>
           </TableRow>
         ) : (
-          tasks.map((task) => (
+          sortRows(tasks, COLUMNS, sort, dir).map((task) => (
             <TableRow key={task.id}>
               <TableCell className="font-medium">{task.name}</TableCell>
               <TableCell className="text-muted-foreground">

@@ -68,13 +68,13 @@ export function NewProject({
       <DialogTrigger asChild>
         <Button>
           <Plus className="size-4" aria-hidden />
-          New project
+          New Project
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New project</DialogTitle>
+          <DialogTitle>New Project</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -120,7 +120,7 @@ export function NewProject({
             <FormAlert>{failure}</FormAlert>
 
             <SubmitButton pending={form.formState.isSubmitting}>
-              Create project
+              Create Project
             </SubmitButton>
           </form>
         </Form>

@@ -57,7 +57,7 @@ export function NewPasswordForm({ resetToken }: { resetToken: string }) {
       <div className="space-y-4">
         <BackToLogin />
 
-        <AuthHeading title="Set a new password">
+        <AuthHeading title="Set a New Password">
           Pick something you have not used here before.
         </AuthHeading>
       </div>
@@ -100,7 +100,7 @@ export function NewPasswordForm({ resetToken }: { resetToken: string }) {
           <FormAlert>{failure}</FormAlert>
 
           <SubmitButton pending={form.formState.isSubmitting || done}>
-            Set password
+            Set Password
           </SubmitButton>
         </form>
       </Form>

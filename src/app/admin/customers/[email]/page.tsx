@@ -41,11 +41,11 @@ export default async function CustomerDetailPage({
       </div>
 
       <div className="grid gap-6">
-        <DetailSection title="General information">
-          <DetailRow label="Full name" value={customer.name} />
-          <DetailRow label="Email address" value={customer.email} />
+        <DetailSection title="General Information">
+          <DetailRow label="Full Name" value={customer.name} />
+          <DetailRow label="Email Address" value={customer.email} />
           <DetailRow label="Position" value={customer.position} />
-          <DetailRow label="Phone number" value={customer.phone} />
+          <DetailRow label="Phone Number" value={customer.phone} />
           {/* A customer can belong to more than one company. */}
           <div>
             <dt className="text-sm text-muted-foreground">
@@ -58,10 +58,10 @@ export default async function CustomerDetailPage({
         </DetailSection>
 
         <DetailSection title="Address">
-          <DetailRow label="Address line 1" value={customer.addressLine1} />
+          <DetailRow label="Address Line 1" value={customer.addressLine1} />
           <DetailRow label="City" value={customer.city} />
           <DetailRow label="State" value={customer.state} />
-          <DetailRow label="ZIP code" value={customer.zip} />
+          <DetailRow label="ZIP Code" value={customer.zip} />
           <DetailRow label="Country" value={customer.country} />
         </DetailSection>
       </div>

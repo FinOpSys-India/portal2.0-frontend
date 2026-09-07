@@ -6,8 +6,8 @@ import { adminApi } from "@/lib/admin";
 export function InviteManager() {
   return (
     <InviteDialog
-      trigger="Invite manager"
-      title="Invite an accounting manager"
+      trigger="Invite Manager"
+      title="Invite an Accounting Manager"
       emailLabel="FinOpSys Email Address"
       onInvite={adminApi.inviteAccountingManager}
     />

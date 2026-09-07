@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { SpecialistTask } from "@/lib/manager";
+import { parseDeadline, type SpecialistTask } from "@/lib/manager";
 
 /**
  * All Tasks, with the detail as a dialog rather than a page.
@@ -34,11 +34,15 @@ export function TaskTable({
   tasks,
   from,
   page = 1,
+  sort,
+  dir,
   empty = "No tasks on your projects yet.",
 }: {
   tasks: SpecialistTask[];
   from: "manager" | "specialist";
   page?: number;
+  sort?: string;
+  dir?: string;
   empty?: string;
 }) {
   const [openId, setOpenId] = React.useState<string | null>(null);
@@ -51,6 +55,8 @@ export function TaskTable({
     <>
       <DataTable<SpecialistTask>
         page={page}
+        sort={sort}
+        dir={dir}
         total={tasks.length}
         rows={tasks}
         basePath={`/${from}/tasks`}
@@ -83,9 +89,14 @@ export function TaskTable({
             cell: (task) => (
               <span className="tabular-nums">{task.deadline}</span>
             ),
+            // M/DD/YY: as text "8/03/26" sorts before "7/28/26".
+            sortValue: (task) => parseDeadline(task.deadline).getTime(),
           },
           {
             header: "Status",
+            // The menu is a client component, so its label does not reach the
+            // sorter — read the status off the row instead.
+            sortValue: (task) => task.status,
             cell: (task) => (
               <TaskStatusMenu
                 taskId={task.id}

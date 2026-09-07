@@ -54,7 +54,7 @@ export function UserInfoForm({ email, me }: { email: string; me: Me }) {
 
   return (
     <AuthCard>
-      <AuthHeading title="Your details">
+      <AuthHeading title="Your Details">
         We filled in what your invite already told us. Two things left.
       </AuthHeading>
 

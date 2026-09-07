@@ -12,9 +12,9 @@ export const metadata: Metadata = { title: "Customers" };
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
 }) {
-  const { page: raw } = await searchParams;
+  const { page: raw, sort, dir } = await searchParams;
   const page = Math.max(1, Number(raw) || 1);
   const { rows, total } = await adminApi.customers(page);
 
@@ -24,15 +24,22 @@ export default async function CustomersPage({
 
       <DataTable<Customer>
         page={page}
+        sort={sort}
+        dir={dir}
         total={total}
         rows={rows}
         basePath="/admin/customers"
         rowHref={(row) => `/admin/customers/${encodeURIComponent(row.email)}`}
         empty="No customers yet. Invite one to get started."
         columns={[
-          { header: "Name", cell: (row) => <PersonCell name={row.name} /> },
+          {
+            header: "Name",
+            sortValue: (row) => row.name,
+            cell: (row) => <PersonCell name={row.name} />,
+          },
           {
             header: "Role",
+            sortValue: (row) => row.role,
             // Muted throughout: role is a label, not a status worth shouting.
             // Owner keeps a faint brand tint so the two stay distinguishable.
             cell: (row) => <RoleBadge role={row.role} />,
@@ -47,6 +54,7 @@ export default async function CustomersPage({
             // Plural, and one chip each: a customer can belong to several
             // companies, and they are separate records rather than one name.
             header: "Companies",
+            sortValue: (row) => row.companies.join(", "),
             cell: (row) => <ChipsCell items={row.companies} />,
           },
         ]}

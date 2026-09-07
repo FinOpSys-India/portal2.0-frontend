@@ -21,9 +21,12 @@ export default async function ManagerProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ company?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
 }) {
-  const [{ id }, { company }] = await Promise.all([params, searchParams]);
+  const [{ id }, { company, sort, dir }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const project = await managerApi.project(id);
 
   /*
@@ -62,7 +65,12 @@ export default async function ManagerProjectPage({
               />
             </div>
 
-            <ProjectTaskTable tasks={tasks} from="manager" />
+            <ProjectTaskTable
+              tasks={tasks}
+              from="manager"
+              sort={sort}
+              dir={dir}
+            />
           </section>
 
           <DetailSection title="Project Details">

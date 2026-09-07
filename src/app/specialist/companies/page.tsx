@@ -17,9 +17,10 @@ export const metadata: Metadata = { title: "Companies" };
 export default async function SpecialistCompaniesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
 }) {
-  const company = await companyScope((await searchParams).company);
+  const { company: picked, sort, dir } = await searchParams;
+  const company = await companyScope(picked);
   const [all, manager] = await Promise.all([
     specialistApi.companies(),
     specialistApi.manager(),
@@ -33,6 +34,8 @@ export default async function SpecialistCompaniesPage({
 
       <DataTable<ClientCompany>
         page={1}
+        sort={sort}
+        dir={dir}
         total={companies.length}
         rows={companies}
         basePath="/specialist/companies"
@@ -47,6 +50,7 @@ export default async function SpecialistCompaniesPage({
           },
           {
             header: "Company Owner",
+            sortValue: (row) => row.owner,
             cell: (row) => <PersonCell name={row.owner} />,
           },
           {
@@ -54,21 +58,28 @@ export default async function SpecialistCompaniesPage({
             // specialist's work, so the value is the same on every row — kept
             // because the design shows it and it names who to ask.
             header: "Accounting Manager",
+            // The same manager on every row, so sorting by it is a no-op —
+            // left sortable only because a header that behaves differently
+            // from its neighbours reads as broken.
+            sortValue: () => manager.name,
             cell: () => <PersonCell name={manager.name} />,
           },
           {
             header: "Active Services",
+            sortValue: (row) => row.activeServices.join(", "),
             cell: (row) => <ListCell items={row.activeServices} />,
           },
           {
             // Blank until a subscription starts, same as 1.0.
             header: "Billing Date",
+            sortValue: (row) => Date.parse(row.billingDate ?? "") || 0,
             cell: (row) => (
               <span className="tabular-nums">{row.billingDate ?? ""}</span>
             ),
           },
           {
             header: "Team Members",
+            sortValue: (row) => row.teamMembers.length,
             cell: (row) => <AvatarStack names={row.teamMembers} />,
           },
         ]}

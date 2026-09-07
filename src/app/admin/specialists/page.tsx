@@ -11,9 +11,9 @@ export const metadata: Metadata = { title: "Specialists" };
 export default async function SpecialistsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
 }) {
-  const { page: raw } = await searchParams;
+  const { page: raw, sort, dir } = await searchParams;
   const page = Math.max(1, Number(raw) || 1);
   const { rows, total } = await adminApi.specialists(page);
 
@@ -23,12 +23,18 @@ export default async function SpecialistsPage({
 
       <DataTable<Specialist>
         page={page}
+        sort={sort}
+        dir={dir}
         total={total}
         rows={rows}
         basePath="/admin/specialists"
         empty="No specialists yet. Invite one to get started."
         columns={[
-          { header: "Name", cell: (row) => <PersonCell name={row.name} /> },
+          {
+            header: "Name",
+            sortValue: (row) => row.name,
+            cell: (row) => <PersonCell name={row.name} />,
+          },
           { header: "Service Speciality", cell: (row) => row.speciality },
           {
             header: "Email",

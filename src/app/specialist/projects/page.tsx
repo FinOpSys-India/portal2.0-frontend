@@ -4,7 +4,7 @@ import { DataTable } from "@/components/admin/data-table";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ProgressBar } from "@/components/portal/progress-bar";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { type ManagedProject, scoped } from "@/lib/manager";
+import { type ManagedProject, parseDeadline, scoped } from "@/lib/manager";
 import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
 
 export const metadata: Metadata = { title: "Projects" };
@@ -20,9 +20,10 @@ export const metadata: Metadata = { title: "Projects" };
 export default async function SpecialistProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
 }) {
-  const company = await companyScope((await searchParams).company);
+  const { company: picked, sort, dir } = await searchParams;
+  const company = await companyScope(picked);
   const projects = await specialistApi.projects(company);
 
   return (
@@ -31,6 +32,8 @@ export default async function SpecialistProjectsPage({
 
       <DataTable<ManagedProject>
         page={1}
+        sort={sort}
+        dir={dir}
         total={projects.length}
         rows={projects}
         basePath="/specialist/projects"
@@ -50,14 +53,17 @@ export default async function SpecialistProjectsPage({
           { header: "Company", cell: (row) => row.company },
           {
             header: "Status",
+            sortValue: (row) => row.status,
             cell: (row) => <StatusBadge status={row.status} />,
           },
           {
             header: "Deadline",
+            sortValue: (row) => parseDeadline(row.deadline).getTime(),
             cell: (row) => <span className="tabular-nums">{row.deadline}</span>,
           },
           {
             header: "Project Progress",
+            sortValue: (row) => row.progress,
             cell: (row) => <ProgressBar value={row.progress} />,
           },
         ]}

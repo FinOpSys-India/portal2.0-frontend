@@ -121,12 +121,12 @@ export function NewProject({
           trigger has to keep its own click target above the row links. */}
       <Button onClick={() => setOpen(true)}>
         <Plus className="size-4" aria-hidden />
-        New project
+        New Project
       </Button>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New project</DialogTitle>
+          <DialogTitle>New Project</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -195,7 +195,7 @@ export function NewProject({
             <FormAlert>{failure}</FormAlert>
 
             <SubmitButton pending={form.formState.isSubmitting}>
-              Create project
+              Create Project
             </SubmitButton>
           </form>
         </Form>

@@ -64,7 +64,7 @@ export function ForgotPasswordForm() {
         {/* A CODE, not a link. `sendPasswordResetOtpEmail` takes an `otp` and
             builds no URL — promising a link sends people hunting for one that
             was never in the message. */}
-        <AuthHeading title="Forgot your password?">
+        <AuthHeading title="Forgot Your Password?">
           Happens to all of us. Enter your email and we&rsquo;ll send a
           verification code.
         </AuthHeading>
@@ -104,7 +104,7 @@ export function ForgotPasswordForm() {
           <FormAlert>{failure}</FormAlert>
 
           <SubmitButton pending={form.formState.isSubmitting || sent}>
-            Send verification code
+            Send Verification Code
           </SubmitButton>
         </form>
       </Form>

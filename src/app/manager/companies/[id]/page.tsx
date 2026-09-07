@@ -5,14 +5,29 @@ import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AvatarStack } from "@/components/admin/initials-avatar";
 import { PageHeader } from "@/components/portal/portal-shell";
 import {
+  SortableHeadRow,
+  sortRows,
+  type SortableColumn,
+} from "@/components/admin/data-table";
+import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { CompanyPlan } from "@/lib/admin";
 import { managerApi } from "@/lib/manager";
+
+const PLAN_COLUMNS: SortableColumn<CompanyPlan>[] = [
+  { header: "Service", sortValue: (plan) => plan.service },
+  { header: "Current Plan", sortValue: (plan) => plan.plan ?? "" },
+  {
+    header: "Amount",
+    className: "text-right",
+    // "$1,200" — text order puts $99 above $1,200.
+    sortValue: (plan) => Number(plan.amount.replace(/[^0-9.]/g, "")) || 0,
+  },
+];
 
 export const metadata: Metadata = { title: "Company" };
 
@@ -27,10 +42,12 @@ export const metadata: Metadata = { title: "Company" };
  */
 export default async function ManagerCompanyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ sort?: string; dir?: string }>;
 }) {
-  const { id } = await params;
+  const [{ id }, { sort, dir }] = await Promise.all([params, searchParams]);
   const company = await managerApi.company(id);
 
   if (!company) notFound();
@@ -58,15 +75,9 @@ export default async function ManagerCompanyPage({
           <h2 className="mb-4 text-sm font-semibold">Current Plans</h2>
           <div className="overflow-hidden rounded-lg border border-border">
             <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Service</TableHead>
-                  <TableHead>Current Plan</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
+              <SortableHeadRow columns={PLAN_COLUMNS} sort={sort} dir={dir} />
               <TableBody>
-                {company.plans.map((plan) => (
+                {sortRows(company.plans, PLAN_COLUMNS, sort, dir).map((plan) => (
                   <TableRow key={plan.service}>
                     <TableCell className="font-medium">
                       {plan.service}

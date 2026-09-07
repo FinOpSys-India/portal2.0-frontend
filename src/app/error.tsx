@@ -34,7 +34,7 @@ export default function ErrorBoundary({
   return (
     <main className="flex min-h-dvh items-center justify-center p-6">
       <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 text-center">
-        <h1 className="text-lg font-semibold">Something went wrong</h1>
+        <h1 className="text-lg font-semibold">Something Went Wrong</h1>
 
         <p className="mt-2 text-sm text-muted-foreground">
           {error.message || "The page could not be loaded."}
@@ -47,9 +47,9 @@ export default function ErrorBoundary({
         ) : null}
 
         <div className="mt-6 flex justify-center gap-3">
-          <Button onClick={reset}>Try again</Button>
+          <Button onClick={reset}>Try Again</Button>
           <Button variant="outline" asChild>
-            <Link href="/">Go home</Link>
+            <Link href="/">Go Home</Link>
           </Button>
         </div>
       </div>

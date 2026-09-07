@@ -113,7 +113,7 @@ export function AddCompany({ accountEmail }: { accountEmail: string }) {
 
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add a company</DialogTitle>
+          <DialogTitle>Add a Company</DialogTitle>
           <DialogDescription>
             Tell us about the business, then pick its plan.
           </DialogDescription>

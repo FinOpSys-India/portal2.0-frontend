@@ -36,7 +36,7 @@ export default async function SignupPage({
       panel={AUTH_PANELS.signup}
       footer={
         <>
-          Already have an account? <AuthLink href="/login">Log in</AuthLink>
+          Already have an account? <AuthLink href="/login">Log In</AuthLink>
         </>
       }
     >

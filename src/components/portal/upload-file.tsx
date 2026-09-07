@@ -140,7 +140,7 @@ export function UploadFile({
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Upload files</DialogTitle>
+          <DialogTitle>Upload Files</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-4">

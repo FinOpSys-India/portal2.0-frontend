@@ -20,9 +20,9 @@ export default async function CustomerProjectPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string; id: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
 }) {
-  const [{ workspace, id }, { page: raw }] = await Promise.all([
+  const [{ workspace, id }, { page: raw, sort, dir }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -52,9 +52,11 @@ export default async function CustomerProjectPage({
         </DetailSection>
 
         <section>
-          <h2 className="mb-3 text-sm font-semibold">Attached files</h2>
+          <h2 className="mb-3 text-sm font-semibold">Attached Files</h2>
           <DataTable<CustomerFile>
             page={page}
+            sort={sort}
+            dir={dir}
             total={files.length}
             rows={files}
             basePath={`/customer/${workspace}/projects/${id}`}
@@ -66,10 +68,12 @@ export default async function CustomerProjectPage({
               },
               {
                 header: "Uploaded By",
+                sortValue: (row) => row.owner,
                 cell: (row) => <PersonCell name={row.owner} />,
               },
               {
                 header: "Upload Date",
+                sortValue: (row) => Date.parse(row.uploadedAt) || 0,
                 cell: (row) => (
                   <span className="text-muted-foreground">
                     {row.uploadedAt}

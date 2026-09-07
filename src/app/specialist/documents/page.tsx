@@ -25,9 +25,14 @@ export const metadata: Metadata = { title: "Files" };
 export default async function SpecialistDocumentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; project?: string }>;
+  searchParams: Promise<{
+    company?: string;
+    project?: string;
+    sort?: string;
+    dir?: string;
+  }>;
 }) {
-  const { company: picked, project } = await searchParams;
+  const { company: picked, project, sort, dir } = await searchParams;
   const company = await companyScope(picked);
 
   const [documents, projects, companies] = await Promise.all([
@@ -54,6 +59,8 @@ export default async function SpecialistDocumentsPage({
 
       <DataTable<ManagerDocument>
         page={1}
+        sort={sort}
+        dir={dir}
         total={documents.length}
         rows={documents}
         basePath="/specialist/documents"

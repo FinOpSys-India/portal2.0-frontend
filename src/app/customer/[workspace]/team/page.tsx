@@ -13,9 +13,9 @@ export default async function TeamPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
 }) {
-  const [{ workspace }, { page: raw }] = await Promise.all([
+  const [{ workspace }, { page: raw, sort, dir }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -31,12 +31,18 @@ export default async function TeamPage({
 
       <DataTable<TeamMember>
         page={page}
+        sort={sort}
+        dir={dir}
         total={team.length}
         rows={team}
         basePath={`/customer/${workspace}/team`}
         empty="No teammates yet. Invite someone to share access."
         columns={[
-          { header: "Name", cell: (row) => <PersonCell name={row.name} /> },
+          {
+            header: "Name",
+            sortValue: (row) => row.name,
+            cell: (row) => <PersonCell name={row.name} />,
+          },
           { header: "Job Title", cell: (row) => row.jobTitle },
           {
             header: "Email Address",

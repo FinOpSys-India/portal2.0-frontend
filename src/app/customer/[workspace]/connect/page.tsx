@@ -61,7 +61,7 @@ export default async function CustomerConnectPage({
             no inbox to read a reply in. A badge here would point at nothing. */}
         <ConnectCard
           icon={<Mail className="size-10" aria-hidden />}
-          label="Email your manager"
+          label="Email Your Manager"
           action="Send Email"
           href={`/customer/${workspace}/connect/email`}
           unread={0}

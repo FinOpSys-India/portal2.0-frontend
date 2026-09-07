@@ -124,7 +124,7 @@ export function OtpForm({
       <div className="space-y-4">
         {showBackToLogin ? <BackToLogin /> : null}
 
-        <AuthHeading title="Verify code">
+        <AuthHeading title="Verify Code">
           We sent a 6-digit code to your email.
         </AuthHeading>
       </div>

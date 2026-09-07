@@ -30,7 +30,7 @@ export default async function WorkspaceSelectPage() {
   return (
     <AuthShell>
       <AuthCard>
-        <AuthHeading title="Select workspace">
+        <AuthHeading title="Select Workspace">
           Choose a company to continue.
         </AuthHeading>
 

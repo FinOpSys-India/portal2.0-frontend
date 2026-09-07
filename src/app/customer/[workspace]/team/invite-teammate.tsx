@@ -65,13 +65,13 @@ export function InviteTeammate({ workspaceId }: { workspaceId: string }) {
       <DialogTrigger asChild>
         <Button>
           <Plus className="size-4" aria-hidden />
-          Invite teammate
+          Invite Teammate
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Invite a teammate</DialogTitle>
+          <DialogTitle>Invite a Teammate</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -123,7 +123,7 @@ export function InviteTeammate({ workspaceId }: { workspaceId: string }) {
             <FormAlert>{failure}</FormAlert>
 
             <SubmitButton pending={form.formState.isSubmitting}>
-              Send invite
+              Send Invite
             </SubmitButton>
           </form>
         </Form>

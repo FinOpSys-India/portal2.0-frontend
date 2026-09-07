@@ -25,9 +25,10 @@ export const metadata: Metadata = { title: "Companies" };
 export default async function ManagerCompaniesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
 }) {
-  const company = await companyScope((await searchParams).company);
+  const { company: picked, sort, dir } = await searchParams;
+  const company = await companyScope(picked);
   // No specialist roster here any more: the staffing dialog asks the server for
   // its own options when it opens, which spared this page a directory sweep per
   // company on every load.
@@ -41,6 +42,8 @@ export default async function ManagerCompaniesPage({
 
       <DataTable<ClientCompany>
         page={1}
+        sort={sort}
+        dir={dir}
         total={companies.length}
         rows={companies}
         basePath="/manager/companies"
@@ -53,25 +56,31 @@ export default async function ManagerCompaniesPage({
           },
           {
             header: "Company Owner",
+            sortValue: (row) => row.owner,
             cell: (row) => <PersonCell name={row.owner} />,
           },
           {
             header: "Active Services",
+            sortValue: (row) => row.activeServices.join(", "),
             cell: (row) => <ListCell items={row.activeServices} />,
           },
           {
             // Blank until a subscription starts, same as 1.0.
             header: "Billing Date",
+            sortValue: (row) => Date.parse(row.billingDate ?? "") || 0,
             cell: (row) => (
               <span className="tabular-nums">{row.billingDate ?? ""}</span>
             ),
           },
           {
             header: "Team Members",
+            sortValue: (row) => row.teamMembers.length,
             cell: (row) => <AvatarStack names={row.teamMembers} />,
           },
           {
             header: "Action",
+            // A button per row. Nothing to order by.
+            sortValue: false,
             cell: (row) => (
               <AssignCompanySpecialist
                 companyId={row.id}

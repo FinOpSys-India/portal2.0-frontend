@@ -22,9 +22,10 @@ export const metadata: Metadata = { title: "Customers" };
 export default async function ManagerCustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
 }) {
-  const company = await companyScope((await searchParams).company);
+  const { company: picked, sort, dir } = await searchParams;
+  const company = await companyScope(picked);
   const customers = await managerApi.customers(company);
 
   return (
@@ -33,14 +34,24 @@ export default async function ManagerCustomersPage({
 
       <DataTable<ManagerCustomer>
         page={1}
+        sort={sort}
+        dir={dir}
         total={customers.length}
         rows={customers}
         basePath="/manager/customers"
         rowHref={(row) => `/manager/customers/${encodeURIComponent(row.email)}`}
         empty="No customers on this company yet."
         columns={[
-          { header: "Name", cell: (row) => <PersonCell name={row.name} /> },
-          { header: "Role", cell: (row) => <RoleBadge role={row.role} /> },
+          {
+            header: "Name",
+            sortValue: (row) => row.name,
+            cell: (row) => <PersonCell name={row.name} />,
+          },
+          {
+            header: "Role",
+            sortValue: (row) => row.role,
+            cell: (row) => <RoleBadge role={row.role} />,
+          },
           {
             header: "Email",
             cell: (row) => (
@@ -50,6 +61,7 @@ export default async function ManagerCustomersPage({
           {
             // Multi-valued: 1.0 renders this as a comma list.
             header: "Company",
+            sortValue: (row) => row.companies.join(", "),
             cell: (row) => <ChipsCell items={row.companies} />,
           },
         ]}

@@ -14,9 +14,9 @@ export default async function CompanyPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
 }) {
-  const [{ workspace }, { page: raw }] = await Promise.all([
+  const [{ workspace }, { page: raw, sort, dir }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -35,6 +35,8 @@ export default async function CompanyPage({
 
       <DataTable<CustomerCompany>
         page={page}
+        sort={sort}
+        dir={dir}
         total={companies.length}
         rows={companies}
         basePath={`/customer/${workspace}/company`}
@@ -46,10 +48,12 @@ export default async function CompanyPage({
           },
           {
             header: "Active Services",
+            sortValue: (row) => row.activeServices.join(", "),
             cell: (row) => <ListCell items={row.activeServices} />,
           },
           {
             header: "Subscription Date",
+            sortValue: (row) => Date.parse(row.subscriptionDate ?? "") || 0,
             cell: (row) =>
               row.subscriptionDate ?? (
                 <span className="text-muted-foreground">—</span>
@@ -57,6 +61,7 @@ export default async function CompanyPage({
           },
           {
             header: "Team Members",
+            sortValue: (row) => row.teamMembers.length,
             cell: (row) => <AvatarStack names={row.teamMembers} />,
           },
         ]}

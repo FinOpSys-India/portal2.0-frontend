@@ -22,7 +22,10 @@ export interface FileRow {
  */
 export const FILE_COLUMNS: Column<FileRow>[] = [
   {
-    header: "File name",
+    header: "File Name",
+    // The name alone: the chip beside it renders the extension, which would
+    // otherwise group the column by file type before name.
+    sortValue: (row) => row.name,
     cell: (row) => (
       <span className="flex items-center gap-3">
         <FileChip name={row.name} />
@@ -41,9 +44,14 @@ export const FILE_COLUMNS: Column<FileRow>[] = [
     cell: (row) =>
       row.project ?? <span className="text-muted-foreground">Unattached</span>,
   },
-  { header: "File Owner", cell: (row) => <PersonCell name={row.owner} /> },
+  {
+    header: "File Owner",
+    sortValue: (row) => row.owner,
+    cell: (row) => <PersonCell name={row.owner} />,
+  },
   {
     header: "Upload Date",
+    sortValue: (row) => Date.parse(row.uploadedAt) || 0,
     cell: (row) => (
       <span className="text-muted-foreground tabular-nums">
         {row.uploadedAt}

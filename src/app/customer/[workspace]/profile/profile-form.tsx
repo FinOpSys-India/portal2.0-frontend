@@ -76,7 +76,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           className="space-y-6"
         >
           <section className="rounded-xl border border-border bg-card p-6">
-            <h2 className="mb-4 text-sm font-semibold">General information</h2>
+            <h2 className="mb-4 text-sm font-semibold">General Information</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <StaticField label="Full Name" value={profile.fullName} />
               <StaticField label="Email Address" value={profile.email} />
@@ -105,7 +105,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
                   label="Address Line 1"
                   icon={MapPin}
                   autoComplete="address-line1"
-                  placeholder="Street address"
+                  placeholder="Street Address"
                 />
               </div>
               <TextField
@@ -127,7 +127,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
                 name="zip"
                 label="ZIP Code"
                 autoComplete="postal-code"
-                placeholder="ZIP code"
+                placeholder="ZIP Code"
               />
               <SelectField
                 control={form.control}
@@ -152,7 +152,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
 
           <div className="max-w-xs">
             <SubmitButton pending={form.formState.isSubmitting}>
-              Save changes
+              Save Changes
             </SubmitButton>
           </div>
         </form>

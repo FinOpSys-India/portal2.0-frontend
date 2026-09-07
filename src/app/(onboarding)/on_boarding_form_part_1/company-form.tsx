@@ -74,7 +74,7 @@ export function CompanyForm({ accountEmail }: { accountEmail: string }) {
         <BackToLogin />
       </div>
 
-      <AuthHeading title="Your company">
+      <AuthHeading title="Your Company">
         Tell us about the business we&rsquo;ll be working on.
       </AuthHeading>
 
