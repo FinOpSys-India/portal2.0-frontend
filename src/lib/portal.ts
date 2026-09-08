@@ -28,6 +28,7 @@ import type {
   SpecialistTask,
   TaskStatus,
 } from "@/lib/manager";
+import type { MessageReaction } from "@/lib/reactions";
 
 /* ---------------------------------------------------------------- people -- */
 
@@ -261,6 +262,17 @@ export interface BackendMessage {
   attachments: { id: number; fileName: string; sizeBytes: number }[];
   createdAt: string;
   mine: boolean | null;
+  /**
+   * Grouped and counted server-side, not one row per reactor. A busy message
+   * would otherwise send the same emoji a dozen times for the client to tally,
+   * and `mine` cannot be worked out here at all — it is the same question the
+   * message's own `mine` answers, and only the server knows who is asking.
+   *
+   * OPTIONAL, because it is the one field on this shape that may be missing:
+   * the endpoint that serves it is being built separately, and a deployment
+   * without it should render a thread with no chips rather than crash.
+   */
+  reactions?: MessageReaction[];
 }
 
 export interface BackendConversation {
@@ -291,6 +303,9 @@ export function toChatMessage(m: BackendMessage): ChatMessage {
       name: a.fileName,
       size: a.sizeBytes,
     })),
+    // Passed through as sent: grouping and counting are the server's, because
+    // `mine` is a fact about the caller that no mapper here can recover.
+    reactions: m.reactions ?? [],
   };
 }
 

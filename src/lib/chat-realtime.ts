@@ -78,6 +78,9 @@ export function toLiveMessage(
     body: row.body ?? "",
     sentAt: row.created_at,
     attachments: [],
+    // Empty for the same reason, and it is not a gap worth closing here: a
+    // message arriving over the socket is one nobody can have reacted to yet.
+    reactions: [],
   };
 }
 

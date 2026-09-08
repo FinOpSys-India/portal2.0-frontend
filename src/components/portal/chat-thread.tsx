@@ -1,11 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Paperclip, SendHorizontal, Trash2 } from "lucide-react";
+import { Paperclip, SendHorizontal, Smile, SmilePlus, Trash2 } from "lucide-react";
 
 import { InitialsAvatar } from "@/components/admin/initials-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import { chatApi } from "@/lib/chat";
 import { subscribeToThread } from "@/lib/chat-realtime";
@@ -17,6 +22,7 @@ import {
   type ChatAttachment,
   type ChatMessage,
 } from "@/lib/manager";
+import { COMPOSER_EMOJI, REACTIONS, toggleLocal } from "@/lib/reactions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -217,6 +223,37 @@ export function ChatThread({
     }
   }
 
+  /**
+   * Add or drop the viewer's reaction.
+   *
+   * OPTIMISTIC, and it has to be: the chip moves on the click rather than on
+   * the round trip, because a reaction that waits reads as a dead button and
+   * gets pressed twice — which, on a toggle, undoes itself.
+   *
+   * The server's list replaces the guess on the way back rather than being
+   * discarded as "the same thing". Somebody else's reaction can land while this
+   * request is in flight, and only the answer carries that.
+   *
+   * Written straight into `setMessages` rather than through `merge`: this
+   * changes one field of a message already on screen, where `merge` replaces a
+   * whole row and would drop the attachments a live payload never carries.
+   */
+  async function react(message: ChatMessage, emoji: string) {
+    const previous = message.reactions;
+    const patch = (reactions: ChatMessage["reactions"]) =>
+      setMessages((rows) =>
+        (rows ?? []).map((m) => (m.id === message.id ? { ...m, reactions } : m)),
+      );
+
+    patch(toggleLocal(previous, emoji));
+    try {
+      patch(await chatApi.react(message.id, emoji));
+    } catch (err) {
+      patch(previous);
+      setFailure(err instanceof Error ? err.message : "Could not react.");
+    }
+  }
+
   async function attach(file: File) {
     if (!sendFile || sending) return;
 
@@ -260,7 +297,7 @@ export function ChatThread({
               {isNewDay(message, messages[index - 1]) ? (
                 <DayDivider label={dayLabel(message.sentAt)} />
               ) : null}
-              <Bubble message={message} onDelete={remove} />
+              <Bubble message={message} onDelete={remove} onReact={react} />
             </React.Fragment>
           ))
         )}
@@ -298,6 +335,14 @@ export function ChatThread({
               />
             </>
           ) : null}
+
+          {/* Beside the paperclip rather than inside the field: both add
+              something to the message that typing cannot, and a control that
+              overlays the text would cover what is being written. */}
+          <EmojiPicker
+            disabled={sending}
+            onPick={(emoji) => setDraft((text) => text + emoji)}
+          />
 
           <Input
             value={draft}
@@ -357,56 +402,190 @@ function DayDivider({ label }: { label: string }) {
 function Bubble({
   message,
   onDelete,
+  onReact,
 }: {
   message: ChatMessage;
   onDelete: (message: ChatMessage) => void;
+  onReact: (message: ChatMessage, emoji: string) => void;
 }) {
   const files = message.attachments;
 
   return (
     <div className={cn("group flex items-end gap-1", message.mine && "flex-row-reverse")}>
+      {/* The column exists for the chips: they hang UNDER the bubble rather
+          than inside it, so a reaction never reflows the text it is about, and
+          `max-w` moved up here so the chip row is bounded the same way. */}
       <div
         className={cn(
-          "flex w-fit max-w-[70%] flex-col gap-1 rounded-xl px-3 py-1.5",
-          message.mine ? "bg-primary text-primary-foreground" : "bg-muted",
+          "flex max-w-[70%] flex-col gap-1",
+          message.mine && "items-end",
         )}
       >
-        {files.map((file) => (
-          <AttachmentLink key={file.id} file={file} mine={message.mine} />
-        ))}
+        <div
+          className={cn(
+            "flex w-fit flex-col gap-1 rounded-xl px-3 py-1.5",
+            message.mine ? "bg-primary text-primary-foreground" : "bg-muted",
+          )}
+        >
+          {files.map((file) => (
+            <AttachmentLink key={file.id} file={file} mine={message.mine} />
+          ))}
 
-        <div className="flex items-end gap-2">
-          {/* An attachment-only message has no body. Rendering an empty
-              paragraph would add a blank line under the file. */}
-          {message.body ? (
-            <p className="text-sm break-words">{message.body}</p>
-          ) : null}
-          <span
-            className={cn(
-              "ml-auto shrink-0 text-[11px] leading-5 tabular-nums",
-              message.mine
-                ? "text-primary-foreground/70"
-                : "text-muted-foreground",
-            )}
-          >
-            {messageTime(message.sentAt)}
-          </span>
+          <div className="flex items-end gap-2">
+            {/* An attachment-only message has no body. Rendering an empty
+                paragraph would add a blank line under the file. */}
+            {message.body ? (
+              <p className="text-sm break-words">{message.body}</p>
+            ) : null}
+            <span
+              className={cn(
+                "ml-auto shrink-0 text-[11px] leading-5 tabular-nums",
+                message.mine
+                  ? "text-primary-foreground/70"
+                  : "text-muted-foreground",
+              )}
+            >
+              {messageTime(message.sentAt)}
+            </span>
+          </div>
         </div>
+
+        {message.reactions.length ? (
+          <div className="flex flex-wrap gap-1">
+            {message.reactions.map((reaction) => (
+              <button
+                key={reaction.emoji}
+                type="button"
+                onClick={() => onReact(message, reaction.emoji)}
+                /* The name a screen reader reads is the emoji itself, which it
+                   announces by its CLDR name ("thumbs up"), plus the count.
+                   `aria-pressed` is what says the viewer is one of them —
+                   without it the filled and hollow chips sound identical. */
+                aria-pressed={reaction.mine}
+                className={cn(
+                  "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs leading-none tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
+                  reaction.mine
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-card text-muted-foreground hover:bg-muted",
+                )}
+              >
+                <span className="text-sm leading-none">{reaction.emoji}</span>
+                {reaction.count}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
-      {/* Only your own. The server refuses anything else outright; this just
-          declines to offer a control that would always fail. */}
-      {message.mine ? (
-        <button
-          type="button"
-          onClick={() => onDelete(message)}
-          aria-label="Delete this message"
-          className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
-        >
-          <Trash2 className="size-3.5" aria-hidden />
-        </button>
-      ) : null}
+      {/* Beside the bubble and revealed on hover, the way the delete already
+          was. `self-end` keeps both pinned to the bubble's last line rather
+          than floating beside a chip row that may not be there. */}
+      <div className="flex items-center gap-0.5 self-end pb-0.5">
+        <ReactionPicker onPick={(emoji) => onReact(message, emoji)} />
+
+        {/* Only your own. The server refuses anything else outright; this just
+            declines to offer a control that would always fail. */}
+        {message.mine ? (
+          <button
+            type="button"
+            onClick={() => onDelete(message)}
+            aria-label="Delete this message"
+            className={cn(ACTION_BUTTON, "hover:text-destructive")}
+          >
+            <Trash2 className="size-3.5" aria-hidden />
+          </button>
+        ) : null}
+      </div>
     </div>
+  );
+}
+
+/**
+ * The hover-revealed controls beside a bubble.
+ *
+ * `data-[state=open]` is not decoration: the reaction popover's trigger is one
+ * of these, and without it the button it is anchored to fades out the moment
+ * the pointer moves into the popover — leaving a menu floating beside nothing.
+ */
+const ACTION_BUTTON =
+  "rounded-md p-1 text-muted-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30";
+
+/**
+ * The six reactions, on one message.
+ *
+ * CONTROLLED, unlike the composer's picker, and the difference is what each is
+ * for: reacting is one decision and the popover should get out of the way once
+ * it is made, whereas someone decorating a sentence often wants three emoji and
+ * should not have to reopen the grid twice.
+ */
+function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" aria-label="React to this message" className={ACTION_BUTTON}>
+          <SmilePlus className="size-3.5" aria-hidden />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="center" className="w-auto flex-row gap-0.5 p-1">
+        {REACTIONS.map(({ emoji, label }) => (
+          <button
+            key={emoji}
+            type="button"
+            aria-label={label}
+            onClick={() => {
+              onPick(emoji);
+              setOpen(false);
+            }}
+            className="rounded-md p-1 text-lg leading-none transition-transform hover:scale-125 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+          >
+            <span aria-hidden>{emoji}</span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
+ * The composer's emoji grid.
+ *
+ * UNCONTROLLED — it stays open after a pick, so a run of emoji costs one click
+ * each rather than one click plus one reopen. Dismissal is Escape or a click
+ * outside, which Radix already handles and which is what every other popover on
+ * this app does.
+ */
+function EmojiPicker({
+  disabled,
+  onPick,
+}: {
+  disabled: boolean;
+  onPick: (emoji: string) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="ghost" size="icon-sm" disabled={disabled}>
+          <Smile aria-hidden />
+          <span className="sr-only">Insert an emoji</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-2">
+        <div className="grid grid-cols-8 gap-0.5">
+          {COMPOSER_EMOJI.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => onPick(emoji)}
+              className="rounded-md p-1 text-lg leading-none hover:bg-muted focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

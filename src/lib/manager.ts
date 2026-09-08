@@ -21,6 +21,9 @@ import {
   type UploadTicket,
 } from "@/lib/http";
 import { fullName } from "@/lib/directory";
+// Re-exported below, so a screen rendering a thread keeps one import for its
+// whole shape — the same courtesy `ChatAttachment` gets by being declared here.
+import type { MessageReaction } from "@/lib/reactions";
 import {
   personName,
   taskStatusCode,
@@ -242,6 +245,15 @@ export interface ChatMessage {
    * they did.
    */
   attachments: ChatAttachment[];
+  /**
+   * The emoji on this message, already grouped and counted by the server.
+   *
+   * EMPTY IS ALSO WHAT THE SOCKET SENDS. `chat_message_reactions` is not in the
+   * Supabase publication, so a live row cannot describe its own reactions —
+   * exactly like `attachments`, and for the same reason. A thread reading a
+   * live row gets `[]` and picks the real list up on the next load.
+   */
+  reactions: MessageReaction[];
 }
 
 export interface ChatAttachment {
@@ -249,6 +261,8 @@ export interface ChatAttachment {
   name: string;
   size: number;
 }
+
+export type { MessageReaction };
 
 /** The four inboxes the Connect page is split into. */
 export const INBOXES: { channel: Channel; party: Party; label: string }[] = [

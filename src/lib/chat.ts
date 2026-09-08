@@ -17,6 +17,7 @@
 import { del, get, post } from "@/lib/http";
 import { personName, toChatMessage, type BackendMessage } from "@/lib/portal";
 import type { ChatMessage } from "@/lib/manager";
+import type { MessageReaction } from "@/lib/reactions";
 
 /* -------------------------------------------------------------- contacts -- */
 
@@ -144,6 +145,28 @@ export const chatApi = {
    */
   async deleteMessage(messageId: string): Promise<void> {
     await del(`/chat/messages/${encodeURIComponent(messageId)}`);
+  },
+
+  /**
+   * Add or remove the viewer's reaction. ONE ROUTE, NOT TWO: it toggles.
+   *
+   * A DELETE would have to carry the emoji anyway — a reactor can hold several
+   * on one message, so "remove my reaction" is not a complete instruction — at
+   * which point the pair is one endpoint written twice, and the client has to
+   * know which of the two to call, which is a fact only the server's row
+   * actually settles.
+   *
+   * What comes back is the message's WHOLE reaction list, regrouped. Not a
+   * delta and not just the emoji that changed: somebody else's reaction can
+   * land between the click and the answer, and a delta would render a count
+   * this client computed rather than the one the database holds.
+   */
+  async react(messageId: string, emoji: string): Promise<MessageReaction[]> {
+    const data = await post<{ reactions?: MessageReaction[] }>(
+      `/chat/messages/${encodeURIComponent(messageId)}/reactions`,
+      { emoji },
+    );
+    return data.reactions ?? [];
   },
 };
 
