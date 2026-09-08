@@ -15,6 +15,7 @@ import {
   teamNames,
   toAddressFields,
   documentPath,
+  personId,
   toChatMessage,
   toClientCompany,
   toManagerDocument,
@@ -294,3 +295,27 @@ assert.equal(documentPath(flat), documentPath(nested));
 // path, so there is nothing to point a preview or a download at. Null rather
 // than a "/api/projects/null/..." that 400s on click.
 assert.equal(documentPath({ id: "7", projectId: null }), null);
+
+// Owner id, both spellings. `projectDto.toPerson` — which every uploader on a
+// document is built by — names it `id`; the directory rows name it `userId`.
+// Reading only one is how the delete button disappears for everybody, since
+// `undefined === "12"` is false on every row.
+assert.equal(personId({ id: 12, firstName: "Ada", lastName: "Byron" }), "12");
+assert.equal(personId({ userId: 12, firstName: "Ada", lastName: "Byron" }), "12");
+// The FK is SET NULL, so a file outlives its uploader's account. Nobody owns
+// such a row — and nobody may delete it from the list.
+assert.equal(personId(null), null);
+assert.equal(
+  toManagerDocument(
+    {
+      id: 7,
+      projectId: 42,
+      fileName: "payroll.pdf",
+      sizeBytes: 2048,
+      uploadedBy: { id: 12, firstName: "Ada", lastName: "Byron" },
+      createdAt: "2026-08-20T10:00:00.000Z",
+    },
+    { companyId: "3", companyName: "Northwind" },
+  ).ownerId,
+  "12",
+);

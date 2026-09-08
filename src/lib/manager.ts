@@ -271,6 +271,8 @@ export interface ManagerDocument {
   company: string;
   project: string | null;
   owner: string;
+  /** Who uploaded it, as an id — the delete button is theirs alone. */
+  ownerId: string | null;
   uploadedAt: string;
   /** Bytes. Rendered beneath the file name. */
   size: number;

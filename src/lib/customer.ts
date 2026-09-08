@@ -28,6 +28,7 @@ import { fullName, roleIds } from "@/lib/directory";
 import {
   billingDate,
   documentProjectId,
+  personId,
   personName,
   teamNames,
   toAddressFields,
@@ -60,6 +61,8 @@ export interface CustomerFile {
   name: string;
   project: string;
   owner: string;
+  /** See ManagerDocument.ownerId. */
+  ownerId: string | null;
   uploadedAt: string;
   /** Bytes. Rendered beneath the file name, as in the staff portals. */
   size: number;
@@ -194,6 +197,7 @@ export const customerApi = {
       name: d.fileName,
       project: d.project?.projectName ?? "",
       owner: personName(d.uploadedBy),
+      ownerId: personId(d.uploadedBy),
       uploadedAt: d.createdAt,
       size: d.sizeBytes,
     }));
@@ -237,6 +241,7 @@ export const customerApi = {
       name: doc.fileName,
       project: meta.project,
       owner: personName(doc.uploadedBy),
+      ownerId: personId(doc.uploadedBy),
       uploadedAt: doc.createdAt,
       size: doc.sizeBytes,
     };

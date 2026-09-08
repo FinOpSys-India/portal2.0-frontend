@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 
 import { DataTable } from "@/components/admin/data-table";
-import { FILE_COLUMNS, ScopeBreadcrumb } from "@/components/portal/file-list";
+import { fileColumns, ScopeBreadcrumb } from "@/components/portal/file-list";
 import { ProjectFilter } from "@/components/portal/project-filter";
 import { customerApi, type CustomerFile } from "@/lib/customer";
+import { viewerId } from "@/lib/portal";
 
 import { CustomerUploadFile } from "./upload-file";
 
@@ -31,10 +32,12 @@ export default async function FilesPage({
   ]);
   const page = Math.max(1, Number(raw) || 1);
 
-  const [files, projects, workspaces] = await Promise.all([
+  const [files, projects, workspaces, viewer] = await Promise.all([
     customerApi.files(workspace, project),
     customerApi.projects(workspace),
     customerApi.workspaces(),
+    // Who "delete" is offered to: the uploader of the row, nobody else.
+    viewerId(),
   ]);
 
   const companyName = workspaces.find((w) => w.id === workspace)?.name ?? null;
@@ -68,7 +71,7 @@ export default async function FilesPage({
             ? "No files on this project yet."
             : "No files yet. Your accounting team will add them here."
         }
-        columns={FILE_COLUMNS}
+        columns={fileColumns(viewer)}
       />
     </>
   );

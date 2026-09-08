@@ -83,7 +83,7 @@ export function TaskTable({
               <span className="text-muted-foreground">{task.description}</span>
             ),
           },
-          { header: "Project", cell: (task) => task.project },
+          { header: "Project Name", cell: (task) => task.project },
           {
             header: "Deadline",
             cell: (task) => (

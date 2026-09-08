@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 
 import { DataTable } from "@/components/admin/data-table";
 import {
-  DOCUMENT_COLUMNS,
+  documentColumns,
   ScopeBreadcrumb,
 } from "@/components/portal/file-list";
 import { ProjectFilter } from "@/components/portal/project-filter";
 import type { ManagerDocument } from "@/lib/manager";
+import { viewerId } from "@/lib/portal";
 import { companyScope, specialistApi } from "@/lib/specialist";
 
 import { SpecialistUploadFile } from "./upload-file";
@@ -35,10 +36,12 @@ export default async function SpecialistDocumentsPage({
   const { company: picked, project, sort, dir } = await searchParams;
   const company = await companyScope(picked);
 
-  const [documents, projects, companies] = await Promise.all([
+  const [documents, projects, companies, viewer] = await Promise.all([
     specialistApi.documents(company, project),
     specialistApi.projects(company),
     specialistApi.companies(),
+    // Who "delete" is offered to: the uploader of the row, nobody else.
+    viewerId(),
   ]);
 
   // From the company list, not from the projects: a company with no projects
@@ -79,7 +82,7 @@ export default async function SpecialistDocumentsPage({
         empty={
           project ? "No documents on this project yet." : "No documents yet."
         }
-        columns={DOCUMENT_COLUMNS}
+        columns={documentColumns(viewer)}
       />
     </>
   );

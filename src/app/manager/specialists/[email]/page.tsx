@@ -28,7 +28,7 @@ const COLUMNS: SortableColumn<SpecialistTask>[] = [
   // The design labels this column "File Name" on a table of tasks. Named for
   // what it holds.
   { header: "Task", sortValue: (task) => task.name },
-  { header: "Project", sortValue: (task) => task.project },
+  { header: "Project Name", sortValue: (task) => task.project },
   { header: "Deadline", sortValue: (task) => parseDeadline(task.deadline).getTime() },
   { header: "Status", sortValue: (task) => task.status },
 ];

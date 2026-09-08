@@ -45,7 +45,7 @@ export default async function ProjectsPage({
         empty="No projects yet. Create one to get started."
         columns={[
           {
-            header: "Project",
+            header: "Project Name",
             cell: (row) => <span className="font-medium">{row.name}</span>,
           },
           { header: "Service", cell: (row) => row.service },

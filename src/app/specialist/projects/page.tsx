@@ -45,7 +45,7 @@ export default async function SpecialistProjectsPage({
         }
         columns={[
           {
-            header: "Project",
+            header: "Project Name",
             cell: (row) => <span className="font-medium">{row.name}</span>,
           },
           // Not a design column: the design is always scoped to one company, so

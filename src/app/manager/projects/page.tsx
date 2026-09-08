@@ -59,7 +59,7 @@ export default async function ManagerProjectsPage({
         empty="No projects for this company."
         columns={[
           {
-            header: "Project",
+            header: "Project Name",
             cell: (row) => <span className="font-medium">{row.name}</span>,
           },
           { header: "Service Type", cell: (row) => row.service },

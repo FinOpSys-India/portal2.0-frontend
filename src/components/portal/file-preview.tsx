@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Download } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Download, Eye, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +13,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { toast } from "@/components/ui/toast";
 import { fileKind, formatFileSize } from "@/lib/manager";
+import { deleteDocument, documentPath } from "@/lib/portal";
 import { cn } from "@/lib/utils";
 
 /**
@@ -62,19 +65,40 @@ export function FilePreview({
   if (!href) return <span className={className}>{name}</span>;
 
   return (
+    <PreviewDialog name={name} href={href} size={size}>
+      <button
+        type="button"
+        aria-label={`Preview ${name}`}
+        className={cn(
+          "truncate text-left underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
+          className,
+        )}
+      >
+        {name}
+      </button>
+    </PreviewDialog>
+  );
+}
+
+/**
+ * The viewer itself, opened by whatever is passed as its trigger — the file
+ * name in a list, the eye in the actions column. One dialog either way, so the
+ * two entry points cannot drift.
+ */
+function PreviewDialog({
+  name,
+  href,
+  size,
+  children,
+}: {
+  name: string;
+  href: string;
+  size?: number;
+  children: React.ReactNode;
+}) {
+  return (
     <Dialog>
-      <DialogTrigger asChild>
-        <button
-          type="button"
-          aria-label={`Preview ${name}`}
-          className={cn(
-            "truncate text-left underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
-            className,
-          )}
-        >
-          {name}
-        </button>
-      </DialogTrigger>
+      <DialogTrigger asChild>{children}</DialogTrigger>
 
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
@@ -95,6 +119,93 @@ export function FilePreview({
         </Button>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * The row's controls: preview, download, and — for your own uploads — delete.
+ *
+ * DELETE IS THE UPLOADER'S ALONE here. The server allows more (anyone with
+ * write access to the project may remove a file), but "you can delete what you
+ * put there" is a rule a reader can predict from the row in front of them,
+ * where "you can delete this one because of your role on its project" is not.
+ * The narrower button is not a security claim — the server still decides.
+ */
+export function DocumentActions({
+  doc,
+  viewerId,
+}: {
+  doc: {
+    id: string;
+    projectId: string | null;
+    name: string;
+    ownerId: string | null;
+    size: number;
+  };
+  /** The signed-in user, from `viewerId()`. */
+  viewerId: string;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = React.useState(false);
+  const href = documentPath(doc);
+  const mine = doc.ownerId !== null && doc.ownerId === viewerId;
+
+  async function remove() {
+    if (!doc.projectId || pending) return;
+    // Deleting the bytes is not undoable — the row is kept for history, the
+    // object in the bucket is not — so it is worth one question.
+    if (!window.confirm(`Delete ${doc.name}? This cannot be undone.`)) return;
+
+    setPending(true);
+    try {
+      await deleteDocument(doc.projectId, doc.id);
+      toast.success(`${doc.name} deleted.`);
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "That file could not be deleted.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <span className="flex items-center justify-end gap-1">
+      {href ? (
+        <>
+          <PreviewDialog name={doc.name} href={href} size={doc.size}>
+            <Button variant="ghost" size="icon-sm" aria-label={`Preview ${doc.name}`}>
+              <Eye aria-hidden />
+            </Button>
+          </PreviewDialog>
+
+          <Button
+            asChild
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Download ${doc.name}`}
+          >
+            <a href={href} download={doc.name}>
+              <Download aria-hidden />
+            </a>
+          </Button>
+        </>
+      ) : null}
+
+      {mine ? (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={remove}
+          disabled={pending}
+          aria-label={`Delete ${doc.name}`}
+          className="text-muted-foreground hover:text-destructive"
+        >
+          {pending ? <Spinner className="size-4" /> : <Trash2 aria-hidden />}
+        </Button>
+      ) : null}
+    </span>
   );
 }
 

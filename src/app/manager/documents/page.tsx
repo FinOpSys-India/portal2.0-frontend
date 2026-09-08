@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 
 import { DataTable } from "@/components/admin/data-table";
 import {
-  DOCUMENT_COLUMNS,
+  documentColumns,
   ScopeBreadcrumb,
 } from "@/components/portal/file-list";
 import { ProjectFilter } from "@/components/portal/project-filter";
 import { companyScope, managerApi, type ManagerDocument } from "@/lib/manager";
+import { viewerId } from "@/lib/portal";
 import { ManagerUploadFile } from "./upload-file";
 
 export const metadata: Metadata = { title: "Files" };
@@ -32,10 +33,12 @@ export default async function ManagerDocumentsPage({
   const { company: picked, project, sort, dir } = await searchParams;
   const company = await companyScope(picked);
 
-  const [documents, projects, companies] = await Promise.all([
+  const [documents, projects, companies, viewer] = await Promise.all([
     managerApi.documents(company, project),
     managerApi.projects(company),
     managerApi.companies(),
+    // Who "delete" is offered to: the uploader of the row, nobody else.
+    viewerId(),
   ]);
 
   // Upload can still file against any company on the book; the pills only
@@ -76,7 +79,7 @@ export default async function ManagerDocumentsPage({
         empty={
           project ? "No documents on this project yet." : "No documents yet."
         }
-        columns={DOCUMENT_COLUMNS}
+        columns={documentColumns(viewer)}
       />
     </>
   );

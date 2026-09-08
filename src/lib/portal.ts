@@ -16,6 +16,7 @@
 
 import type { CompanyPlan } from "@/lib/admin";
 import { fullName } from "@/lib/directory";
+import { del, get } from "@/lib/http";
 import type {
   ChatMessage,
   ClientCompany,
@@ -31,6 +32,14 @@ import type {
 /* ---------------------------------------------------------------- people -- */
 
 export interface BackendPerson {
+  /**
+   * TWO SPELLINGS, because the backend has two. `projectDto.toPerson` — which
+   * every embedded person on a project, task or document is built by — names it
+   * `id`; the directory rows name it `userId`. Reading only one of them is how
+   * an owner check silently compares `undefined` to a real id and answers "not
+   * yours" for every row.
+   */
+  id?: number;
   userId?: number;
   firstName: string;
   lastName: string;
@@ -40,6 +49,12 @@ export interface BackendPerson {
 
 export const personName = (p: BackendPerson | null | undefined): string =>
   p ? fullName(p) : "";
+
+/** Whoever this person is, as the id the session can be compared against. */
+export const personId = (p: BackendPerson | null | undefined): string | null => {
+  const id = p?.id ?? p?.userId ?? null;
+  return id === null ? null : String(id);
+};
 
 /* --------------------------------------------------------------- statuses -- */
 
@@ -178,9 +193,43 @@ export function toManagerDocument(
     // because the heading above it already says which one.
     project: d.project?.projectName ?? null,
     owner: personName(d.uploadedBy),
+    // Null when the uploader's account has been deleted — the FK is SET NULL,
+    // so a file outlives its attribution. Nobody owns such a row.
+    ownerId: personId(d.uploadedBy),
     uploadedAt: d.createdAt,
     size: d.sizeBytes,
   };
+}
+
+/**
+ * The signed-in user's own id — what "uploaded by you" is decided against.
+ *
+ * Read on the server, once per page, rather than threaded through every list
+ * boundary: it is the same call for all four portals (`GET /users/me` answers
+ * for whoever holds the token) and the rows themselves carry no viewer.
+ */
+export async function viewerId(): Promise<string> {
+  return String((await get<{ id: number }>("/users/me")).id);
+}
+
+/**
+ * Remove one document.
+ *
+ * ONE FUNCTION FOR EVERY PORTAL, like the chat routes: the endpoint authorizes
+ * against the caller's relationship to the project rather than their role, so
+ * the manager, the specialist and the customer call the identical path.
+ *
+ * The server's rule is broader than the button's — it also lets whoever has
+ * write access to the project remove somebody else's file. The UI offers it
+ * only to the uploader, which is the rule a reader can predict from the row in
+ * front of them; a 403 from the wider case is still handled, because the button
+ * is not the security boundary.
+ */
+export async function deleteDocument(
+  projectId: string,
+  documentId: string,
+): Promise<void> {
+  await del(`/projects/${projectId}/documents/${documentId}`);
 }
 
 /**

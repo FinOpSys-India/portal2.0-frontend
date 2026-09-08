@@ -1,6 +1,6 @@
 import { PersonCell } from "@/components/admin/initials-avatar";
 import type { Column } from "@/components/admin/data-table";
-import { FilePreview } from "@/components/portal/file-preview";
+import { DocumentActions, FilePreview } from "@/components/portal/file-preview";
 import { fileKind, formatFileSize, type ManagerDocument } from "@/lib/manager";
 import { documentPath } from "@/lib/portal";
 import { cn } from "@/lib/utils";
@@ -13,21 +13,26 @@ export interface FileRow {
   name: string;
   project: string | null;
   owner: string;
+  /** Whose row it is: the delete control is offered to them alone. */
+  ownerId: string | null;
   uploadedAt: string;
   size: number;
 }
 
 /**
- * The file organiser's four columns, shared by every portal's copy of that
- * table — the customer's included, so one file reads the same wherever it is
- * looked at.
+ * The file organiser's columns, shared by every portal's copy of that table —
+ * the customer's included, so one file reads the same wherever it is looked at.
  *
  * Company is not among them: 1.0 is always scoped to one company, so it never
  * needs to say which.
+ *
+ * A FUNCTION, not a constant, because the last column depends on who is
+ * looking: the delete control is offered on your own uploads only, and the
+ * rows carry no viewer. Pages pass `await viewerId()`.
  */
-export const FILE_COLUMNS: Column<FileRow>[] = [
+export const fileColumns = (viewer: string): Column<FileRow>[] => [
   {
-    header: "File Name",
+    header: "Document Name",
     // The name alone: the chip beside it renders the extension, which would
     // otherwise group the column by file type before name.
     sortValue: (row) => row.name,
@@ -49,13 +54,13 @@ export const FILE_COLUMNS: Column<FileRow>[] = [
     ),
   },
   {
-    header: "Project",
+    header: "Project Name",
     // Files arrive before there is a project to attach them to.
     cell: (row) =>
       row.project ?? <span className="text-muted-foreground">Unattached</span>,
   },
   {
-    header: "File Owner",
+    header: "Document Owner",
     sortValue: (row) => row.owner,
     cell: (row) => <PersonCell name={row.owner} />,
   },
@@ -68,17 +73,24 @@ export const FILE_COLUMNS: Column<FileRow>[] = [
       </span>
     ),
   },
+  {
+    // Unheaded and unsortable: there is nothing to order rows by here, and a
+    // header over three icons only takes width off the columns that say
+    // something.
+    header: "",
+    sortValue: false,
+    cell: (row) => <DocumentActions doc={row} viewerId={viewer} />,
+  },
 ];
 
 /**
  * The staff lists span companies by default, so theirs name the company. A
- * customer's list cannot — it is one workspace — and uses FILE_COLUMNS.
+ * customer's list cannot — it is one workspace — and uses `fileColumns`.
  */
-export const DOCUMENT_COLUMNS: Column<ManagerDocument>[] = [
-  FILE_COLUMNS[0],
-  { header: "Company", cell: (row) => row.company },
-  ...FILE_COLUMNS.slice(1),
-];
+export const documentColumns = (viewer: string): Column<ManagerDocument>[] => {
+  const [name, ...rest] = fileColumns(viewer);
+  return [name, { header: "Company", cell: (row) => row.company }, ...rest];
+};
 
 /**
  * Extension chip. Colour is by family, not by extension: a reader scanning the

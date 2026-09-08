@@ -65,7 +65,7 @@ export default async function CustomerProjectPage({
             empty="No files attached to this project yet."
             columns={[
               {
-                header: "File Name",
+                header: "Document Name",
                 // The cell is a client component, so the text it renders cannot
                 // be walked for a sort key — the name is passed instead.
                 sortValue: (row) => row.name,
