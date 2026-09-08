@@ -179,9 +179,12 @@ export function PlanPicker({
                   }
                   className={cn(
                     "h-9 rounded-full border px-4 text-sm font-medium transition-colors duration-150",
+                    // Brand-filled while it is an offer, tinted once taken: the
+                    // two tiers this section has to say apart are "add this" and
+                    // "added", and the grey outline read as neither.
                     selection.payroll
                       ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:border-primary/25 hover:bg-accent hover:text-accent-foreground",
+                      : "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
                   )}
                 >
                   {selection.payroll ? "Added" : "Add payroll"}
