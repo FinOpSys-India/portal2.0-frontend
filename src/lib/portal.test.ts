@@ -14,8 +14,10 @@ import {
   taskStatusCode,
   teamNames,
   toAddressFields,
+  documentPath,
   toChatMessage,
   toClientCompany,
+  toManagerDocument,
   toManagedProject,
   toProjectStatus,
   toProjectTask,
@@ -254,3 +256,41 @@ assert.equal(money(24900, "USD"), "$249");
 assert.equal(money(12550, "USD"), "$125.50");
 
 console.log("portal adapters: all checks passed");
+
+/* -------------------------------------------------------------- documents -- */
+
+// The company-wide list nests the project; the upload's confirm names it flat.
+// Both have to yield the same handle, because that id is half of the only URL
+// the bytes can be read from.
+const nested = toManagerDocument(
+  {
+    id: 7,
+    projectId: null,
+    fileName: "payroll.pdf",
+    sizeBytes: 2048,
+    uploadedBy: null,
+    createdAt: "2026-08-20T10:00:00.000Z",
+    project: { id: 42, projectName: "Q3 Payroll" },
+  },
+  { companyId: "3", companyName: "Northwind" },
+);
+assert.equal(nested.projectId, "42");
+assert.equal(documentPath(nested), "/api/projects/42/documents/7/download");
+
+const flat = toManagerDocument(
+  {
+    id: 7,
+    projectId: 42,
+    fileName: "payroll.pdf",
+    sizeBytes: 2048,
+    uploadedBy: null,
+    createdAt: "2026-08-20T10:00:00.000Z",
+  },
+  { companyId: "3", companyName: "Northwind" },
+);
+assert.equal(documentPath(flat), documentPath(nested));
+
+// No project, no URL — the route checks the document against the project in its
+// path, so there is nothing to point a preview or a download at. Null rather
+// than a "/api/projects/null/..." that 400s on click.
+assert.equal(documentPath({ id: "7", projectId: null }), null);

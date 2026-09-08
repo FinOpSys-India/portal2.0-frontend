@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AddTask } from "@/components/portal/add-task";
+import { FilePreview } from "@/components/portal/file-preview";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { fileKind, formatFileSize } from "@/lib/manager";
+import { documentPath } from "@/lib/portal";
 import { specialistApi } from "@/lib/specialist";
 
 import { SpecialistUploadFile } from "../../documents/upload-file";
@@ -110,9 +112,12 @@ export default async function SpecialistProjectPage({
             <ul className="divide-y divide-border border-t border-border">
               {attached.map((doc) => (
                 <li key={doc.id} className="flex items-baseline gap-2 py-3">
-                  <span className="min-w-0 flex-1 truncate text-sm">
-                    {doc.name}
-                  </span>
+                  <FilePreview
+                    name={doc.name}
+                    href={documentPath(doc)}
+                    size={doc.size}
+                    className="min-w-0 flex-1 text-sm"
+                  />
                   {/* The design carries a per-type icon and a size here. The
                       size is the half that says something a reader cannot get
                       from the file name. */}

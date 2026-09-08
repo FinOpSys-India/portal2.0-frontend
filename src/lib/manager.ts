@@ -260,6 +260,12 @@ export const INBOXES: { channel: Channel; party: Party; label: string }[] = [
 
 export interface ManagerDocument {
   id: string;
+  /**
+   * The project the file hangs off, which is half of its download URL —
+   * `GET /projects/:projectId/documents/:id/download` checks the pair. Null
+   * only for a row that arrived without one; such a file cannot be opened.
+   */
+  projectId: string | null;
   name: string;
   companyId: string;
   company: string;

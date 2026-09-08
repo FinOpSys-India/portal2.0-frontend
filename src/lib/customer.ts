@@ -27,6 +27,7 @@ import { countryCode } from "@/lib/countries";
 import { fullName, roleIds } from "@/lib/directory";
 import {
   billingDate,
+  documentProjectId,
   personName,
   teamNames,
   toAddressFields,
@@ -54,6 +55,8 @@ export interface Project {
 
 export interface CustomerFile {
   id: string;
+  /** Half of the download URL — see ManagerDocument.projectId. */
+  projectId: string | null;
   name: string;
   project: string;
   owner: string;
@@ -187,6 +190,7 @@ export const customerApi = {
 
     const files = data.documents.map((d) => ({
       id: String(d.id),
+      projectId: documentProjectId(d),
       name: d.fileName,
       project: d.project?.projectName ?? "",
       owner: personName(d.uploadedBy),
@@ -229,6 +233,7 @@ export const customerApi = {
     const doc = result.documents[0];
     return {
       id: String(doc.id),
+      projectId: String(target.id),
       name: doc.fileName,
       project: meta.project,
       owner: personName(doc.uploadedBy),

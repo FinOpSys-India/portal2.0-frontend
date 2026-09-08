@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AddTask } from "@/components/portal/add-task";
+import { FilePreview } from "@/components/portal/file-preview";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { managerApi } from "@/lib/manager";
+import { documentPath } from "@/lib/portal";
 
 import { ManagerUploadFile } from "../../documents/upload-file";
 
@@ -113,7 +115,12 @@ export default async function ManagerProjectPage({
             <ul className="divide-y divide-border border-t border-border">
               {attached.map((doc) => (
                 <li key={doc.id} className="py-3 text-sm">
-                  {doc.name}
+                  <FilePreview
+                    name={doc.name}
+                    href={documentPath(doc)}
+                    size={doc.size}
+                    className="block max-w-full"
+                  />
                 </li>
               ))}
             </ul>

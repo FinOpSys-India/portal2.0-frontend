@@ -1,10 +1,15 @@
 import { PersonCell } from "@/components/admin/initials-avatar";
 import type { Column } from "@/components/admin/data-table";
+import { FilePreview } from "@/components/portal/file-preview";
 import { fileKind, formatFileSize, type ManagerDocument } from "@/lib/manager";
+import { documentPath } from "@/lib/portal";
 import { cn } from "@/lib/utils";
 
 /** What the columns below read. Every portal's file rows satisfy it. */
 export interface FileRow {
+  id: string;
+  /** With the id, the document's download URL. See `documentPath`. */
+  projectId: string | null;
   name: string;
   project: string | null;
   owner: string;
@@ -30,7 +35,12 @@ export const FILE_COLUMNS: Column<FileRow>[] = [
       <span className="flex items-center gap-3">
         <FileChip name={row.name} />
         <span className="min-w-0">
-          <span className="block truncate font-medium">{row.name}</span>
+          <FilePreview
+            name={row.name}
+            href={documentPath(row)}
+            size={row.size}
+            className="block max-w-full font-medium"
+          />
           <span className="block text-sm text-muted-foreground tabular-nums">
             {formatFileSize(row.size)}
           </span>

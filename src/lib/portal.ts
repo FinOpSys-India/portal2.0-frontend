@@ -153,12 +153,24 @@ export interface BackendDocument {
   project?: { id: number; projectName: string } | null;
 }
 
+/**
+ * The project a document hangs off, however the row spells it.
+ *
+ * The company-wide list nests it and the upload's confirm names it flat; either
+ * is the half of the download URL that route checks the document against.
+ */
+export function documentProjectId(d: BackendDocument): string | null {
+  const id = d.projectId ?? d.project?.id ?? null;
+  return id === null ? null : String(id);
+}
+
 export function toManagerDocument(
   d: BackendDocument,
   scope: { companyId: string; companyName: string },
 ): ManagerDocument {
   return {
     id: String(d.id),
+    projectId: documentProjectId(d),
     name: d.fileName,
     companyId: scope.companyId,
     company: scope.companyName,
@@ -169,6 +181,25 @@ export function toManagerDocument(
     uploadedAt: d.createdAt,
     size: d.sizeBytes,
   };
+}
+
+/**
+ * Where a document's bytes are, as the BROWSER asks for them.
+ *
+ * `/api` is the same-origin proxy, which attaches the session — so this is a
+ * plain href a link or a fetch can use, with no token in the caller's hands.
+ *
+ * Null when the row carries no project: the route checks the document against
+ * the project in its path, so a document without one cannot be read at all and
+ * nothing should offer to.
+ */
+export function documentPath(doc: {
+  id: string;
+  projectId: string | null;
+}): string | null {
+  return doc.projectId
+    ? `/api/projects/${doc.projectId}/documents/${doc.id}/download`
+    : null;
 }
 
 /* ------------------------------------------------------------------ chat -- */

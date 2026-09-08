@@ -4,9 +4,11 @@ import { notFound } from "next/navigation";
 import { DataTable } from "@/components/admin/data-table";
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { PersonCell } from "@/components/admin/initials-avatar";
+import { FilePreview } from "@/components/portal/file-preview";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { customerApi, type CustomerFile } from "@/lib/customer";
+import { documentPath } from "@/lib/portal";
 
 export const metadata: Metadata = { title: "Project" };
 
@@ -64,7 +66,17 @@ export default async function CustomerProjectPage({
             columns={[
               {
                 header: "File Name",
-                cell: (row) => <span className="font-medium">{row.name}</span>,
+                // The cell is a client component, so the text it renders cannot
+                // be walked for a sort key — the name is passed instead.
+                sortValue: (row) => row.name,
+                cell: (row) => (
+                  <FilePreview
+                    name={row.name}
+                    href={documentPath(row)}
+                    size={row.size}
+                    className="block max-w-full font-medium"
+                  />
+                ),
               },
               {
                 header: "Uploaded By",
