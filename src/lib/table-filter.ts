@@ -65,6 +65,11 @@ export const OPERATORS: Record<FilterType, OperatorSpec[]> = {
     { op: "before", label: "before", inputs: 1 },
     { op: "after", label: "on or after", inputs: 1 },
     { op: "between", label: "between", inputs: 2 },
+    // Appended rather than inserted: `defaultOperator` reads the first entry.
+    // It is here so a From/To pane can close its upper end INCLUSIVELY —
+    // `lte` on a date means "before the end of that day", where `before` stops
+    // at its midnight — and so the chip has a label to print for it.
+    { op: "lte", label: "on or before", inputs: 1 },
   ],
   number: [
     { op: "gte", label: "at least", inputs: 1 },
@@ -139,6 +144,51 @@ function safeDecode(value: string): string {
   } catch {
     return value;
   }
+}
+
+/**
+ * A From/To pair as one filter, or null when neither end is filled.
+ *
+ * The pane a reader sees is two boxes, not an operator menu — "at least 50",
+ * "up to the 30th", or both — so the operator is DERIVED from which of them
+ * they filled. That mapping is the only branching in the filter bar, which is
+ * why it lives here as a function rather than inline in a component.
+ *
+ * Both ends are inclusive, in both directions. `lte` closes the upper end on a
+ * date as well as a number, because `before` stops at the named day's midnight
+ * and a reader who typed the 30th means the whole of the 30th.
+ */
+export function rangeFilter(
+  field: string,
+  from: string,
+  to: string,
+  type: "date" | "number",
+): Filter | null {
+  const low = from.trim();
+  const high = to.trim();
+
+  if (low && high) return { field, op: "between", values: [low, high] };
+  // `after` and `gte` compare identically; each is the one its own column type
+  // has a label for.
+  if (low) return { field, op: type === "date" ? "after" : "gte", values: [low] };
+  if (high) return { field, op: "lte", values: [high] };
+  return null;
+}
+
+/**
+ * The two boxes again, from the filter `rangeFilter` built.
+ *
+ * Reopening the pane has to show what is already applied, and a filter carries
+ * its ends positionally — one value means either end depending on the
+ * operator, which is exactly what this puts back.
+ */
+export function rangeValues(filter: Filter | undefined): [string, string] {
+  if (!filter) return ["", ""];
+  const [first = "", second = ""] = filter.values;
+
+  if (filter.op === "between") return [first, second];
+  if (filter.op === "lte" || filter.op === "before") return ["", first];
+  return [first, ""];
 }
 
 /**

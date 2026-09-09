@@ -2,33 +2,32 @@
 
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Check, Filter as FilterIcon, Plus, X } from "lucide-react";
+import {
+  CalendarDays,
+  Filter as FilterIcon,
+  Hash,
+  ListChecks,
+  RotateCcw,
+  Search,
+  Type,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
-  OPERATORS,
-  defaultOperator,
   operatorLabel,
+  rangeFilter,
+  rangeValues,
   serializeFilter,
   type Filter,
   type FilterType,
-  type Operator,
 } from "@/lib/table-filter";
 import { cn } from "@/lib/utils";
 
@@ -40,17 +39,31 @@ export type FilterField = {
   options?: string[];
 };
 
+/** The rail's icon per column type, so a field is recognisable before reading. */
+const ICONS: Record<FilterType, LucideIcon> = {
+  text: Type,
+  enum: ListChecks,
+  date: CalendarDays,
+  number: Hash,
+};
+
 /**
- * The filter bar: what is filtering now, and a way to add more.
+ * The filter bar: what is filtering now, and one panel to change all of it.
  *
  * Client only for the URL. The filtering itself happens on the server, in the
  * table — this writes `?f=` and nothing else, which keeps one definition of
  * what a filter means and lets a filtered list be linked, bookmarked and
  * reloaded.
  *
- * ponytail: a chip is add-or-remove, not editable in place. Changing a filter
- * is remove-then-add, two clicks, no second state machine. Editing is worth
- * building when someone tunes the same date range repeatedly.
+ * A PANEL RATHER THAN A ROW OF CONTROLS. Every filterable column is listed at
+ * once down the left, so choosing what to narrow by is reading rather than
+ * opening a menu to find out, and the table below does not reflow while a
+ * filter is being built.
+ *
+ * NOTHING IS APPLIED UNTIL Apply. Each filter used to be its own navigation:
+ * narrowing by three columns meant three round trips, three server renders and
+ * two intermediate lists nobody wanted to see. The panel edits a draft and
+ * commits it once.
  */
 export function TableFilters({
   fields,
@@ -63,9 +76,17 @@ export function TableFilters({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // The filter being built, before it is committed to the URL. Null when the
-  // bar is just showing what is already applied.
-  const [draft, setDraft] = React.useState<Filter | null>(null);
+  const [open, setOpen] = React.useState(false);
+  const [active, setActive] = React.useState<string | null>(null);
+  /**
+   * The filters being edited, by column.
+   *
+   * ponytail: one filter per column. The URL grammar allows several — it is a
+   * list, not a map — but every pane here produces at most one, and a range is
+   * a single `between` rather than two half-open filters. A hand-written URL
+   * carrying two filters on one column keeps both until this panel is applied.
+   */
+  const [draft, setDraft] = React.useState<Record<string, Filter>>({});
 
   if (fields.length === 0) return null;
 
@@ -80,12 +101,36 @@ export function TableFilters({
     // past the end of the new one.
     params.delete("page");
 
-    setDraft(null);
+    setOpen(false);
     const query = params.toString();
     // The table redraws in place; scrolling to the top would throw away the
     // reader's position in a long list.
     router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
+
+  /** Opening seeds the draft from what is applied, so the panel edits rather
+   *  than starts over. Closing without applying leaves the URL alone. */
+  function onOpenChange(next: boolean) {
+    if (next) {
+      setDraft(Object.fromEntries(filters.map((f) => [f.field, f])));
+      setActive(filters[0]?.field ?? fields[0].header);
+    }
+    setOpen(next);
+  }
+
+  function setFieldFilter(field: string, filter: Filter | null) {
+    setDraft((current) => {
+      const next = { ...current };
+      // A cleared pane removes the filter rather than storing an empty one,
+      // which would narrow the list to nothing on apply.
+      if (filter) next[field] = filter;
+      else delete next[field];
+      return next;
+    });
+  }
+
+  const activeField = fields.find((f) => f.header === active) ?? fields[0];
+  const drafted = Object.keys(draft).length;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -98,42 +143,107 @@ export function TableFilters({
         />
       ))}
 
-      {draft ? (
-        <DraftFilter
-          draft={draft}
-          field={fields.find((f) => f.header === draft.field)!}
-          onChange={setDraft}
-          onCancel={() => setDraft(null)}
-          onApply={() => commit([...filters, draft])}
-        />
-      ) : (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <FilterIcon className="size-3.5" aria-hidden />
-              Add Filter
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
-            <DropdownMenuLabel>Filter by</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {fields.map((field) => (
-              <DropdownMenuItem
-                key={field.header}
-                onSelect={() =>
-                  setDraft({
-                    field: field.header,
-                    op: defaultOperator(field.type),
-                    values: [],
-                  })
-                }
-              >
-                {field.header}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+      <Popover open={open} onOpenChange={onOpenChange}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-1.5">
+            <FilterIcon className="size-3.5" aria-hidden />
+            Filter
+            {filters.length > 0 ? (
+              <span className="rounded-full bg-primary px-1.5 text-[11px] leading-4 font-medium text-primary-foreground tabular-nums">
+                {filters.length}
+              </span>
+            ) : null}
+          </Button>
+        </PopoverTrigger>
+
+        <PopoverContent
+          align="start"
+          className="w-[34rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
+        >
+          <div className="flex min-h-72">
+            {/* The rail: every filterable column, so the choice is visible
+                rather than behind a menu. */}
+            <ul className="w-44 shrink-0 space-y-0.5 border-r border-border bg-muted/40 p-2">
+              {fields.map((field) => {
+                const Icon = ICONS[field.type];
+                const on = field.header === activeField.header;
+
+                return (
+                  <li key={field.header}>
+                    <button
+                      type="button"
+                      onClick={() => setActive(field.header)}
+                      aria-current={on}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
+                        on
+                          ? "bg-primary font-medium text-primary-foreground"
+                          : "hover:bg-background",
+                      )}
+                    >
+                      <Icon className="size-3.5 shrink-0" aria-hidden />
+                      <span className="min-w-0 truncate">{field.header}</span>
+                      {/* A column already carrying a filter is marked, so the
+                          rail says what is set without opening each pane. */}
+                      {draft[field.header] ? (
+                        <span
+                          aria-label="has a filter"
+                          className={cn(
+                            "ml-auto size-1.5 shrink-0 rounded-full",
+                            on ? "bg-primary-foreground" : "bg-primary",
+                          )}
+                        />
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                <p className="border-b border-border pb-2 text-sm font-medium">
+                  {activeField.header}
+                </p>
+
+                <div className="pt-3">
+                  <Pane
+                    // Keyed by column so switching panes remounts them: the
+                    // uncontrolled search box inside the enum pane belongs to
+                    // the column it was typed for.
+                    key={activeField.header}
+                    field={activeField}
+                    filter={draft[activeField.header]}
+                    onChange={(filter) =>
+                      setFieldFilter(activeField.header, filter)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-border p-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setDraft({})}
+                  disabled={drafted === 0}
+                  aria-label="Reset all filters"
+                >
+                  <RotateCcw aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => commit(Object.values(draft))}
+                >
+                  Apply
+                </Button>
+              </div>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
 
       {filters.length > 0 ? (
         <Button
@@ -145,6 +255,217 @@ export function TableFilters({
           Clear All
         </Button>
       ) : null}
+    </div>
+  );
+}
+
+/** The controls one column filters with. Each type gets its own, not an
+ *  operator menu: "at least 50" is the question, and picking `gte` first is a
+ *  step between the reader and asking it. */
+function Pane({
+  field,
+  filter,
+  onChange,
+}: {
+  field: FilterField;
+  filter: Filter | undefined;
+  onChange: (filter: Filter | null) => void;
+}) {
+  if (field.type === "enum") {
+    return (
+      <EnumPane
+        field={field.header}
+        options={field.options ?? []}
+        selected={filter?.values ?? []}
+        onChange={onChange}
+      />
+    );
+  }
+
+  if (field.type === "date" || field.type === "number") {
+    return <RangePane field={field.header} type={field.type} filter={filter} onChange={onChange} />;
+  }
+
+  return <TextPane field={field.header} filter={filter} onChange={onChange} />;
+}
+
+/** Free text: what it contains, or whether it is blank at all. */
+function TextPane({
+  field,
+  filter,
+  onChange,
+}: {
+  field: string;
+  filter: Filter | undefined;
+  onChange: (filter: Filter | null) => void;
+}) {
+  const empty = filter?.op === "empty";
+
+  return (
+    <div className="space-y-3">
+      <label className="block space-y-1.5">
+        <span className="text-xs text-muted-foreground">Contains</span>
+        <Input
+          autoFocus
+          value={empty ? "" : (filter?.values[0] ?? "")}
+          disabled={empty}
+          placeholder={`Search ${field.toLowerCase()}`}
+          onChange={(event) =>
+            onChange(
+              event.target.value
+                ? { field, op: "contains", values: [event.target.value] }
+                : null,
+            )
+          }
+          className="h-9 text-sm"
+        />
+      </label>
+
+      {/* Kept from the operator list this pane replaced: "has nothing in it"
+          is a real question about a column and nothing else here asks it. */}
+      <label className="flex items-center gap-2 text-xs">
+        <input
+          type="checkbox"
+          checked={empty}
+          onChange={(event) =>
+            onChange(event.target.checked ? { field, op: "empty", values: [] } : null)
+          }
+          className="size-3.5 accent-primary"
+        />
+        Only rows with no {field.toLowerCase()}
+      </label>
+    </div>
+  );
+}
+
+/**
+ * The values this column actually holds, as a checklist.
+ *
+ * Built from the loaded rows rather than a hardcoded list per column, so a new
+ * status coming out of the backend appears here without a frontend change —
+ * and a value nothing holds is never offered, which would filter to an empty
+ * table.
+ */
+function EnumPane({
+  field,
+  options,
+  selected,
+  onChange,
+}: {
+  field: string;
+  options: string[];
+  selected: string[];
+  onChange: (filter: Filter | null) => void;
+}) {
+  const [query, setQuery] = React.useState("");
+
+  // Company and project columns filter as enums too, and those lists run to
+  // whatever the page loaded. Offered only when the list is long enough to
+  // need it, so a four-value status column stays one glance.
+  const searchable = options.length > 8;
+  const shown = query
+    ? options.filter((o) => o.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  function toggle(option: string) {
+    const values = selected.includes(option)
+      ? selected.filter((v) => v !== option)
+      : [...selected, option];
+    onChange(values.length ? { field, op: "in", values } : null);
+  }
+
+  return (
+    <div className="space-y-2">
+      {searchable ? (
+        <div className="relative">
+          <Search
+            className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            autoFocus
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search values"
+            aria-label={`Search ${field} values`}
+            className="h-9 pl-8 text-sm"
+          />
+        </div>
+      ) : null}
+
+      {options.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Nothing to filter by on this page.
+        </p>
+      ) : shown.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No values match.</p>
+      ) : (
+        <ul className="max-h-52 space-y-0.5 overflow-y-auto">
+          {shown.map((option) => (
+            <li key={option}>
+              <label className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-sm hover:bg-muted">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(option)}
+                  onChange={() => toggle(option)}
+                  className="size-3.5 shrink-0 accent-primary"
+                />
+                <span className="min-w-0 truncate">{option}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Both ends of a range, as two boxes.
+ *
+ * NO OPERATOR MENU. Which boxes are filled is what decides between "at least",
+ * "at most" and "between" — see `rangeFilter`, which owns that mapping and is
+ * tested. Native `date` and `number` inputs, so the browser's own picker,
+ * keyboard handling and locale come for free.
+ */
+function RangePane({
+  field,
+  type,
+  filter,
+  onChange,
+}: {
+  field: string;
+  type: "date" | "number";
+  filter: Filter | undefined;
+  onChange: (filter: Filter | null) => void;
+}) {
+  const [from, to] = rangeValues(filter);
+  const labels =
+    type === "date" ? ["From", "To"] : ["At least", "At most"];
+
+  const set = (next: [string, string]) =>
+    onChange(rangeFilter(field, next[0], next[1], type));
+
+  return (
+    <div className="space-y-3">
+      {[from, to].map((value, index) => (
+        <label key={index} className="block space-y-1.5">
+          <span className="text-xs text-muted-foreground">{labels[index]}</span>
+          <Input
+            autoFocus={index === 0}
+            type={type}
+            value={value}
+            onChange={(event) =>
+              set(
+                index === 0
+                  ? [event.target.value, to]
+                  : [from, event.target.value],
+              )
+            }
+            className="h-9 text-sm"
+          />
+        </label>
+      ))}
     </div>
   );
 }
@@ -165,7 +486,7 @@ function Chip({
       : filter.values.map(pretty).join(", ");
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 py-1 pl-2.5 pr-1 text-xs">
+    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 py-1 pr-1 pl-2.5 text-xs">
       <span>
         <span className="font-medium">{filter.field}</span>{" "}
         <span className="text-muted-foreground">
@@ -182,171 +503,6 @@ function Chip({
         <X className="size-3" aria-hidden />
       </button>
     </span>
-  );
-}
-
-/** The filter being built: operator, then whatever values it needs. */
-function DraftFilter({
-  draft,
-  field,
-  onChange,
-  onCancel,
-  onApply,
-}: {
-  draft: Filter;
-  field: FilterField;
-  onChange: (filter: Filter) => void;
-  onCancel: () => void;
-  onApply: () => void;
-}) {
-  const specs = OPERATORS[field.type];
-  const inputs = specs.find((s) => s.op === draft.op)?.inputs ?? 1;
-  // Nothing to apply until there is something to compare against — except
-  // `is empty`, which is the whole filter on its own.
-  const ready = inputs === 0 || draft.values.some((v) => v !== "");
-
-  const setValue = (index: number, value: string) => {
-    const values = [...draft.values];
-    values[index] = value;
-    onChange({ ...draft, values });
-  };
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (ready) onApply();
-      }}
-      // Escape anywhere in the row abandons the draft, which is what a reader
-      // who opened the wrong column expects.
-      onKeyDown={(event) => {
-        if (event.key === "Escape") onCancel();
-      }}
-      className="flex flex-wrap items-center gap-1.5 rounded-lg border border-primary/30 bg-card p-1.5"
-    >
-      <span className="pl-1 text-xs font-medium">{draft.field}</span>
-
-      <Select
-        value={draft.op}
-        onValueChange={(op) =>
-          onChange({ ...draft, op: op as Operator, values: [] })
-        }
-      >
-        <SelectTrigger size="sm" className="h-8 text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {specs.map((spec) => (
-            <SelectItem key={spec.op} value={spec.op} className="text-xs">
-              {spec.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {field.type === "enum" && inputs > 0 ? (
-        <EnumValues
-          options={field.options ?? []}
-          selected={draft.values}
-          onToggle={(option) =>
-            onChange({
-              ...draft,
-              values: draft.values.includes(option)
-                ? draft.values.filter((v) => v !== option)
-                : [...draft.values, option],
-            })
-          }
-        />
-      ) : (
-        Array.from({ length: inputs }, (_, index) => (
-          <Input
-            key={index}
-            autoFocus={index === 0}
-            // Native date and number inputs: the browser's own picker, keyboard
-            // handling and locale, for none of our code.
-            type={
-              field.type === "date"
-                ? "date"
-                : field.type === "number"
-                  ? "number"
-                  : "text"
-            }
-            value={draft.values[index] ?? ""}
-            onChange={(event) => setValue(index, event.target.value)}
-            placeholder={index === 1 ? "to" : "value"}
-            className="h-8 w-36 text-xs"
-          />
-        ))
-      )}
-
-      <Button type="submit" size="sm" className="h-8 px-2" disabled={!ready}>
-        <Check className="size-3.5" aria-hidden />
-        <span className="sr-only">Apply filter</span>
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-8 px-2"
-        onClick={onCancel}
-      >
-        <X className="size-3.5" aria-hidden />
-        <span className="sr-only">Cancel filter</span>
-      </Button>
-    </form>
-  );
-}
-
-/**
- * The values an enum column actually holds, as a checklist.
- *
- * Built from the loaded rows rather than a hardcoded list per column, so a new
- * status coming out of the backend appears here without a frontend change.
- */
-function EnumValues({
-  options,
-  selected,
-  onToggle,
-}: {
-  options: string[];
-  selected: string[];
-  onToggle: (option: string) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-normal">
-          {selected.length > 0 ? selected.join(", ") : "Select values"}
-          <Plus className="size-3 opacity-60" aria-hidden />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
-        {options.length === 0 ? (
-          <DropdownMenuItem disabled>No values</DropdownMenuItem>
-        ) : (
-          options.map((option) => (
-            <DropdownMenuItem
-              key={option}
-              // The menu stays open: picking two of five statuses should not
-              // mean opening it twice.
-              onSelect={(event) => {
-                event.preventDefault();
-                onToggle(option);
-              }}
-            >
-              <Check
-                className={cn(
-                  "size-3.5",
-                  !selected.includes(option) && "opacity-0",
-                )}
-                aria-hidden
-              />
-              {option}
-            </DropdownMenuItem>
-          ))
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

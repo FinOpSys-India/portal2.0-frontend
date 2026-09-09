@@ -10,6 +10,8 @@ import assert from "node:assert/strict";
 import {
   matchesFilter,
   parseFilters,
+  rangeFilter,
+  rangeValues,
   serializeFilter,
   type Filter,
 } from "./table-filter";
@@ -138,6 +140,51 @@ async function main() {
   );
   // Text in a number column fails the filter rather than passing everything.
   assert.equal(matchesFilter("n/a", atLeast, "number"), false);
+
+  /* ------------------------------------------------------------- range --- */
+
+  // The pane is two boxes and no operator menu, so which boxes were filled is
+  // what picks the operator.
+  assert.deepEqual(rangeFilter("Progress", "50", "", "number"), {
+    field: "Progress",
+    op: "gte",
+    values: ["50"],
+  });
+  assert.deepEqual(rangeFilter("Progress", "", "80", "number"), {
+    field: "Progress",
+    op: "lte",
+    values: ["80"],
+  });
+  assert.deepEqual(rangeFilter("Progress", "50", "80", "number"), {
+    field: "Progress",
+    op: "between",
+    values: ["50", "80"],
+  });
+  // A date's lower end is `after`, which is the operator its own column type
+  // has a label for; both compare the same way.
+  assert.equal(rangeFilter("Deadline", "2026-09-01", "", "date")?.op, "after");
+  // Neither end filled is not a filter at all — an empty pane must not narrow
+  // the list to nothing.
+  assert.equal(rangeFilter("Progress", "", "", "number"), null);
+  assert.equal(rangeFilter("Progress", "  ", " ", "number"), null);
+
+  // Closing the upper end INCLUDES the named day: `lte` on a date runs to the
+  // end of it, where `before` would stop at its midnight.
+  const upTo = rangeFilter("Deadline", "", "2026-09-30", "date")!;
+  assert.equal(matchesFilter(day(2026, 9, 30), upTo, "date"), true);
+  assert.equal(matchesFilter(day(2026, 10, 1), upTo, "date"), false);
+
+  // Reopening the pane shows what is applied: every shape round-trips, and one
+  // value lands in the box the operator says it belongs to.
+  for (const [from, to] of [
+    ["50", "80"],
+    ["50", ""],
+    ["", "80"],
+    ["", ""],
+  ]) {
+    const filter = rangeFilter("Progress", from, to, "number");
+    assert.deepEqual(rangeValues(filter ?? undefined), [from, to]);
+  }
 
   console.log("table filters: all checks passed");
 }
