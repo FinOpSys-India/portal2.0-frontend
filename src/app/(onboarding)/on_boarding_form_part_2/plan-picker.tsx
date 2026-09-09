@@ -19,13 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, landingPathFor } from "@/lib/api";
 import { ApiError } from "@/lib/http";
-import {
-  BOOKKEEPING_TIERS,
-  PAYROLL,
-  TAX_TIERS,
-  formatMoney,
-  payrollTotal,
-} from "@/lib/plans";
+import type { PlanCatalog } from "@/lib/billing";
+import { formatMoney, payrollTotal } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 
 type Selection = {
@@ -37,9 +32,17 @@ type Selection = {
 export function PlanPicker({
   accountEmail,
   companyId,
+  catalog,
 }: {
   accountEmail: string;
   companyId: string;
+  /**
+   * Priced by `GET /billing/plans`, fetched by the page above. Prices are not
+   * imported here any more: the option ids this form posts resolve to Stripe
+   * prices server-side, and a screen that quotes its own numbers is a screen
+   * that can disagree with the invoice.
+   */
+  catalog: PlanCatalog;
 }) {
   const [selection, setSelection] = React.useState<Selection>({
     bookkeeping: null,
@@ -51,19 +54,30 @@ export function PlanPicker({
   const [failure, setFailure] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
 
-  const bookkeeping = BOOKKEEPING_TIERS.find(
+  const bookkeeping = catalog.bookkeeping.find(
     (t) => t.id === selection.bookkeeping,
   );
-  const taxes = TAX_TIERS.find((t) => t.id === selection.taxes);
+  const taxes = catalog.taxes.find((t) => t.id === selection.taxes);
   const payrollPrice = selection.payroll
-    ? payrollTotal(selection.payroll.employees, selection.payroll.contractors)
+    ? payrollTotal(
+        selection.payroll.employees,
+        selection.payroll.contractors,
+        catalog.payroll,
+      )
     : 0;
 
-  const total = (bookkeeping?.price ?? 0) + payrollPrice + (taxes?.price ?? 0);
-  const empty = total === 0;
+  const total =
+    (bookkeeping?.priceMinor ?? 0) + payrollPrice + (taxes?.priceMinor ?? 0);
+  // Nothing selected. NOT "the total is zero": a catalog that priced everything
+  // at nothing would otherwise disable the button on a valid selection.
+  const empty = !bookkeeping && !taxes && !selection.payroll;
 
   // Live preview of what Add Payroll would cost, before it is added.
-  const previewPayroll = payrollTotal(Number(employees) || 0, Number(contractors) || 0);
+  const previewPayroll = payrollTotal(
+    Number(employees) || 0,
+    Number(contractors) || 0,
+    catalog.payroll,
+  );
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -123,13 +137,13 @@ export function PlanPicker({
             description="Priced on how many transactions you run each month."
           >
             <div className="grid gap-3 sm:grid-cols-2">
-              {BOOKKEEPING_TIERS.map((tier) => (
+              {catalog.bookkeeping.map((tier) => (
                 <OptionCard
                   key={tier.id}
                   selected={selection.bookkeeping === tier.id}
                   title={tier.name}
                   detail={tier.detail}
-                  price={`${formatMoney(tier.price)}/mo`}
+                  price={`${formatMoney(tier.priceMinor, catalog.currency)}/mo`}
                   onSelect={() =>
                     setSelection((s) => ({
                       ...s,
@@ -143,7 +157,7 @@ export function PlanPicker({
 
           <Section
             title="Payroll"
-            description={`${formatMoney(PAYROLL.base)}/mo base, plus ${formatMoney(PAYROLL.perEmployee)} per W-2 employee and ${formatMoney(PAYROLL.perContractor)} per 1099 contractor.`}
+            description={`${formatMoney(catalog.payroll.baseMinor, catalog.currency)}/mo base, plus ${formatMoney(catalog.payroll.perEmployeeMinor, catalog.currency)} per W-2 employee and ${formatMoney(catalog.payroll.perContractorMinor, catalog.currency)} per 1099 contractor.`}
           >
             <div className="rounded-xl border border-border p-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -175,7 +189,7 @@ export function PlanPicker({
 
               <div className="mt-4 flex items-center justify-between gap-4 border-t border-border pt-4">
                 <p className="text-sm text-muted-foreground">
-                  {formatMoney(previewPayroll)}
+                  {formatMoney(previewPayroll, catalog.currency)}
                   <span className="text-muted-foreground">/mo</span>
                 </p>
 
@@ -213,13 +227,17 @@ export function PlanPicker({
             description="Federal plus one state is included in every tier."
           >
             <div className="grid gap-3 sm:grid-cols-3">
-              {TAX_TIERS.map((tier) => (
+              {catalog.taxes.map((tier) => (
                 <OptionCard
                   key={tier.id}
                   selected={selection.taxes === tier.id}
                   title={tier.name}
-                  detail={`Additional state ${formatMoney(tier.additionalState)}`}
-                  price={`${formatMoney(tier.price)}/mo`}
+                  detail={
+                    tier.additionalStateMinor
+                      ? `Additional state ${formatMoney(tier.additionalStateMinor, catalog.currency)}`
+                      : ""
+                  }
+                  price={`${formatMoney(tier.priceMinor, catalog.currency)}/mo`}
                   onSelect={() =>
                     setSelection((s) => ({
                       ...s,
@@ -258,7 +276,8 @@ export function PlanPicker({
                   <SummaryRow
                     label="Bookkeeping"
                     detail={bookkeeping.name}
-                    amount={bookkeeping.price}
+                    amount={bookkeeping.priceMinor}
+                    currency={catalog.currency}
                   />
                 ) : null}
                 {selection.payroll ? (
@@ -266,13 +285,15 @@ export function PlanPicker({
                     label="Payroll"
                     detail={`${selection.payroll.employees} W-2 · ${selection.payroll.contractors} contractor${selection.payroll.contractors === 1 ? "" : "s"}`}
                     amount={payrollPrice}
+                    currency={catalog.currency}
                   />
                 ) : null}
                 {taxes ? (
                   <SummaryRow
                     label="Taxes"
                     detail={taxes.name}
-                    amount={taxes.price}
+                    amount={taxes.priceMinor}
+                    currency={catalog.currency}
                   />
                 ) : null}
               </dl>
@@ -281,7 +302,7 @@ export function PlanPicker({
             <div className="mt-5 flex items-baseline justify-between border-t border-border pt-4">
               <span className="text-sm font-medium">Monthly total</span>
               <span className="text-xl font-bold tabular-nums">
-                {formatMoney(total)}
+                {formatMoney(total, catalog.currency)}
                 <span className="text-sm font-normal text-muted-foreground">
                   /mo
                 </span>
@@ -426,10 +447,13 @@ function SummaryRow({
   label,
   detail,
   amount,
+  currency,
 }: {
   label: string;
   detail: string;
+  /** Minor units, as everything priced by the catalog is. */
   amount: number;
+  currency: string;
 }) {
   return (
     <div className="flex items-start justify-between gap-3">
@@ -437,7 +461,7 @@ function SummaryRow({
         <span className="block font-medium">{label}</span>
         <span className="block text-xs text-muted-foreground">{detail}</span>
       </dt>
-      <dd className="font-medium tabular-nums">{formatMoney(amount)}</dd>
+      <dd className="font-medium tabular-nums">{formatMoney(amount, currency)}</dd>
     </div>
   );
 }

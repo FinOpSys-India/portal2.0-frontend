@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AUTH_PANELS, AuthShell } from "@/components/auth/auth-shell";
 import { api, unpaidCompany } from "@/lib/api";
+import { planCatalog } from "@/lib/billing";
 import { PlanPicker } from "./plan-picker";
 
 export const metadata: Metadata = {
@@ -38,11 +39,18 @@ export default async function PlanPage({
   // that creates the company instead.
   if (!companyId) redirect("/on_boarding_form_part_1");
 
+  // Prices come from `GET /billing/plans` — the same `service_plans` rows whose
+  // Stripe price ids checkout will resolve. Fetched here rather than inside the
+  // picker so the first paint is already priced, and AFTER the redirect above so
+  // a session with nothing to bill does not pay for a catalog it never renders.
+  const catalog = await planCatalog();
+
   return (
     <AuthShell panel={AUTH_PANELS.signup} step={2} width="wide">
       <PlanPicker
         accountEmail={decodeURIComponent(email)}
         companyId={decodeURIComponent(companyId)}
+        catalog={catalog}
       />
     </AuthShell>
   );
