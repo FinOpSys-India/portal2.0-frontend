@@ -210,7 +210,7 @@ export interface Conversation {
   channel: Channel;
   party: Party;
   lastMessage: string;
-  /** M/DD/YY, same format as deadlines. */
+  /** The backend's ISO instant, or `""` on a thread with no messages. */
   lastMessageAt: string;
   unread: number;
 }
@@ -1484,3 +1484,18 @@ export function totalUnread(conversations: Conversation[]): number {
   return conversations.reduce((sum, c) => sum + c.unread, 0);
 }
 
+/**
+ * The thread the bell opens: the most recently written of the unread ones.
+ *
+ * Compared as text, not through `parseDeadline`, because `conversations()`
+ * carries the backend's ISO instant here — and ISO instants sort correctly as
+ * strings, which is the whole point of the format. A thread that has never been
+ * written to has `""`, which sorts last and is unread-zero anyway.
+ */
+export function newestUnread(
+  conversations: Conversation[],
+): Conversation | undefined {
+  return conversations
+    .filter((c) => c.unread > 0)
+    .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))[0];
+}

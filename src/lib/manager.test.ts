@@ -15,6 +15,7 @@ import {
   dayLabel,
   fileKind,
   formatFileSize,
+  newestUnread,
   parseDeadline,
   scoped,
   sortByUnreadThenRecent,
@@ -105,6 +106,22 @@ assert.equal(threads[0].id, "old-unread");
 
 assert.equal(totalUnread(threads), 4);
 assert.equal(totalUnread([]), 0);
+
+// The bell's destination. ISO instants, which is what `conversations()` carries
+// — the most recently written UNREAD thread wins, not the most recent thread.
+const live = [
+  conversation({ id: "unread-older", unread: 1, lastMessageAt: "2026-08-12T09:00:00.000Z" }),
+  conversation({ id: "read-newest", unread: 0, lastMessageAt: "2026-08-30T09:00:00.000Z" }),
+  conversation({ id: "unread-newest", unread: 5, lastMessageAt: "2026-08-14T09:00:00.000Z" }),
+];
+assert.equal(newestUnread(live)?.id, "unread-newest");
+assert.equal(live[0].id, "unread-older", "picking must not reorder the input");
+assert.equal(
+  newestUnread(live.map((c) => ({ ...c, unread: 0 }))),
+  undefined,
+  "nothing unread means the bell has no thread to point at",
+);
+assert.equal(newestUnread([]), undefined);
 
 /* ------------------------------------------------------------- chat days -- */
 

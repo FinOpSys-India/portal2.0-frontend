@@ -31,8 +31,11 @@ export default async function SpecialistLayout({
     <SpecialistShell
       user={{ name: profile.name, email: profile.email, avatarUrl: profile.avatarUrl }}
       companies={companies.map(({ id, name }) => ({ id, name }))}
-      // One counterparty, so the bell counts the one thread that exists.
-      notifications={<NotificationBell count={thread.unread} />}
+      // One counterparty, so the bell counts the one thread that exists — and
+      // links straight to it, since there is nowhere else it could mean.
+      notifications={
+        <NotificationBell count={thread.unread} href="/specialist/connect/chat" />
+      }
     >
       {children}
     </SpecialistShell>

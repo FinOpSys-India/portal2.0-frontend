@@ -18,18 +18,23 @@ import { api } from "@/lib/api";
 /**
  * Notification bell.
  *
- * The count is a real value, not decoration — there is no notifications
- * backend yet, so it stays 0 and no badge renders. A hardcoded "1" is the kind
- * of thing that ships and then nobody can explain why clicking it does
- * nothing.
+ * The count is unread chat — the only thing this app has to notify about — and
+ * the bell LINKS to the thread carrying it. A badge you cannot click is a dead
+ * end: it tells the reader something arrived and then leaves them to go find
+ * it. Without an `href` it stays an inert button rather than a link to nowhere.
  */
-export function NotificationBell({ count = 0 }: { count?: number }) {
-  return (
-    <button
-      type="button"
-      aria-label={count > 0 ? `Notifications, ${count} unread` : "Notifications"}
-      className="relative flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
-    >
+export function NotificationBell({
+  count = 0,
+  href,
+}: {
+  count?: number;
+  href?: string;
+}) {
+  const label = count > 0 ? `Notifications, ${count} unread` : "Notifications";
+  const className =
+    "relative flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30";
+  const inner = (
+    <>
       <Bell className="size-5" aria-hidden />
       {count > 0 ? (
         <span
@@ -39,6 +44,16 @@ export function NotificationBell({ count = 0 }: { count?: number }) {
           {count}
         </span>
       ) : null}
+    </>
+  );
+
+  return href ? (
+    <Link href={href} aria-label={label} className={className}>
+      {inner}
+    </Link>
+  ) : (
+    <button type="button" aria-label={label} className={className}>
+      {inner}
     </button>
   );
 }

@@ -72,7 +72,10 @@ export function CustomerShell({
             options={workspaces}
             onSelect={(id) => router.push(`/customer/${id}/projects`)}
           />
-          <NotificationBell count={notificationCount} />
+          <NotificationBell
+            count={notificationCount}
+            href={`/customer/${workspace.id}/connect/chat`}
+          />
           <AccountMenu
             user={user}
             profileHref={`/customer/${workspace.id}/profile`}

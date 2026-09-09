@@ -17,9 +17,13 @@ export const metadata: Metadata = { title: "Chat" };
 export default async function ManagerChatPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; party?: string }>;
+  searchParams: Promise<{
+    company?: string;
+    party?: string;
+    conversation?: string;
+  }>;
 }) {
-  const { company, party } = await searchParams;
+  const { company, party, conversation } = await searchParams;
   const forParty: Party = party === "specialist" ? "specialist" : "customer";
 
   /*
@@ -35,6 +39,9 @@ export default async function ManagerChatPage({
       contacts={contacts}
       party={forParty}
       companyId={companyId}
+      // Set when the header bell sent the reader here, so the thread it was
+      // counting is the one that opens.
+      openConversationId={conversation}
       backHref={scoped("/manager/connect", companyId)}
     />
   );

@@ -30,15 +30,28 @@ export function ChatInbox({
   contacts,
   party,
   companyId,
+  openConversationId,
   backHref,
 }: {
   contacts: ChatContact[];
   party: Party;
   companyId?: string;
+  /** A thread to open on arrival — the header bell links in with one. */
+  openConversationId?: string;
   backHref: string;
 }) {
   const [rows, setRows] = React.useState(contacts);
-  const [openUserId, setOpenUserId] = React.useState<number | null>(null);
+  /*
+   * The selection is a PERSON, but the bell only knows a conversation id, so
+   * the row is resolved once on mount. An id from another company or party is
+   * simply not in this list and leaves the pane empty, same as arriving with no
+   * link at all. `undefined` never matches: an unstarted contact is `null`.
+   */
+  const [openUserId, setOpenUserId] = React.useState<number | null>(
+    () =>
+      contacts.find((c) => c.conversationId === openConversationId)?.userId ??
+      null,
+  );
   const [opening, setOpening] = React.useState(false);
 
   const open = rows.find((c) => c.userId === openUserId) ?? null;

@@ -3,7 +3,7 @@ import { Suspense } from "react";
 
 import { ManagerShell } from "@/components/manager/manager-shell";
 import { NotificationBell } from "@/components/portal/portal-chrome";
-import { managerApi, totalUnread } from "@/lib/manager";
+import { managerApi, newestUnread, totalUnread } from "@/lib/manager";
 
 export const metadata: Metadata = {
   title: { default: "Manager – FinOpSys", template: "%s – Manager – FinOpSys" },
@@ -28,7 +28,25 @@ async function UnreadBell() {
    * nobody can read is worth zero, so it renders zero.
    */
   const conversations = await managerApi.conversations().catch(() => []);
-  return <NotificationBell count={totalUnread(conversations)} />;
+  const open = newestUnread(conversations);
+
+  /*
+   * The bell is a link to the thread it is counting. A manager holds several
+   * companies and several people per company, so "you have 3 unread" without a
+   * destination is a scavenger hunt: chat is scoped by company AND by side of
+   * the account, so the reader would have to guess both before finding the
+   * message. All three land in the query the inbox already reads.
+   */
+  return (
+    <NotificationBell
+      count={totalUnread(conversations)}
+      href={
+        open
+          ? `/manager/connect/chat?company=${encodeURIComponent(open.companyId)}&party=${open.party}&conversation=${encodeURIComponent(open.id)}`
+          : "/manager/connect"
+      }
+    />
+  );
 }
 
 export default async function ManagerLayout({
@@ -45,7 +63,7 @@ export default async function ManagerLayout({
 
   return (
     <ManagerShell
-      user={{ name: profile.name, email: profile.email, avatarUrl: profile.avatarUrl }}
+      user={{ name: profile.fullName, email: profile.email, avatarUrl: profile.avatarUrl }}
       companies={companies.map(({ id, name }) => ({ id, name }))}
       notifications={
         <Suspense fallback={<NotificationBell count={0} />}>
