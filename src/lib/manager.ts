@@ -527,11 +527,13 @@ export async function scopeName(
  * (projects, specialists and chat, one request each per company) is still N
  * requests wide — batch endpoints are the fix if a manager's book gets large.
  */
-const fetchCompanies = cache(async (): Promise<ClientCompany[]> => {
+const fetchCompanyRows = cache(async (): Promise<BackendCompany[]> => {
   const data = await get<{ companies: BackendCompany[] }>(
     "/accounting-manager/companies?limit=100",
   );
-  return data.companies.map(toClientCompany);
+  // The ROWS, not the mapped companies: this is the only response in the whole
+  // API that carries `servicePlans`, and `company()` below needs them.
+  return data.companies;
 });
 
 async function scopeIds(companyId?: string): Promise<string[]> {
@@ -717,15 +719,36 @@ export const managerApi = {
    * holding more than 100 accounts needs real paging here.
    */
   async companies(): Promise<ClientCompany[]> {
-    return fetchCompanies();
+    return (await fetchCompanyRows()).map(toClientCompany);
   },
 
-  /** `data: { company }`, not the row — read a level too high and every field renders empty. */
+  /**
+   * `data: { company }`, not the row — read a level too high and every field
+   * renders empty.
+   *
+   * TWO READS, because the prices are not on the detail route. `GET
+   * /companies/:id` answers with `toCompanyAccountRow`: services, billing period
+   * and team, but no `servicePlans` — so Current Plans rendered its headers and
+   * no rows on an account that was plainly subscribed. The manager's own book is
+   * the one response that prices the lines, and the layout has already fetched
+   * it this render (`cache`), so borrowing them costs nothing.
+   *
+   * Swallowed, not awaited hard: without it the table still renders from
+   * `activeServices` with "—" for the money, which beats failing the page.
+   */
   async company(id: string): Promise<ClientCompanyDetail | null> {
-    const data = await getOrNull<{ company: BackendCompany }>(
-      `/companies/${encodeURIComponent(id)}`,
+    const [data, book] = await Promise.all([
+      getOrNull<{ company: BackendCompany }>(
+        `/companies/${encodeURIComponent(id)}`,
+      ),
+      fetchCompanyRows().catch(() => [] as BackendCompany[]),
+    ]);
+    if (!data?.company) return null;
+
+    const priced = book.find((c) => String(c.id) === id)?.servicePlans;
+    return toClientCompanyDetail(
+      priced ? { ...data.company, servicePlans: priced } : data.company,
     );
-    return data?.company ? toClientCompanyDetail(data.company) : null;
   },
 
   /** Customers of the manager's companies. Scoped by the header switcher. */

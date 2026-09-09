@@ -367,7 +367,11 @@ export interface BackendCompany {
   owner: BackendPerson | null;
   accountingManager: BackendPerson | null;
   primaryAddress: BackendAddress | null;
-  activeServices: { specializationName: string }[];
+  /**
+   * What a company is paying for, UNPRICED. Every company read carries this —
+   * it is the only services key `GET /companies/:id` sends.
+   */
+  activeServices: { specializationName: string; planName?: string | null }[];
   billing: { currentPeriodEnd: string | null } | null;
   teamMembers?: {
     owner: BackendPerson | null;
@@ -513,11 +517,38 @@ export function money(minor: number, currency: string): string {
   }).format(minor / 100);
 }
 
+/**
+ * The Current Plans table, from whichever half of the fact the endpoint sent.
+ *
+ * TWO KEYS, AND ONLY ONE ENDPOINT SENDS THE PRICED ONE. `servicePlans` — per
+ * line, at the amount captured at purchase — is built by `toManagedCompany` and
+ * therefore reaches exactly one route: `GET /accounting-manager/companies`. The
+ * DETAIL route every company page reads, `GET /companies/:id`, answers with
+ * `toCompanyAccountRow`, which carries `activeServices` and no prices at all.
+ *
+ * Reading only the priced key rendered an EMPTY TABLE on every company detail
+ * screen — headers, no rows — on companies that were plainly subscribed, because
+ * the key it looked for had never been in that response. The unpriced list is
+ * the same services with the same plan names, so it renders those and prints "—"
+ * for the money that was genuinely not sent, rather than nothing at all.
+ *
+ * Nothing here is Stripe: both come from `company_subscription_items` rows
+ * written at checkout. A blank table means the field is missing or the company
+ * has no ACTIVE subscription — never that a Stripe call failed.
+ */
 export function toPlans(c: BackendCompany): CompanyPlan[] {
-  return (c.servicePlans ?? []).map((p) => ({
-    service: p.specializationName,
-    plan: p.planName ?? "—",
-    amount: `${money(p.totalAmountMinor, p.currency)}/month`,
+  if (c.servicePlans?.length) {
+    return c.servicePlans.map((p) => ({
+      service: p.specializationName,
+      plan: p.planName ?? "—",
+      amount: `${money(p.totalAmountMinor, p.currency)}/month`,
+    }));
+  }
+
+  return (c.activeServices ?? []).map((s) => ({
+    service: s.specializationName,
+    plan: s.planName ?? "—",
+    amount: "—",
   }));
 }
 

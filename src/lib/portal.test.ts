@@ -22,6 +22,7 @@ import {
   toClientCompany,
   toManagerDocument,
   toManagedProject,
+  toPlans,
   toProjectStatus,
   toProjectTask,
   toSpecialistTask,
@@ -268,6 +269,43 @@ assert.deepEqual(toAddressFields(null), {
 // "$2.49" for a $249 plan.
 assert.equal(money(24900, "USD"), "$249");
 assert.equal(money(12550, "USD"), "$125.50");
+
+/* ------------------------------------------------------------------ plans -- */
+
+// The detail route (`GET /companies/:id`) sends `activeServices` and no prices.
+// Reading only `servicePlans` left Current Plans EMPTY on every company page.
+assert.deepEqual(toPlans(company), [
+  { service: "Bookkeeping", plan: "—", amount: "—" },
+  { service: "Payroll", plan: "—", amount: "—" },
+]);
+
+// A plan name without a price still names the tier.
+assert.deepEqual(
+  toPlans({
+    ...company,
+    activeServices: [{ specializationName: "Payroll", planName: "Growth" }],
+  }),
+  [{ service: "Payroll", plan: "Growth", amount: "—" }],
+);
+
+// Priced wins wherever the manager's own list supplied it.
+assert.deepEqual(
+  toPlans({
+    ...company,
+    servicePlans: [
+      {
+        specializationName: "Bookkeeping",
+        planName: "Standard",
+        totalAmountMinor: 24900,
+        currency: "USD",
+      },
+    ],
+  }),
+  [{ service: "Bookkeeping", plan: "Standard", amount: "$249/month" }],
+);
+
+// No subscription at all is a real state, and an empty table is the honest one.
+assert.deepEqual(toPlans({ ...company, activeServices: [] }), []);
 
 console.log("portal adapters: all checks passed");
 
