@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { ChipsCell, DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { RoleBadge } from "@/components/admin/role-badge";
-import { PageHeader } from "@/components/portal/portal-shell";
 import {
   companyScope,
   managerApi,
@@ -35,45 +34,43 @@ export default async function ManagerCustomersPage({
   const customers = await managerApi.customers(company);
 
   return (
-    <>
-      <PageHeader title="Customers" scope={await scopeName(company)} />
-
-      <DataTable<ManagerCustomer>
-        page={1}
-        sort={sort}
-        dir={dir}
-        filters={parseFilters(f)}
-        total={customers.length}
-        rows={customers}
-        basePath="/manager/customers"
-        rowHref={(row) => `/manager/customers/${encodeURIComponent(row.email)}`}
-        empty="No customers on this company yet."
-        columns={[
-          {
-            header: "Name",
-            sortValue: (row) => row.name,
-            cell: (row) => <PersonCell name={row.name} />,
-          },
-          {
-            header: "Role",
-            filter: "enum",
-            sortValue: (row) => row.role,
-            cell: (row) => <RoleBadge role={row.role} />,
-          },
-          {
-            header: "Email",
-            cell: (row) => (
-              <span className="text-muted-foreground">{row.email}</span>
-            ),
-          },
-          {
-            // Multi-valued: 1.0 renders this as a comma list.
-            header: "Company",
-            sortValue: (row) => row.companies.join(", "),
-            cell: (row) => <ChipsCell items={row.companies} />,
-          },
-        ]}
-      />
-    </>
+    <DataTable<ManagerCustomer>
+      title="Customers"
+      scope={await scopeName(company)}
+      page={1}
+      sort={sort}
+      dir={dir}
+      filters={parseFilters(f)}
+      total={customers.length}
+      rows={customers}
+      basePath="/manager/customers"
+      rowHref={(row) => `/manager/customers/${encodeURIComponent(row.email)}`}
+      empty="No customers on this company yet."
+      columns={[
+        {
+          header: "Name",
+          sortValue: (row) => row.name,
+          cell: (row) => <PersonCell name={row.name} />,
+        },
+        {
+          header: "Role",
+          filter: "enum",
+          sortValue: (row) => row.role,
+          cell: (row) => <RoleBadge role={row.role} />,
+        },
+        {
+          header: "Email",
+          cell: (row) => (
+            <span className="text-muted-foreground">{row.email}</span>
+          ),
+        },
+        {
+          // Multi-valued: 1.0 renders this as a comma list.
+          header: "Company",
+          sortValue: (row) => row.companies.join(", "),
+          cell: (row) => <ChipsCell items={row.companies} />,
+        },
+      ]}
+    />
   );
 }

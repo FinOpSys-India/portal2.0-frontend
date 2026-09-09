@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { PageHeader } from "@/components/portal/portal-shell";
 import { DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { customerApi, type TeamMember } from "@/lib/customer";
@@ -29,34 +28,31 @@ export default async function TeamPage({
   const team = await customerApi.team(workspace);
 
   return (
-    <>
-      <PageHeader title="Team" />
-
-      <DataTable<TeamMember>
-        page={page}
-        sort={sort}
-        dir={dir}
-        filters={parseFilters(f)}
-        total={team.length}
-        action={<InviteTeammate workspaceId={workspace} />}
-        rows={team}
-        basePath={`/customer/${workspace}/team`}
-        empty="No teammates yet. Invite someone to share access."
-        columns={[
-          {
-            header: "Name",
-            sortValue: (row) => row.name,
-            cell: (row) => <PersonCell name={row.name} />,
-          },
-          { header: "Job Title", cell: (row) => row.jobTitle },
-          {
-            header: "Email Address",
-            cell: (row) => (
-              <span className="text-muted-foreground">{row.email}</span>
-            ),
-          },
-        ]}
-      />
-    </>
+    <DataTable<TeamMember>
+      title="Team"
+      page={page}
+      sort={sort}
+      dir={dir}
+      filters={parseFilters(f)}
+      total={team.length}
+      action={<InviteTeammate workspaceId={workspace} />}
+      rows={team}
+      basePath={`/customer/${workspace}/team`}
+      empty="No teammates yet. Invite someone to share access."
+      columns={[
+        {
+          header: "Name",
+          sortValue: (row) => row.name,
+          cell: (row) => <PersonCell name={row.name} />,
+        },
+        { header: "Job Title", cell: (row) => row.jobTitle },
+        {
+          header: "Email Address",
+          cell: (row) => (
+            <span className="text-muted-foreground">{row.email}</span>
+          ),
+        },
+      ]}
+    />
   );
 }

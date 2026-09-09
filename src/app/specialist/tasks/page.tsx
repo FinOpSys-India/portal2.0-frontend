@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { AddTask } from "@/components/portal/add-task";
-import { PageHeader } from "@/components/portal/portal-shell";
 import { TaskTable } from "@/components/portal/task-table";
 import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
 import { parseFilters } from "@/lib/table-filter";
@@ -41,32 +40,26 @@ export default async function SpecialistTasksPage({
   ]);
 
   return (
-    <>
-      <PageHeader
-        // Not "All Tasks" — one company's, like every list in this portal.
-        title="Tasks"
-        scope={await scopeName(company)}
-      />
-
-      <TaskTable
-        tasks={tasks}
-        from="specialist"
-        page={Number(params.page) || 1}
-        sort={params.sort}
-        dir={params.dir}
-        filters={parseFilters(params.f)}
-        action={
-          <AddTask
-            from="specialist"
-            projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-          />
-        }
-        empty={
-          projects.length > 0
-            ? "No tasks on your projects yet."
-            : "No projects assigned to you at this company."
-        }
-      />
-    </>
+    <TaskTable
+      title="Tasks"
+      scope={await scopeName(company)}
+      tasks={tasks}
+      from="specialist"
+      page={Number(params.page) || 1}
+      sort={params.sort}
+      dir={params.dir}
+      filters={parseFilters(params.f)}
+      action={
+        <AddTask
+          from="specialist"
+          projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+        />
+      }
+      empty={
+        projects.length > 0
+          ? "No tasks on your projects yet."
+          : "No projects assigned to you at this company."
+      }
+    />
   );
 }

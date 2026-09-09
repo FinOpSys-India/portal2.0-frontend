@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { PageHeader } from "@/components/portal/portal-shell";
 import { ChipsCell, DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { RoleBadge } from "@/components/admin/role-badge";
@@ -29,49 +28,46 @@ export default async function CustomersPage({
   const { rows, total } = await adminApi.customers(scan.page, scan.limit);
 
   return (
-    <>
-      <PageHeader title="Customers" />
-
-      <DataTable<Customer>
-        page={page}
-        sort={sort}
-        dir={dir}
-        filters={filters}
-        total={total}
-        action={<InviteCustomer />}
-        rows={rows}
-        basePath="/admin/customers"
-        rowHref={(row) => `/admin/customers/${encodeURIComponent(row.email)}`}
-        empty="No customers yet. Invite one to get started."
-        columns={[
-          {
-            header: "Name",
-            sortValue: (row) => row.name,
-            cell: (row) => <PersonCell name={row.name} />,
-          },
-          {
-            header: "Role",
-            filter: "enum",
-            sortValue: (row) => row.role,
-            // Muted throughout: role is a label, not a status worth shouting.
-            // Owner keeps a faint brand tint so the two stay distinguishable.
-            cell: (row) => <RoleBadge role={row.role} />,
-          },
-          {
-            header: "Email",
-            cell: (row) => (
-              <span className="text-muted-foreground">{row.email}</span>
-            ),
-          },
-          {
-            // Plural, and one chip each: a customer can belong to several
-            // companies, and they are separate records rather than one name.
-            header: "Companies",
-            sortValue: (row) => row.companies.join(", "),
-            cell: (row) => <ChipsCell items={row.companies} />,
-          },
-        ]}
-      />
-    </>
+    <DataTable<Customer>
+      title="Customers"
+      page={page}
+      sort={sort}
+      dir={dir}
+      filters={filters}
+      total={total}
+      action={<InviteCustomer />}
+      rows={rows}
+      basePath="/admin/customers"
+      rowHref={(row) => `/admin/customers/${encodeURIComponent(row.email)}`}
+      empty="No customers yet. Invite one to get started."
+      columns={[
+        {
+          header: "Name",
+          sortValue: (row) => row.name,
+          cell: (row) => <PersonCell name={row.name} />,
+        },
+        {
+          header: "Role",
+          filter: "enum",
+          sortValue: (row) => row.role,
+          // Muted throughout: role is a label, not a status worth shouting.
+          // Owner keeps a faint brand tint so the two stay distinguishable.
+          cell: (row) => <RoleBadge role={row.role} />,
+        },
+        {
+          header: "Email",
+          cell: (row) => (
+            <span className="text-muted-foreground">{row.email}</span>
+          ),
+        },
+        {
+          // Plural, and one chip each: a customer can belong to several
+          // companies, and they are separate records rather than one name.
+          header: "Companies",
+          sortValue: (row) => row.companies.join(", "),
+          cell: (row) => <ChipsCell items={row.companies} />,
+        },
+      ]}
+    />
   );
 }

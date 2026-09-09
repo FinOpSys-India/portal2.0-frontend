@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 
 import { DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
-import { PageHeader } from "@/components/portal/portal-shell";
 import {
   companyScope,
   managerApi,
@@ -37,40 +36,38 @@ export default async function ManagerSpecialistsPage({
   const specialists = await managerApi.specialists(company);
 
   return (
-    <>
-      <PageHeader title="Specialists" scope={await scopeName(company)} />
-
-      <DataTable<Specialist>
-        page={1}
-        sort={sort}
-        dir={dir}
-        filters={parseFilters(f)}
-        total={specialists.length}
-        rows={specialists}
-        basePath={`/manager/specialists${company ? `?company=${encodeURIComponent(company)}` : ""}`}
-        rowHref={(row) =>
-          `/manager/specialists/${encodeURIComponent(row.email)}`
-        }
-        empty={
-          company
-            ? "Nobody is working a project for this company yet."
-            : "No specialists yet."
-        }
-        columns={[
-          {
-            header: "Name",
-            sortValue: (row) => row.name,
-            cell: (row) => <PersonCell name={row.name} />,
-          },
-          { header: "Service Speciality", cell: (row) => row.speciality },
-          {
-            header: "Email",
-            cell: (row) => (
-              <span className="text-muted-foreground">{row.email}</span>
-            ),
-          },
-        ]}
-      />
-    </>
+    <DataTable<Specialist>
+      title="Specialists"
+      scope={await scopeName(company)}
+      page={1}
+      sort={sort}
+      dir={dir}
+      filters={parseFilters(f)}
+      total={specialists.length}
+      rows={specialists}
+      basePath={`/manager/specialists${company ? `?company=${encodeURIComponent(company)}` : ""}`}
+      rowHref={(row) =>
+        `/manager/specialists/${encodeURIComponent(row.email)}`
+      }
+      empty={
+        company
+          ? "Nobody is working a project for this company yet."
+          : "No specialists yet."
+      }
+      columns={[
+        {
+          header: "Name",
+          sortValue: (row) => row.name,
+          cell: (row) => <PersonCell name={row.name} />,
+        },
+        { header: "Service Speciality", cell: (row) => row.speciality },
+        {
+          header: "Email",
+          cell: (row) => (
+            <span className="text-muted-foreground">{row.email}</span>
+          ),
+        },
+      ]}
+    />
   );
 }

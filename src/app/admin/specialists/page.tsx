@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { PageHeader } from "@/components/portal/portal-shell";
 import { DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { listWindow, adminApi, type Specialist } from "@/lib/admin";
@@ -28,34 +27,31 @@ export default async function SpecialistsPage({
   const { rows, total } = await adminApi.specialists(scan.page, scan.limit);
 
   return (
-    <>
-      <PageHeader title="Specialists" />
-
-      <DataTable<Specialist>
-        page={page}
-        sort={sort}
-        dir={dir}
-        filters={filters}
-        total={total}
-        action={<InviteSpecialist />}
-        rows={rows}
-        basePath="/admin/specialists"
-        empty="No specialists yet. Invite one to get started."
-        columns={[
-          {
-            header: "Name",
-            sortValue: (row) => row.name,
-            cell: (row) => <PersonCell name={row.name} />,
-          },
-          { header: "Service Speciality", cell: (row) => row.speciality },
-          {
-            header: "Email",
-            cell: (row) => (
-              <span className="text-muted-foreground">{row.email}</span>
-            ),
-          },
-        ]}
-      />
-    </>
+    <DataTable<Specialist>
+      title="Specialists"
+      page={page}
+      sort={sort}
+      dir={dir}
+      filters={filters}
+      total={total}
+      action={<InviteSpecialist />}
+      rows={rows}
+      basePath="/admin/specialists"
+      empty="No specialists yet. Invite one to get started."
+      columns={[
+        {
+          header: "Name",
+          sortValue: (row) => row.name,
+          cell: (row) => <PersonCell name={row.name} />,
+        },
+        { header: "Service Speciality", cell: (row) => row.speciality },
+        {
+          header: "Email",
+          cell: (row) => (
+            <span className="text-muted-foreground">{row.email}</span>
+          ),
+        },
+      ]}
+    />
   );
 }

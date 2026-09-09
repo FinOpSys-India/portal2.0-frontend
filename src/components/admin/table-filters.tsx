@@ -48,12 +48,85 @@ const ICONS: Record<FilterType, LucideIcon> = {
 };
 
 /**
- * The filter bar: what is filtering now, and one panel to change all of it.
+ * Writes `?f=`, and nothing else.
  *
- * Client only for the URL. The filtering itself happens on the server, in the
- * table — this writes `?f=` and nothing else, which keeps one definition of
- * what a filter means and lets a filtered list be linked, bookmarked and
- * reloaded.
+ * The filtering itself happens on the server, in the table. Keeping the URL as
+ * the only thing these controls touch means one definition of what a filter
+ * means, and a filtered list that can be linked, bookmarked and reloaded.
+ *
+ * Shared because the two halves of the bar are mounted in different places —
+ * the button sits by the page's own action, the chips sit with the table — and
+ * both write the same param.
+ */
+function useCommitFilters() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  return React.useCallback(
+    (next: Filter[]) => {
+      const params = new URLSearchParams(searchParams);
+      params.delete("f");
+      for (const filter of next) params.append("f", serializeFilter(filter));
+      // A narrower list has fewer pages, so page 4 of the old list is usually
+      // past the end of the new one.
+      params.delete("page");
+
+      const query = params.toString();
+      // The table redraws in place; scrolling to the top would throw away the
+      // reader's position in a long list.
+      router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [router, pathname, searchParams],
+  );
+}
+
+/**
+ * What is filtering now, as removable chips.
+ *
+ * WITH THE TABLE, not with the button that made them. A chip is a statement
+ * about the rows below it — "these are the ones left" — so it belongs against
+ * them; the control that opens the panel belongs with the page's other verbs.
+ */
+export function FilterChips({
+  fields,
+  filters,
+}: {
+  fields: FilterField[];
+  filters: Filter[];
+}) {
+  const commit = useCommitFilters();
+
+  if (filters.length === 0) return null;
+
+  const typeOf = (header: string) =>
+    fields.find((f) => f.header === header)?.type ?? "text";
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {filters.map((filter, index) => (
+        <Chip
+          key={`${filter.field}-${filter.op}-${index}`}
+          filter={filter}
+          type={typeOf(filter.field)}
+          onRemove={() => commit(filters.filter((_, i) => i !== index))}
+        />
+      ))}
+
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-muted-foreground"
+        onClick={() => commit([])}
+      >
+        Clear All
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * The Filter control, and the panel behind it.
  *
  * A PANEL RATHER THAN A ROW OF CONTROLS. Every filterable column is listed at
  * once down the left, so choosing what to narrow by is reading rather than
@@ -65,25 +138,14 @@ const ICONS: Record<FilterType, LucideIcon> = {
  * two intermediate lists nobody wanted to see. The panel edits a draft and
  * commits it once.
  */
-export function TableFilters({
+export function FilterButton({
   fields,
   filters,
-  action,
 }: {
   fields: FilterField[];
   filters: Filter[];
-  /**
-   * The list's own button — New Project, Invite Specialist, Upload File.
-   *
-   * It sits in this row rather than in the page heading so the two things a
-   * reader does to a list, narrow it and add to it, are one cluster instead of
-   * one control per corner of the screen.
-   */
-  action?: React.ReactNode;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const commit = useCommitFilters();
 
   const [open, setOpen] = React.useState(false);
   const [active, setActive] = React.useState<string | null>(null);
@@ -97,27 +159,7 @@ export function TableFilters({
    */
   const [draft, setDraft] = React.useState<Record<string, Filter>>({});
 
-  // Nothing to filter and nothing to add is nothing to render — but a list
-  // with no filterable column still has its button.
-  if (fields.length === 0 && !action) return null;
-
-  const typeOf = (header: string) =>
-    fields.find((f) => f.header === header)?.type ?? "text";
-
-  function commit(next: Filter[]) {
-    const params = new URLSearchParams(searchParams);
-    params.delete("f");
-    for (const filter of next) params.append("f", serializeFilter(filter));
-    // A narrower list has fewer pages, so page 4 of the old list is usually
-    // past the end of the new one.
-    params.delete("page");
-
-    setOpen(false);
-    const query = params.toString();
-    // The table redraws in place; scrolling to the top would throw away the
-    // reader's position in a long list.
-    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }
+  if (fields.length === 0) return null;
 
   /** Opening seeds the draft from what is applied, so the panel edits rather
    *  than starts over. Closing without applying leaves the URL alone. */
@@ -144,137 +186,113 @@ export function TableFilters({
   const drafted = Object.keys(draft).length;
 
   return (
-    <div className="flex flex-1 flex-wrap items-center gap-2">
-      {filters.map((filter, index) => (
-        <Chip
-          key={`${filter.field}-${filter.op}-${index}`}
-          filter={filter}
-          type={typeOf(filter.field)}
-          onRemove={() => commit(filters.filter((_, i) => i !== index))}
-        />
-      ))}
-
-      {filters.length > 0 ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground"
-          onClick={() => commit([])}
-        >
-          Clear All
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="gap-2">
+          <FilterIcon className="size-4" aria-hidden />
+          Filter
+          {filters.length > 0 ? (
+            <span className="rounded-full bg-primary px-1.5 py-0.5 text-[11px] leading-none font-medium text-primary-foreground tabular-nums">
+              {filters.length}
+            </span>
+          ) : null}
         </Button>
-      ) : null}
+      </PopoverTrigger>
 
-      <div className="ml-auto flex flex-wrap items-center gap-2">
-        {fields.length > 0 ? (
-          <Popover open={open} onOpenChange={onOpenChange}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <FilterIcon className="size-3.5" aria-hidden />
-                Filter
-                {filters.length > 0 ? (
-                  <span className="rounded-full bg-primary px-1.5 text-[11px] leading-4 font-medium text-primary-foreground tabular-nums">
-                    {filters.length}
-                  </span>
-                ) : null}
-              </Button>
-            </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="w-[34rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
+      >
+        <div className="flex min-h-80">
+          {/* The rail: every filterable column, so the choice is visible
+              rather than behind a menu. */}
+          <ul className="w-48 shrink-0 space-y-1 border-r border-border bg-muted/40 p-3">
+            {fields.map((field) => {
+              const Icon = ICONS[field.type];
+              const on = field.header === activeField.header;
 
-            <PopoverContent
-              align="start"
-              className="w-[34rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
-            >
-              <div className="flex min-h-72">
-                {/* The rail: every filterable column, so the choice is visible
-                rather than behind a menu. */}
-                <ul className="w-44 shrink-0 space-y-0.5 border-r border-border bg-muted/40 p-2">
-                  {fields.map((field) => {
-                    const Icon = ICONS[field.type];
-                    const on = field.header === activeField.header;
-
-                    return (
-                      <li key={field.header}>
-                        <button
-                          type="button"
-                          onClick={() => setActive(field.header)}
-                          aria-current={on}
-                          className={cn(
-                            "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
-                            on
-                              ? "bg-primary font-medium text-primary-foreground"
-                              : "hover:bg-background",
-                          )}
-                        >
-                          <Icon className="size-3.5 shrink-0" aria-hidden />
-                          <span className="min-w-0 truncate">
-                            {field.header}
-                          </span>
-                          {/* A column already carrying a filter is marked, so the
-                          rail says what is set without opening each pane. */}
-                          {draft[field.header] ? (
-                            <span
-                              aria-label="has a filter"
-                              className={cn(
-                                "ml-auto size-1.5 shrink-0 rounded-full",
-                                on ? "bg-primary-foreground" : "bg-primary",
-                              )}
-                            />
-                          ) : null}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                    <p className="border-b border-border pb-2 text-sm font-medium">
-                      {activeField.header}
-                    </p>
-
-                    <div className="pt-3">
-                      <Pane
-                        // Keyed by column so switching panes remounts them: the
-                        // uncontrolled search box inside the enum pane belongs to
-                        // the column it was typed for.
-                        key={activeField.header}
-                        field={activeField}
-                        filter={draft[activeField.header]}
-                        onChange={(filter) =>
-                          setFieldFilter(activeField.header, filter)
-                        }
+              return (
+                <li key={field.header}>
+                  <button
+                    type="button"
+                    onClick={() => setActive(field.header)}
+                    aria-current={on}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
+                      on
+                        ? "bg-primary font-medium text-primary-foreground"
+                        : "hover:bg-background",
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0" aria-hidden />
+                    <span className="min-w-0 truncate">{field.header}</span>
+                    {/* A column already carrying a filter is marked, so the
+                        rail says what is set without opening each pane. */}
+                    {draft[field.header] ? (
+                      <span
+                        aria-label="has a filter"
+                        className={cn(
+                          "ml-auto size-1.5 shrink-0 rounded-full",
+                          on ? "bg-primary-foreground" : "bg-primary",
+                        )}
                       />
-                    </div>
-                  </div>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
 
-                  <div className="flex items-center justify-end gap-2 border-t border-border p-3">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => setDraft({})}
-                      disabled={drafted === 0}
-                      aria-label="Reset all filters"
-                    >
-                      <RotateCcw aria-hidden />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => commit(Object.values(draft))}
-                    >
-                      Apply
-                    </Button>
-                  </div>
-                </div>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <p className="border-b border-border pb-3 text-sm font-semibold">
+                {activeField.header}
+              </p>
+
+              <div className="pt-4">
+                <Pane
+                  // Keyed by column so switching panes remounts them: the
+                  // uncontrolled search box inside the enum pane belongs to
+                  // the column it was typed for.
+                  key={activeField.header}
+                  field={activeField}
+                  filter={draft[activeField.header]}
+                  onChange={(filter) =>
+                    setFieldFilter(activeField.header, filter)
+                  }
+                />
               </div>
-            </PopoverContent>
-          </Popover>
-        ) : null}
+            </div>
 
-        {action}
-      </div>
-    </div>
+            <div className="flex items-center justify-end gap-2.5 border-t border-border px-5 py-3.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setDraft({})}
+                disabled={drafted === 0}
+                aria-label="Reset all filters"
+              >
+                <RotateCcw aria-hidden />
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="px-5"
+                // Closed here rather than in `commit`, which the chips share
+                // and which has no panel to close.
+                onClick={() => {
+                  setOpen(false);
+                  commit(Object.values(draft));
+                }}
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -328,8 +346,8 @@ function TextPane({
   const empty = filter?.op === "empty";
 
   return (
-    <div className="space-y-3">
-      <label className="block space-y-1.5">
+    <div className="space-y-4">
+      <label className="block space-y-2">
         <span className="text-xs text-muted-foreground">Contains</span>
         <Input
           autoFocus
@@ -349,7 +367,7 @@ function TextPane({
 
       {/* Kept from the operator list this pane replaced: "has nothing in it"
           is a real question about a column and nothing else here asks it. */}
-      <label className="flex items-center gap-2 text-xs">
+      <label className="flex items-center gap-2.5 text-sm">
         <input
           type="checkbox"
           checked={empty}
@@ -403,11 +421,11 @@ function EnumPane({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {searchable ? (
         <div className="relative">
           <Search
-            className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+            className="absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
           <Input
@@ -416,22 +434,22 @@ function EnumPane({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search values"
             aria-label={`Search ${field} values`}
-            className="h-9 pl-8 text-sm"
+            className="h-9 pl-9 text-sm"
           />
         </div>
       ) : null}
 
       {options.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Nothing to filter by on this page.
         </p>
       ) : shown.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No values match.</p>
+        <p className="text-sm text-muted-foreground">No values match.</p>
       ) : (
-        <ul className="max-h-52 space-y-0.5 overflow-y-auto">
+        <ul className="-mx-2 max-h-56 space-y-1 overflow-y-auto px-2">
           {shown.map((option) => (
             <li key={option}>
-              <label className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-sm hover:bg-muted">
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm hover:bg-muted">
                 <input
                   type="checkbox"
                   checked={selected.includes(option)}
@@ -474,9 +492,9 @@ function RangePane({
     onChange(rangeFilter(field, next[0], next[1], type));
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {[from, to].map((value, index) => (
-        <label key={index} className="block space-y-1.5">
+        <label key={index} className="block space-y-2">
           <span className="text-xs text-muted-foreground">{labels[index]}</span>
           <Input
             autoFocus={index === 0}

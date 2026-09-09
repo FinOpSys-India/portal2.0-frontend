@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { DataTable, ListCell } from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { AssignCompanySpecialist } from "@/components/manager/assign-company-specialist";
-import { PageHeader } from "@/components/portal/portal-shell";
 import {
   type ClientCompany,
   companyScope,
@@ -43,63 +42,61 @@ export default async function ManagerCompaniesPage({
   const companies = company ? all.filter((c) => c.id === company) : all;
 
   return (
-    <>
-      <PageHeader title="Companies" scope={await scopeName(company)} />
-
-      <DataTable<ClientCompany>
-        page={1}
-        sort={sort}
-        dir={dir}
-        filters={parseFilters(f)}
-        total={companies.length}
-        rows={companies}
-        basePath="/manager/companies"
-        rowHref={(row) => `/manager/companies/${encodeURIComponent(row.id)}`}
-        empty="No companies assigned to you yet."
-        columns={[
-          {
-            header: "Company Name",
-            cell: (row) => <span className="font-medium">{row.name}</span>,
-          },
-          {
-            header: "Company Owner",
-            sortValue: (row) => row.owner,
-            cell: (row) => <PersonCell name={row.owner} />,
-          },
-          {
-            header: "Active Services",
-            sortValue: (row) => row.activeServices.join(", "),
-            cell: (row) => <ListCell items={row.activeServices} />,
-          },
-          {
-            // Blank until a subscription starts, same as 1.0.
-            header: "Billing Date",
-            filter: "date",
-            sortValue: (row) => Date.parse(row.billingDate ?? "") || 0,
-            cell: (row) => (
-              <span className="tabular-nums">{row.billingDate ?? ""}</span>
-            ),
-          },
-          {
-            header: "Team Members",
-            filter: "number",
-            sortValue: (row) => row.teamMembers.length,
-            cell: (row) => <AvatarStack names={row.teamMembers} />,
-          },
-          {
-            header: "Action",
-            // A button per row. Nothing to order by.
-            sortValue: false,
-            cell: (row) => (
-              <AssignCompanySpecialist
-                companyId={row.id}
-                companyName={row.name}
-                assigned={row.specialists}
-              />
-            ),
-          },
-        ]}
-      />
-    </>
+    <DataTable<ClientCompany>
+      title="Companies"
+      scope={await scopeName(company)}
+      page={1}
+      sort={sort}
+      dir={dir}
+      filters={parseFilters(f)}
+      total={companies.length}
+      rows={companies}
+      basePath="/manager/companies"
+      rowHref={(row) => `/manager/companies/${encodeURIComponent(row.id)}`}
+      empty="No companies assigned to you yet."
+      columns={[
+        {
+          header: "Company Name",
+          cell: (row) => <span className="font-medium">{row.name}</span>,
+        },
+        {
+          header: "Company Owner",
+          sortValue: (row) => row.owner,
+          cell: (row) => <PersonCell name={row.owner} />,
+        },
+        {
+          header: "Active Services",
+          sortValue: (row) => row.activeServices.join(", "),
+          cell: (row) => <ListCell items={row.activeServices} />,
+        },
+        {
+          // Blank until a subscription starts, same as 1.0.
+          header: "Billing Date",
+          filter: "date",
+          sortValue: (row) => Date.parse(row.billingDate ?? "") || 0,
+          cell: (row) => (
+            <span className="tabular-nums">{row.billingDate ?? ""}</span>
+          ),
+        },
+        {
+          header: "Team Members",
+          filter: "number",
+          sortValue: (row) => row.teamMembers.length,
+          cell: (row) => <AvatarStack names={row.teamMembers} />,
+        },
+        {
+          header: "Action",
+          // A button per row. Nothing to order by.
+          sortValue: false,
+          cell: (row) => (
+            <AssignCompanySpecialist
+              companyId={row.id}
+              companyName={row.name}
+              assigned={row.specialists}
+            />
+          ),
+        },
+      ]}
+    />
   );
 }

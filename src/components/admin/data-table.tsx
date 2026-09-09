@@ -8,9 +8,11 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { SortLink } from "@/components/admin/sort-link";
 import {
-  TableFilters,
+  FilterButton,
+  FilterChips,
   type FilterField,
 } from "@/components/admin/table-filters";
+import { PageHeader } from "@/components/portal/portal-shell";
 
 import {
   Table,
@@ -283,6 +285,8 @@ export function DataTable<T>({
   basePath,
   rowHref,
   header,
+  title,
+  scope,
   action,
   empty,
   sort,
@@ -306,12 +310,19 @@ export function DataTable<T>({
   /** Title rendered inside the card, at the left of the toolbar. */
   header?: React.ReactNode;
   /**
-   * The list's own button — New Project, Invite Customer, Upload File.
+   * The page's own heading, when this table IS the page.
    *
-   * Here rather than in the page heading so it stands beside Filter: narrowing
-   * a list and adding to it are the two things done to it, and they used to sit
-   * in different corners of the screen with the table between them.
+   * Given it, the table renders the heading itself so Filter can stand in that
+   * row beside the page's button — the two verbs a list has, narrow it and add
+   * to it, in one place. Withheld by a table that sits INSIDE a page (a project
+   * detail's file list, the documents screens with their own breadcrumb), which
+   * keeps its controls in the card where they belong to the table rather than
+   * to the screen.
    */
+  title?: string;
+  /** The company the page is scoped to, named beside the title. */
+  scope?: string;
+  /** The list's own button — New Project, Invite Customer, Upload File. */
   action?: React.ReactNode;
   empty: string;
 }) {
@@ -334,24 +345,42 @@ export function DataTable<T>({
   // friends accept `search`, `status` and `role` and nothing else today.
   const truncated = filters.length > 0 && total > rows.length ? total : 0;
 
+  const fields = filterFields(columns, rows);
+  // Filter beside the page's own button, never wrapped around it: they are the
+  // two things done to a list, and they read as a pair.
+  const controls = (
+    <div className="flex flex-wrap items-center gap-2">
+      <FilterButton fields={fields} filters={filters} />
+      {action}
+    </div>
+  );
+
+  const caption = truncated ? (
+    <p className="text-xs text-muted-foreground">
+      Filtering the first {rows.length} of {truncated}.
+    </p>
+  ) : null;
+
+  // The chips stay against the rows they narrowed. Rendered only when there is
+  // something to say, so an unfiltered list is not topped by an empty strip.
+  const applied =
+    filters.length > 0 || caption || (!title && (header || fields.length)) ? (
+      <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-4">
+        {header}
+        <FilterChips fields={fields} filters={filters} />
+        {caption}
+        {title ? null : <div className="ml-auto">{controls}</div>}
+      </div>
+    ) : null;
+
   return (
     <div className="space-y-4">
+      {title ? (
+        <PageHeader title={title} scope={scope} action={controls} />
+      ) : null}
+
       <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-4">
-          {header}
-
-          {truncated ? (
-            <p className="text-xs text-muted-foreground">
-              Filtering the first {rows.length} of {truncated}.
-            </p>
-          ) : null}
-
-          <TableFilters
-            fields={filterFields(columns, rows)}
-            filters={filters}
-            action={action}
-          />
-        </div>
+        {applied}
 
         <Table>
           <SortableHeadRow columns={columns} sort={sort} dir={dir} />
