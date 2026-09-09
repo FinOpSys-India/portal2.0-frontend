@@ -25,6 +25,7 @@ import { fullName } from "@/lib/directory";
 // whole shape — the same courtesy `ChatAttachment` gets by being declared here.
 import type { MessageReaction } from "@/lib/reactions";
 import {
+  myProfile,
   personName,
   taskStatusCode,
   toAddressFields,
@@ -694,22 +695,14 @@ function toManagerCustomer(row: DirectoryRow): ManagerCustomer {
 }
 
 export const managerApi = {
-  /** The signed-in manager. The session decides who, not the caller. */
-  async profile(): Promise<ManagerProfile> {
-    const me = await get<{
-      firstName: string;
-      lastName: string;
-      email: string;
-      phone: string | null;
-      avatarUrl: string | null;
-    }>("/users/me");
-    return {
-      name: fullName(me),
-      email: me.email,
-      phone: me.phone ?? "",
-      avatarUrl: me.avatarUrl ?? null,
-    };
-  },
+  /**
+   * The signed-in manager. The session decides who, not the caller.
+   *
+   * The SHARED reader, address included — this used to drop the address on the
+   * floor, and the User Info page then drew five empty rows for a manager whose
+   * address was sitting in the record all along.
+   */
+  profile: myProfile,
 
   /**
    * The accounts on this manager's book.
@@ -1490,3 +1483,4 @@ export function sortByUnreadThenRecent(
 export function totalUnread(conversations: Conversation[]): number {
   return conversations.reduce((sum, c) => sum + c.unread, 0);
 }
+

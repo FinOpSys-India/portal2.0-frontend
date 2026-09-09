@@ -14,6 +14,7 @@ import {
   taskStatusCode,
   teamNames,
   toAddressFields,
+  toAddressPayload,
   documentPath,
   personAvatarUrl,
   personId,
@@ -340,4 +341,51 @@ assert.equal(
     { companyId: "3", companyName: "Northwind" },
   ).ownerId,
   "12",
+);
+
+/* ------------------------------------------------------- profile payload -- */
+
+// The round trip a saved profile makes: the form's `zip` is the backend's
+// `postalCode`, and the country goes out as a name AND a code (the address
+// validator rejects it otherwise). Read the field names the other way round and
+// the save 400s with the page still showing what the user typed.
+assert.deepEqual(
+  toAddressPayload({
+    phone: "5551234567",
+    addressLine1: "100 Test Street",
+    city: "Austin",
+    state: "TX",
+    zip: "73301",
+    country: "United States of America",
+  }),
+  {
+    addressLine1: "100 Test Street",
+    city: "Austin",
+    state: "TX",
+    postalCode: "73301",
+    country: "United States of America",
+    countryCode: "US",
+  },
+);
+
+// What `toAddressFields` reads back is what the form last sent — the two are
+// each other's inverse, and a rename on either side breaks this line first.
+assert.deepEqual(
+  toAddressFields(
+    toAddressPayload({
+      phone: "5551234567",
+      addressLine1: "100 Test Street",
+      city: "Austin",
+      state: "TX",
+      zip: "73301",
+      country: "United States of America",
+    }),
+  ),
+  {
+    addressLine1: "100 Test Street",
+    city: "Austin",
+    state: "TX",
+    zip: "73301",
+    country: "United States of America",
+  },
 );

@@ -15,8 +15,9 @@
  */
 
 import type { CompanyPlan } from "@/lib/admin";
+import { countryCode } from "@/lib/countries";
 import { fullName } from "@/lib/directory";
-import { del, get } from "@/lib/http";
+import { del, get, patch } from "@/lib/http";
 import type {
   ChatMessage,
   ClientCompany,
@@ -29,6 +30,7 @@ import type {
   TaskStatus,
 } from "@/lib/manager";
 import type { MessageReaction } from "@/lib/reactions";
+import type { ProfileValues } from "@/lib/schemas";
 
 /* ---------------------------------------------------------------- people -- */
 
@@ -424,6 +426,82 @@ export function toAddressFields(a: BackendAddress | null | undefined) {
     zip: a?.postalCode ?? "",
     country: a?.country ?? "",
   };
+}
+
+/* --------------------------------------------------------------- profile -- */
+
+/**
+ * The signed-in person's own record, whichever portal is asking.
+ *
+ * ONE SHAPE FOR ALL OF THEM. `GET /users/me` answers for whoever holds the
+ * token and the customer's, the manager's and the specialist's profile screens
+ * render the same fields off it — so this is one type, one read, one write.
+ * It is also the same row the ADMIN reads back through `GET /customers/:id`
+ * and the manager through the directory: a change saved here is a change on
+ * the record every other portal renders, not a second copy of it.
+ */
+export interface MyProfile {
+  fullName: string;
+  email: string;
+  phone: string;
+  /** `userDto.toMe` builds this from the stored key. Null when none is set. */
+  avatarUrl: string | null;
+  addressLine1: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+}
+
+export async function myProfile(): Promise<MyProfile> {
+  const me = await get<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string | null;
+    avatarUrl: string | null;
+    address: BackendAddress | null;
+  }>("/users/me");
+
+  return {
+    fullName: fullName(me),
+    email: me.email,
+    phone: me.phone ?? "",
+    avatarUrl: me.avatarUrl ?? null,
+    ...toAddressFields(me.address),
+  };
+}
+
+/**
+ * The address as `PATCH /users/me` takes it — `zip` is `postalCode` there, and
+ * the country code is required alongside the name. Its own function so the
+ * rename is asserted in portal.test.ts rather than discovered as a 400.
+ */
+export function toAddressPayload(values: ProfileValues) {
+  return {
+    addressLine1: values.addressLine1,
+    city: values.city,
+    state: values.state,
+    postalCode: values.zip,
+    country: values.country,
+    countryCode: countryCode(values.country),
+  };
+}
+
+/**
+ * `PATCH /users/me`. It accepts phone and address and nothing else — name and
+ * email are not the caller's to change here.
+ *
+ * NO ROLE GATE on the route (userRoutes.js says so deliberately: "me" is the
+ * token's subject), so this is the identical write from every portal. The
+ * address goes whole, never field by field: a half-updated address is worse
+ * than requiring all of it.
+ */
+export async function saveMyProfile(values: ProfileValues): Promise<void> {
+  await patch("/users/me", {
+    phone: values.phone,
+    address: toAddressPayload(values),
+  });
 }
 
 /** Minor units to the string a plans table renders — "$249/month". */

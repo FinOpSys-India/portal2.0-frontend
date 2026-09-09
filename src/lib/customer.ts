@@ -8,7 +8,6 @@
 import {
   get,
   getOrNull,
-  patch,
   post,
   uploadViaSignedUrls,
 } from "@/lib/http";
@@ -23,16 +22,15 @@ import {
   type ManagerProfile,
   type ManagerThread,
 } from "@/lib/manager";
-import { countryCode } from "@/lib/countries";
 import { fullName, roleIds } from "@/lib/directory";
 import {
   billingDate,
   documentProjectId,
+  myProfile,
   personAvatarUrl,
   personId,
   personName,
   teamNames,
-  toAddressFields,
   toProjectStatus,
   type BackendCompany,
   type BackendDocument,
@@ -85,18 +83,6 @@ export interface TeamMember {
   email: string;
 }
 
-export interface Profile {
-  fullName: string;
-  email: string;
-  phone: string;
-  addressLine1: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  /** `userDto.toMe` builds this from the stored key. Null when none is set. */
-  avatarUrl: string | null;
-}
 
 export interface NewProjectInput {
   name: string;
@@ -304,43 +290,11 @@ export const customerApi = {
     });
   },
 
-  async profile(): Promise<Profile> {
-    const me = await get<{
-      firstName: string;
-      lastName: string;
-      email: string;
-      phone: string | null;
-      avatarUrl: string | null;
-      address: Parameters<typeof toAddressFields>[0];
-    }>("/users/me");
-
-    return {
-      fullName: fullName(me),
-      email: me.email,
-      phone: me.phone ?? "",
-      avatarUrl: me.avatarUrl ?? null,
-      ...toAddressFields(me.address),
-    };
-  },
-
   /**
-   * `PATCH /users/me`, and it accepts only `phone` and `address` — name and
-   * email are not the caller's to change here. The address goes whole, never
-   * field by field: a half-updated address is worse than requiring all of it.
+   * The signed-in customer. Shared with every other portal — it is the same
+   * record and the same endpoint for all of them; see lib/portal.
    */
-  async saveProfile(input: Profile): Promise<void> {
-    await patch("/users/me", {
-      phone: input.phone,
-      address: {
-        addressLine1: input.addressLine1,
-        city: input.city,
-        state: input.state,
-        postalCode: input.zip,
-        country: input.country,
-        countryCode: countryCode(input.country),
-      },
-    });
-  },
+  profile: myProfile,
 
   /* ------------------------------------------------------------ connect -- */
 
