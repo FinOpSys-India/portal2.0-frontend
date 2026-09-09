@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/portal/status-badge";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { customerApi, type CustomerFile } from "@/lib/customer";
 import { documentPath } from "@/lib/portal";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Project" };
 
@@ -22,9 +23,9 @@ export default async function CustomerProjectPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string; id: string }>;
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
 }) {
-  const [{ workspace, id }, { page: raw, sort, dir }] = await Promise.all([
+  const [{ workspace, id }, { page: raw, sort, dir, f }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -59,6 +60,7 @@ export default async function CustomerProjectPage({
             page={page}
             sort={sort}
             dir={dir}
+            filters={parseFilters(f)}
             total={files.length}
             rows={files}
             basePath={`/customer/${workspace}/projects/${id}`}

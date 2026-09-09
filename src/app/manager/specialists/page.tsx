@@ -9,6 +9,7 @@ import {
   scopeName,
   type Specialist,
 } from "@/lib/manager";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Specialists" };
 
@@ -24,9 +25,9 @@ export const metadata: Metadata = { title: "Specialists" };
 export default async function ManagerSpecialistsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string; f?: string | string[] }>;
 }) {
-  const { company: picked, sort, dir } = await searchParams;
+  const { company: picked, sort, dir, f } = await searchParams;
   const company = await companyScope(picked);
   const specialists = await managerApi.specialists(company);
 
@@ -38,6 +39,7 @@ export default async function ManagerSpecialistsPage({
         page={1}
         sort={sort}
         dir={dir}
+        filters={parseFilters(f)}
         total={specialists.length}
         rows={specialists}
         basePath={`/manager/specialists${company ? `?company=${encodeURIComponent(company)}` : ""}`}

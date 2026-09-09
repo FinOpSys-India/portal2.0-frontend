@@ -1,0 +1,229 @@
+/**
+ * The filter language behind `?f=` on every list.
+ *
+ * Pure on purpose: the table applies it on the server, the filter bar builds it
+ * in the browser, and this module is the one place that agrees on what a filter
+ * MEANS. It holds no React so both sides can import it without dragging the
+ * other's runtime along.
+ *
+ * ponytail: filters run over the rows a page was handed. The API takes
+ * `search`, `status`, `role` and `specialistUserId` but nothing else, so the
+ * general engine lives here until those params exist for every field. When they
+ * do, the parsed filters below are what gets forwarded instead.
+ */
+
+/** How a column's values compare. Decides which operators the bar offers. */
+export type FilterType = "text" | "enum" | "date" | "number";
+
+export type Operator =
+  | "contains"
+  | "is"
+  | "isnot"
+  | "empty"
+  | "in"
+  | "notin"
+  | "gte"
+  | "lte"
+  | "before"
+  | "after"
+  | "between";
+
+export type Filter = {
+  /** Column header, the same key `?sort=` uses. */
+  field: string;
+  op: Operator;
+  /** One value for most operators, two for `between`, many for `in`. */
+  values: string[];
+};
+
+type OperatorSpec = {
+  op: Operator;
+  label: string;
+  /** How many value inputs the bar renders for it. */
+  inputs: 0 | 1 | 2;
+};
+
+/**
+ * Operators per column type, first one being the default.
+ *
+ * Deliberately short. Every operator here is one someone asks for out loud
+ * ("deadline before the 30th", "status is any of these two"); a full comparison
+ * grid would be more code to read and no more answers.
+ */
+export const OPERATORS: Record<FilterType, OperatorSpec[]> = {
+  text: [
+    { op: "contains", label: "contains", inputs: 1 },
+    { op: "is", label: "is", inputs: 1 },
+    { op: "isnot", label: "is not", inputs: 1 },
+    { op: "empty", label: "is empty", inputs: 0 },
+  ],
+  enum: [
+    { op: "in", label: "is any of", inputs: 1 },
+    { op: "notin", label: "is none of", inputs: 1 },
+  ],
+  date: [
+    { op: "before", label: "before", inputs: 1 },
+    { op: "after", label: "on or after", inputs: 1 },
+    { op: "between", label: "between", inputs: 2 },
+  ],
+  number: [
+    { op: "gte", label: "at least", inputs: 1 },
+    { op: "lte", label: "at most", inputs: 1 },
+    { op: "between", label: "between", inputs: 2 },
+  ],
+};
+
+export function operatorLabel(type: FilterType, op: Operator): string {
+  return OPERATORS[type].find((o) => o.op === op)?.label ?? op;
+}
+
+/** The operator a freshly added filter starts on. */
+export function defaultOperator(type: FilterType): Operator {
+  return OPERATORS[type][0].op;
+}
+
+const OPERATOR_SET = new Set<string>(
+  Object.values(OPERATORS).flatMap((specs) => specs.map((s) => s.op)),
+);
+
+/**
+ * `Field:op:value|value` — one `?f=` per filter, several `f` params for several
+ * filters, ANDed.
+ *
+ * Field and values are percent-encoded INSIDE the param because both are free
+ * text: a file called `a|b.pdf` or a column named `Current Plan` would
+ * otherwise cut the filter in half at the wrong character.
+ */
+export function serializeFilter({ field, op, values }: Filter): string {
+  return [
+    encodeURIComponent(field),
+    op,
+    values.map(encodeURIComponent).join("|"),
+  ].join(":");
+}
+
+/**
+ * The active filters, straight off `searchParams.f`.
+ *
+ * Junk is dropped rather than thrown: `?f=` is whatever someone typed, pasted
+ * or kept in a bookmark after a column was renamed, and a bad filter should
+ * leave the list readable — the same rule `?sort=` follows.
+ */
+export function parseFilters(raw: string | string[] | undefined): Filter[] {
+  const all = raw === undefined ? [] : Array.isArray(raw) ? raw : [raw];
+
+  return all.flatMap((entry) => {
+    // Only the first two colons separate: a value may contain one.
+    const first = entry.indexOf(":");
+    const second = entry.indexOf(":", first + 1);
+    if (first < 1 || second < 0) return [];
+
+    const field = safeDecode(entry.slice(0, first));
+    const op = entry.slice(first + 1, second);
+    if (!field || !OPERATOR_SET.has(op)) return [];
+
+    const rest = entry.slice(second + 1);
+    const values = rest === "" ? [] : rest.split("|").map(safeDecode);
+
+    // Every operator but `is empty` needs something to compare against.
+    if (op !== "empty" && values.every((v) => v === "")) return [];
+
+    return [{ field, op: op as Operator, values }];
+  });
+}
+
+/** `decodeURIComponent` throws on a stray `%`, which a hand-edited URL has. */
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Does one row's value for this column pass this filter?
+ *
+ * `value` is whatever the column sorts on: text for names, a timestamp for
+ * dates, a number for counts. That is why a date column has to declare
+ * `filter: "date"` — as text, its timestamp would compare like a phone number.
+ */
+export function matchesFilter(
+  value: string | number,
+  filter: Filter,
+  type: FilterType,
+): boolean {
+  const [first = "", second = ""] = filter.values;
+
+  switch (filter.op) {
+    case "empty":
+      return String(value).trim() === "";
+    case "contains":
+      return fold(value).includes(fold(first));
+    case "is":
+      return fold(value) === fold(first);
+    case "isnot":
+      return fold(value) !== fold(first);
+    case "in":
+      return filter.values.some((v) => fold(value) === fold(v));
+    case "notin":
+      return !filter.values.some((v) => fold(value) === fold(v));
+    default:
+      return matchesRange(Number(value), filter, type, first, second);
+  }
+}
+
+function matchesRange(
+  value: number,
+  filter: Filter,
+  type: FilterType,
+  first: string,
+  second: string,
+): boolean {
+  if (Number.isNaN(value)) return false;
+
+  const bound = (raw: string) =>
+    type === "date" ? startOfDay(raw) : Number(raw);
+  // A date names a whole day, so `between 1st and 3rd` has to include
+  // everything stamped on the 3rd, not just its midnight.
+  const end = (raw: string) =>
+    type === "date" ? startOfDay(raw) + DAY : Number(raw);
+
+  switch (filter.op) {
+    case "before":
+      return value < bound(first);
+    case "after":
+      return value >= bound(first);
+    case "gte":
+      return value >= bound(first);
+    case "lte":
+      return type === "date" ? value < end(first) : value <= Number(first);
+    case "between": {
+      const low = bound(first);
+      const high = end(second);
+      return value >= low && (type === "date" ? value < high : value <= high);
+    }
+    default:
+      return true;
+  }
+}
+
+const DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Midnight LOCAL, not UTC.
+ *
+ * `<input type="date">` hands over `2026-09-30`, which `Date.parse` reads as
+ * UTC midnight — and the deadlines these compare against are local midnight.
+ * West of Greenwich that difference lands a deadline on the wrong side of its
+ * own date.
+ */
+function startOfDay(value: string): number {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return Number(value);
+  return new Date(year, month - 1, day).getTime();
+}
+
+function fold(value: string | number): string {
+  return String(value).trim().toLowerCase();
+}

@@ -6,6 +6,7 @@ import { ProgressBar } from "@/components/portal/progress-bar";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { type ManagedProject, parseDeadline, scoped } from "@/lib/manager";
 import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -20,9 +21,9 @@ export const metadata: Metadata = { title: "Projects" };
 export default async function SpecialistProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string; f?: string | string[] }>;
 }) {
-  const { company: picked, sort, dir } = await searchParams;
+  const { company: picked, sort, dir, f } = await searchParams;
   const company = await companyScope(picked);
   const projects = await specialistApi.projects(company);
 
@@ -34,6 +35,7 @@ export default async function SpecialistProjectsPage({
         page={1}
         sort={sort}
         dir={dir}
+        filters={parseFilters(f)}
         total={projects.length}
         rows={projects}
         basePath="/specialist/projects"
@@ -50,19 +52,22 @@ export default async function SpecialistProjectsPage({
           },
           // Not a design column: the design is always scoped to one company, so
           // it never needs to say which. This list is unscoped by default.
-          { header: "Company", cell: (row) => row.company },
+          { header: "Company", filter: "enum", cell: (row) => row.company },
           {
             header: "Status",
+            filter: "enum",
             sortValue: (row) => row.status,
             cell: (row) => <StatusBadge status={row.status} />,
           },
           {
             header: "Deadline",
+            filter: "date",
             sortValue: (row) => parseDeadline(row.deadline).getTime(),
             cell: (row) => <span className="tabular-nums">{row.deadline}</span>,
           },
           {
             header: "Project Progress",
+            filter: "number",
             sortValue: (row) => row.progress,
             cell: (row) => <ProgressBar value={row.progress} />,
           },

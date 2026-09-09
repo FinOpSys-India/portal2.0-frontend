@@ -7,6 +7,7 @@ import { customerApi, type CustomerFile } from "@/lib/customer";
 import { viewerId } from "@/lib/portal";
 
 import { CustomerUploadFile } from "./upload-file";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Files" };
 
@@ -24,9 +25,9 @@ export default async function FilesPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string }>;
-  searchParams: Promise<{ project?: string; page?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ project?: string; page?: string; sort?: string; dir?: string; f?: string | string[] }>;
 }) {
-  const [{ workspace }, { project, page: raw, sort, dir }] = await Promise.all([
+  const [{ workspace }, { project, page: raw, sort, dir, f }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -54,6 +55,7 @@ export default async function FilesPage({
         page={page}
         sort={sort}
         dir={dir}
+        filters={parseFilters(f)}
         total={files.length}
         rows={files}
         basePath={`/customer/${workspace}/files`}

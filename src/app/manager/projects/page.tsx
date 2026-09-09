@@ -13,15 +13,16 @@ import {
 } from "@/lib/manager";
 
 import { NewProject } from "./new-project";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Projects" };
 
 export default async function ManagerProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string; f?: string | string[] }>;
 }) {
-  const { company: picked, sort, dir } = await searchParams;
+  const { company: picked, sort, dir, f } = await searchParams;
   const company = await companyScope(picked);
   const [projects, companies] = await Promise.all([
     managerApi.projects(company),
@@ -52,6 +53,7 @@ export default async function ManagerProjectsPage({
         page={1}
         sort={sort}
         dir={dir}
+        filters={parseFilters(f)}
         total={projects.length}
         rows={projects}
         basePath="/manager/projects"
@@ -62,10 +64,11 @@ export default async function ManagerProjectsPage({
             header: "Project Name",
             cell: (row) => <span className="font-medium">{row.name}</span>,
           },
-          { header: "Service Type", cell: (row) => row.service },
+          { header: "Service Type", filter: "enum", cell: (row) => row.service },
           { header: "Created By", cell: (row) => row.createdBy },
           {
             header: "Deadline",
+            filter: "date",
             // M/DD/YY: "8/03/26" sorts before "7/28/26" as text.
             sortValue: (row) => parseDeadline(row.deadline).getTime(),
             cell: (row) => row.deadline,
@@ -84,6 +87,7 @@ export default async function ManagerProjectsPage({
           },
           {
             header: "Project Progress",
+            filter: "number",
             sortValue: (row) => row.progress,
             cell: (row) => <ProgressBar value={row.progress} />,
           },

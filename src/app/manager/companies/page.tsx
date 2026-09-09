@@ -10,6 +10,7 @@ import {
   managerApi,
   scopeName,
 } from "@/lib/manager";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Companies" };
 
@@ -25,9 +26,9 @@ export const metadata: Metadata = { title: "Companies" };
 export default async function ManagerCompaniesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string; f?: string | string[] }>;
 }) {
-  const { company: picked, sort, dir } = await searchParams;
+  const { company: picked, sort, dir, f } = await searchParams;
   const company = await companyScope(picked);
   // No specialist roster here any more: the staffing dialog asks the server for
   // its own options when it opens, which spared this page a directory sweep per
@@ -44,6 +45,7 @@ export default async function ManagerCompaniesPage({
         page={1}
         sort={sort}
         dir={dir}
+        filters={parseFilters(f)}
         total={companies.length}
         rows={companies}
         basePath="/manager/companies"
@@ -67,6 +69,7 @@ export default async function ManagerCompaniesPage({
           {
             // Blank until a subscription starts, same as 1.0.
             header: "Billing Date",
+            filter: "date",
             sortValue: (row) => Date.parse(row.billingDate ?? "") || 0,
             cell: (row) => (
               <span className="tabular-nums">{row.billingDate ?? ""}</span>
@@ -74,6 +77,7 @@ export default async function ManagerCompaniesPage({
           },
           {
             header: "Team Members",
+            filter: "number",
             sortValue: (row) => row.teamMembers.length,
             cell: (row) => <AvatarStack names={row.teamMembers} />,
           },

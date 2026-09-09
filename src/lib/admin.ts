@@ -117,6 +117,25 @@ export const SPECIALIST_ROLES = [
 
 export const PAGE_SIZE = 10;
 
+/**
+ * How many rows a filtered list asks for.
+ *
+ * These four lists are paged by the BACKEND, and the filters run in the table
+ * over the rows it was handed — so a filtered list has to fetch more than the
+ * ten on screen or it would be filtering a tenth of the data and saying
+ * nothing. 100 is the API's ceiling for all four; past that the table captions
+ * what it could not see.
+ *
+ * ponytail: the whole scan disappears the day `GET /customers` and friends take
+ * the filters themselves.
+ */
+export const FILTER_SCAN = 100;
+
+/** What to request: one page normally, as much as allowed when filtering. */
+export function listWindow(page: number, filtered: boolean) {
+  return filtered ? { page: 1, limit: FILTER_SCAN } : { page, limit: PAGE_SIZE };
+}
+
 export interface InviteInput {
   email: string;
   firstName: string;
@@ -308,11 +327,11 @@ export const adminApi = {
    * total, hiding every customer past the 25th behind a pager that claimed
    * there was nothing more.
    */
-  async customers(page: number): Promise<Page<Customer>> {
+  async customers(page: number, limit = PAGE_SIZE): Promise<Page<Customer>> {
     const data = await get<{
       customers: CustomerRow[];
       pagination: { total: number };
-    }>(`/customers?${pageQuery(page, PAGE_SIZE)}`);
+    }>(`/customers?${pageQuery(page, limit)}`);
     return { rows: data.customers.map(toCustomer), total: data.pagination.total };
   },
 
@@ -346,21 +365,21 @@ export const adminApi = {
     };
   },
 
-  async specialists(page: number): Promise<Page<Specialist>> {
+  async specialists(page: number, limit = PAGE_SIZE): Promise<Page<Specialist>> {
     const data = await get<{
       specialists: SpecialistRow[];
       pagination: { total: number };
-    }>(`/specialists?${pageQuery(page, PAGE_SIZE)}`);
+    }>(`/specialists?${pageQuery(page, limit)}`);
     // `pagination.total`, not the page length — that counted the rows on screen,
     // so the pager always computed exactly one page.
     return { rows: data.specialists.map(toSpecialist), total: data.pagination.total };
   },
 
-  async accountingManagers(page: number): Promise<Page<AccountingManager>> {
+  async accountingManagers(page: number, limit = PAGE_SIZE): Promise<Page<AccountingManager>> {
     const data = await get<{
       accountingManagers: ManagerRow[];
       pagination: { total: number };
-    }>(`/admin/accounting-managers?${pageQuery(page, PAGE_SIZE)}`);
+    }>(`/admin/accounting-managers?${pageQuery(page, limit)}`);
     return {
       rows: data.accountingManagers.map(toManager),
       total: data.pagination.total,
@@ -373,12 +392,12 @@ export const adminApi = {
    * hardcoded fixture, which live meant a dropdown listing one invented person
    * and never an actual manager.
    */
-  async companies(page: number): Promise<CompanyPage> {
+  async companies(page: number, limit = PAGE_SIZE): Promise<CompanyPage> {
     const data = await get<{
       companies: AccountRow[];
       accountingManagers: ManagerRow[];
       pagination: { total: number };
-    }>(`/admin/company-accounts?${pageQuery(page, PAGE_SIZE)}`);
+    }>(`/admin/company-accounts?${pageQuery(page, limit)}`);
     return {
       rows: data.companies.map(toCompany),
       total: data.pagination.total,

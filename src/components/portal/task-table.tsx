@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { parseDeadline, type SpecialistTask } from "@/lib/manager";
+import type { Filter } from "@/lib/table-filter";
 
 /**
  * All Tasks, with the detail as a dialog rather than a page.
@@ -36,6 +37,7 @@ export function TaskTable({
   page = 1,
   sort,
   dir,
+  filters,
   empty = "No tasks on your projects yet.",
 }: {
   tasks: SpecialistTask[];
@@ -43,6 +45,7 @@ export function TaskTable({
   page?: number;
   sort?: string;
   dir?: string;
+  filters?: Filter[];
   empty?: string;
 }) {
   const [openId, setOpenId] = React.useState<string | null>(null);
@@ -57,6 +60,7 @@ export function TaskTable({
         page={page}
         sort={sort}
         dir={dir}
+        filters={filters}
         total={tasks.length}
         rows={tasks}
         basePath={`/${from}/tasks`}
@@ -83,9 +87,10 @@ export function TaskTable({
               <span className="text-muted-foreground">{task.description}</span>
             ),
           },
-          { header: "Project Name", cell: (task) => task.project },
+          { header: "Project Name", filter: "enum", cell: (task) => task.project },
           {
             header: "Deadline",
+            filter: "date",
             cell: (task) => (
               <span className="tabular-nums">{task.deadline}</span>
             ),
@@ -94,6 +99,7 @@ export function TaskTable({
           },
           {
             header: "Status",
+            filter: "enum",
             // The menu is a client component, so its label does not reach the
             // sorter — read the status off the row instead.
             sortValue: (task) => task.status,

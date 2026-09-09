@@ -3,21 +3,26 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { DataTable, ListCell } from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
-import { adminApi, type Company } from "@/lib/admin";
+import { listWindow, adminApi, type Company } from "@/lib/admin";
 import { AssignManager } from "./assign-manager";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Companies" };
 
 export default async function CompaniesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
 }) {
-  const { page: raw, sort, dir } = await searchParams;
+  const { page: raw, sort, dir, f } = await searchParams;
   const page = Math.max(1, Number(raw) || 1);
+
+  const filters = parseFilters(f);
+  // Filtering happens in the table, so it needs more than one page to filter.
+  const scan = listWindow(page, filters.length > 0);
   // The assignable managers come back with the rows — same request, so the
   // dropdown cannot list someone the table does not know about.
-  const { rows, total, managers } = await adminApi.companies(page);
+  const { rows, total, managers } = await adminApi.companies(scan.page, scan.limit);
 
   return (
     <>
@@ -28,6 +33,7 @@ export default async function CompaniesPage({
         page={page}
         sort={sort}
         dir={dir}
+        filters={filters}
         total={total}
         rows={rows}
         basePath="/admin/companies"
@@ -51,6 +57,7 @@ export default async function CompaniesPage({
           },
           {
             header: "Billing Date",
+            filter: "date",
             // M/D/YYYY on screen, which as text puts October before February.
             sortValue: (row) => Date.parse(row.billingDate ?? "") || 0,
             cell: (row) =>
@@ -60,6 +67,7 @@ export default async function CompaniesPage({
           },
           {
             header: "Team Members",
+            filter: "number",
             // Faces carry no text to sort — how many there are is the one thing
             // the column says that can be ordered.
             sortValue: (row) => row.teamMembers.length,
@@ -67,6 +75,7 @@ export default async function CompaniesPage({
           },
           {
             header: "Accounting Manager",
+            filter: "enum",
             sortValue: (row) => row.accountingManager ?? "",
             /*
              * The one thing admin can write, and it is rendered for EVERY row

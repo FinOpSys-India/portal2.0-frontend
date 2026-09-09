@@ -6,6 +6,7 @@ import { AvatarStack } from "@/components/admin/initials-avatar";
 import { customerApi, type CustomerCompany } from "@/lib/customer";
 
 import { AddCompany } from "./add-company";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Company" };
 
@@ -14,9 +15,9 @@ export default async function CompanyPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string }>;
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
 }) {
-  const [{ workspace }, { page: raw, sort, dir }] = await Promise.all([
+  const [{ workspace }, { page: raw, sort, dir, f }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -37,6 +38,7 @@ export default async function CompanyPage({
         page={page}
         sort={sort}
         dir={dir}
+        filters={parseFilters(f)}
         total={companies.length}
         rows={companies}
         basePath={`/customer/${workspace}/company`}
@@ -53,6 +55,7 @@ export default async function CompanyPage({
           },
           {
             header: "Subscription Date",
+            filter: "date",
             sortValue: (row) => Date.parse(row.subscriptionDate ?? "") || 0,
             cell: (row) =>
               row.subscriptionDate ?? (
@@ -61,6 +64,7 @@ export default async function CompanyPage({
           },
           {
             header: "Team Members",
+            filter: "number",
             sortValue: (row) => row.teamMembers.length,
             cell: (row) => <AvatarStack names={row.teamMembers} />,
           },

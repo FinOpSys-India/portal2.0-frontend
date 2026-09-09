@@ -55,6 +55,8 @@ export const fileColumns = (viewer: string): Column<FileRow>[] => [
   },
   {
     header: "Project Name",
+    // A finite list on any real company, so it filters as a checklist.
+    filter: "enum",
     // Files arrive before there is a project to attach them to.
     cell: (row) =>
       row.project ?? <span className="text-muted-foreground">Unattached</span>,
@@ -66,6 +68,7 @@ export const fileColumns = (viewer: string): Column<FileRow>[] => [
   },
   {
     header: "Upload Date",
+    filter: "date",
     sortValue: (row) => Date.parse(row.uploadedAt) || 0,
     cell: (row) => (
       <span className="text-muted-foreground tabular-nums">
@@ -89,7 +92,11 @@ export const fileColumns = (viewer: string): Column<FileRow>[] => [
  */
 export const documentColumns = (viewer: string): Column<ManagerDocument>[] => {
   const [name, ...rest] = fileColumns(viewer);
-  return [name, { header: "Company", cell: (row) => row.company }, ...rest];
+  return [
+    name,
+    { header: "Company", filter: "enum", cell: (row) => row.company },
+    ...rest,
+  ];
 };
 
 /**

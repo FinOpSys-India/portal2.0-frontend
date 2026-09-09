@@ -4,19 +4,24 @@ import { PageHeader } from "@/components/portal/portal-shell";
 import { ChipsCell, DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { RoleBadge } from "@/components/admin/role-badge";
-import { adminApi, type Customer } from "@/lib/admin";
+import { listWindow, adminApi, type Customer } from "@/lib/admin";
 import { InviteCustomer } from "./invite-customer";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Customers" };
 
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
 }) {
-  const { page: raw, sort, dir } = await searchParams;
+  const { page: raw, sort, dir, f } = await searchParams;
   const page = Math.max(1, Number(raw) || 1);
-  const { rows, total } = await adminApi.customers(page);
+
+  const filters = parseFilters(f);
+  // Filtering happens in the table, so it needs more than one page to filter.
+  const scan = listWindow(page, filters.length > 0);
+  const { rows, total } = await adminApi.customers(scan.page, scan.limit);
 
   return (
     <>
@@ -26,6 +31,7 @@ export default async function CustomersPage({
         page={page}
         sort={sort}
         dir={dir}
+        filters={filters}
         total={total}
         rows={rows}
         basePath="/admin/customers"
@@ -39,6 +45,7 @@ export default async function CustomersPage({
           },
           {
             header: "Role",
+            filter: "enum",
             sortValue: (row) => row.role,
             // Muted throughout: role is a label, not a status worth shouting.
             // Owner keeps a faint brand tint so the two stay distinguishable.

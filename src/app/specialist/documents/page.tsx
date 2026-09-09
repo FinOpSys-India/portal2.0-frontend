@@ -11,6 +11,7 @@ import { viewerId } from "@/lib/portal";
 import { companyScope, specialistApi } from "@/lib/specialist";
 
 import { SpecialistUploadFile } from "./upload-file";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Files" };
 
@@ -31,9 +32,10 @@ export default async function SpecialistDocumentsPage({
     project?: string;
     sort?: string;
     dir?: string;
+    f?: string | string[];
   }>;
 }) {
-  const { company: picked, project, sort, dir } = await searchParams;
+  const { company: picked, project, sort, dir, f } = await searchParams;
   const company = await companyScope(picked);
 
   const [documents, projects, companies, viewer] = await Promise.all([
@@ -64,6 +66,7 @@ export default async function SpecialistDocumentsPage({
         page={1}
         sort={sort}
         dir={dir}
+        filters={parseFilters(f)}
         total={documents.length}
         rows={documents}
         basePath="/specialist/documents"

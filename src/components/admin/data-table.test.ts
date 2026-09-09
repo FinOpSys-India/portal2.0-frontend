@@ -8,7 +8,15 @@
  */
 import assert from "node:assert/strict";
 
-import { pageWindow, sortRows, type SortableColumn } from "./data-table";
+import {
+  filterFields,
+  filterRows,
+  pageWindow,
+  sortRows,
+  type Column,
+  type SortableColumn,
+} from "./data-table";
+import { parseFilters } from "../../lib/table-filter";
 import { PAGE_SIZE } from "../../lib/admin";
 
 const rows = (n: number) => Array.from({ length: n }, (_, i) => i);
@@ -112,7 +120,75 @@ async function main() {
   // The rows handed in are not reordered in place — DataTable pages the result.
   assert.equal(table[0].name, "beta");
 
-  console.log("data table paging and sorting: all checks passed");
+  /* ------------------------------------------------------------ filters -- */
+
+  type Project = { name: string; status: string; deadline: string; progress: number };
+  const projects: Project[] = [
+    { name: "Payroll Q3", status: "Active", deadline: "7/28/26", progress: 40 },
+    { name: "Tax Filing", status: "On Hold", deadline: "8/03/26", progress: 0 },
+    { name: "Audit", status: "Active", deadline: "1/01/27", progress: 100 },
+  ];
+  const projectColumns: Column<Project>[] = [
+    { header: "Project Name", cell: (r) => r.name },
+    { header: "Status", filter: "enum", sortValue: (r) => r.status, cell: (r) => r.status },
+    {
+      header: "Deadline",
+      filter: "date",
+      sortValue: (r) => {
+        const [month, day, year] = r.deadline.split("/").map(Number);
+        return new Date(2000 + year, month - 1, day).getTime();
+      },
+      cell: (r) => r.deadline,
+    },
+    { header: "Progress", filter: "number", sortValue: (r) => r.progress, cell: (r) => r.progress },
+    { header: "Action", sortValue: false, cell: () => "button" },
+  ];
+  const matching = (query: string | string[]) =>
+    filterRows(projects, projectColumns, parseFilters(query)).map((p) => p.name);
+
+  // Text columns need no annotation: they filter on the text the cell renders.
+  assert.deepEqual(matching("Project%20Name:contains:tax"), ["Tax Filing"]);
+  assert.deepEqual(matching("Status:in:Active"), ["Payroll Q3", "Audit"]);
+  assert.deepEqual(matching("Status:notin:Active"), ["Tax Filing"]);
+
+  // A date filters on the timestamp it sorts on, not on "8/03/26" as text.
+  assert.deepEqual(matching("Deadline:before:2026-08-01"), ["Payroll Q3"]);
+  assert.deepEqual(matching("Progress:gte:40"), ["Payroll Q3", "Audit"]);
+
+  // Several filters narrow together — each chip added is a further AND.
+  assert.deepEqual(
+    matching(["Status:in:Active", "Progress:gte:100"]),
+    ["Audit"],
+  );
+
+  // Nothing matching is an empty table, not the unfiltered list.
+  assert.deepEqual(matching("Status:in:Cancelled"), []);
+
+  // A filter on a column this table does not have, or one that opted out of
+  // sorting, leaves every row — same rule as an unknown ?sort=.
+  assert.deepEqual(matching("Nonexistent:is:x").length, 3);
+  assert.deepEqual(matching("Action:is:button").length, 3);
+  assert.deepEqual(matching([]).length, 3);
+
+  // Rows are not reordered or mutated on the way through.
+  assert.equal(projects[0].name, "Payroll Q3");
+
+  /* ------------------------------------------------------- filter fields -- */
+
+  const fields = filterFields(projectColumns, projects);
+
+  // The button column offers no filter; everything else does, typed.
+  assert.deepEqual(
+    fields.map((f) => `${f.header}:${f.type}`),
+    ["Project Name:text", "Status:enum", "Deadline:date", "Progress:number"],
+  );
+
+  // Enum options come from the rows on hand, deduped and sorted — a status
+  // nothing holds is never offered, since filtering to it shows nothing.
+  assert.deepEqual(fields[1].options, ["Active", "On Hold"]);
+  assert.equal(fields[0].options, undefined);
+
+  console.log("data table paging, sorting and filtering: all checks passed");
 }
 
 main();

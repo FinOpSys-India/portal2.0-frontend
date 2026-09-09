@@ -4,6 +4,7 @@ import { AddTask } from "@/components/portal/add-task";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { TaskTable } from "@/components/portal/task-table";
 import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Tasks" };
 
@@ -29,6 +30,7 @@ export default async function SpecialistTasksPage({
     page?: string;
     sort?: string;
     dir?: string;
+    f?: string | string[];
   }>;
 }) {
   const params = await searchParams;
@@ -58,6 +60,7 @@ export default async function SpecialistTasksPage({
         page={Number(params.page) || 1}
         sort={params.sort}
         dir={params.dir}
+        filters={parseFilters(params.f)}
         empty={
           projects.length > 0
             ? "No tasks on your projects yet."

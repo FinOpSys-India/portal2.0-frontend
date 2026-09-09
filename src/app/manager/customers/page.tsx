@@ -10,6 +10,7 @@ import {
   type ManagerCustomer,
   scopeName,
 } from "@/lib/manager";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Customers" };
 
@@ -22,9 +23,9 @@ export const metadata: Metadata = { title: "Customers" };
 export default async function ManagerCustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string; f?: string | string[] }>;
 }) {
-  const { company: picked, sort, dir } = await searchParams;
+  const { company: picked, sort, dir, f } = await searchParams;
   const company = await companyScope(picked);
   const customers = await managerApi.customers(company);
 
@@ -36,6 +37,7 @@ export default async function ManagerCustomersPage({
         page={1}
         sort={sort}
         dir={dir}
+        filters={parseFilters(f)}
         total={customers.length}
         rows={customers}
         basePath="/manager/customers"
@@ -49,6 +51,7 @@ export default async function ManagerCustomersPage({
           },
           {
             header: "Role",
+            filter: "enum",
             sortValue: (row) => row.role,
             cell: (row) => <RoleBadge role={row.role} />,
           },

@@ -5,6 +5,7 @@ import { DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { customerApi, type TeamMember } from "@/lib/customer";
 import { InviteTeammate } from "./invite-teammate";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Team" };
 
@@ -13,9 +14,9 @@ export default async function TeamPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string }>;
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
 }) {
-  const [{ workspace }, { page: raw, sort, dir }] = await Promise.all([
+  const [{ workspace }, { page: raw, sort, dir, f }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -33,6 +34,7 @@ export default async function TeamPage({
         page={page}
         sort={sort}
         dir={dir}
+        filters={parseFilters(f)}
         total={team.length}
         rows={team}
         basePath={`/customer/${workspace}/team`}

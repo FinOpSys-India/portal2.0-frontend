@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/portal/status-badge";
 import { customerApi, type Project } from "@/lib/customer";
 import { parseDeadline } from "@/lib/manager";
 import { NewProject } from "./new-project";
+import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -15,9 +16,9 @@ export default async function ProjectsPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string }>;
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
 }) {
-  const [{ workspace }, { page: raw, sort, dir }] = await Promise.all([
+  const [{ workspace }, { page: raw, sort, dir, f }] = await Promise.all([
     params,
     searchParams,
   ]);
@@ -38,6 +39,7 @@ export default async function ProjectsPage({
         page={page}
         sort={sort}
         dir={dir}
+        filters={parseFilters(f)}
         total={projects.length}
         rows={projects}
         basePath={`/customer/${workspace}/projects`}
@@ -48,14 +50,16 @@ export default async function ProjectsPage({
             header: "Project Name",
             cell: (row) => <span className="font-medium">{row.name}</span>,
           },
-          { header: "Service", cell: (row) => row.service },
+          { header: "Service", filter: "enum", cell: (row) => row.service },
           {
             header: "Deadline",
+            filter: "date",
             sortValue: (row) => parseDeadline(row.deadline).getTime(),
             cell: (row) => row.deadline,
           },
           {
             header: "Status",
+            filter: "enum",
             sortValue: (row) => row.status,
             cell: (row) => <StatusBadge status={row.status} />,
           },

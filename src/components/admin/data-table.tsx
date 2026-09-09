@@ -7,6 +7,10 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { SortLink } from "@/components/admin/sort-link";
+import {
+  TableFilters,
+  type FilterField,
+} from "@/components/admin/table-filters";
 
 import {
   Table,
@@ -17,6 +21,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PAGE_SIZE } from "@/lib/admin";
+import {
+  matchesFilter,
+  type Filter,
+  type FilterType,
+} from "@/lib/table-filter";
 import { cn } from "@/lib/utils";
 
 export type SortableColumn<T> = {
@@ -41,6 +50,15 @@ export type Column<T> = {
    * (avatar stacks, a menu).
    */
   sortValue?: ((row: T) => string | number) | false;
+  /**
+   * How this column filters. Text unless it says otherwise, which covers names,
+   * emails and chip lists with no annotation at all.
+   *
+   * Dates and numbers MUST say so: they sort on a timestamp or a count, and as
+   * text a deadline compares like a long number. `enum` offers the values the
+   * loaded rows actually hold, as a checklist.
+   */
+  filter?: FilterType;
 };
 
 /**
@@ -103,6 +121,74 @@ export function sortRows<T>(
       })
     );
   });
+}
+
+/** What a column filters on, and how — or null when it does not filter. */
+function filterable<T>(column: Column<T>): {
+  type: FilterType;
+  value: (row: T) => string | number;
+} | null {
+  // Opting out of sorting opts out of filtering too: both need a value, and a
+  // column of buttons or avatars has none.
+  if (column.sortValue === false) return null;
+  const cell = column.cell;
+  return {
+    type: column.filter ?? "text",
+    value: column.sortValue ?? ((row: T) => cellText(cell(row))),
+  };
+}
+
+/**
+ * The filterable columns, with the values an enum column can be filtered to.
+ *
+ * Options come from the rows on hand rather than a list per column, so a status
+ * the backend adds shows up in the checklist without a frontend change — and a
+ * value nothing holds is never offered, which would filter to an empty table.
+ */
+export function filterFields<T>(columns: Column<T>[], rows: T[]): FilterField[] {
+  return columns.flatMap((column): FilterField[] => {
+    const spec = filterable(column);
+    if (!spec) return [];
+
+    if (spec.type !== "enum") return [{ header: column.header, type: spec.type }];
+
+    const options = [...new Set(rows.map((row) => String(spec.value(row)).trim()))]
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+
+    return [{ header: column.header, type: spec.type, options }];
+  });
+}
+
+/**
+ * The rows that pass every filter in `?f=`.
+ *
+ * ANDed, deliberately: filters read as a sentence the reader is narrowing one
+ * clause at a time, and OR between them would make each new chip widen the list
+ * it was added to narrow. Several values inside ONE filter still or together —
+ * that is what `is any of` means.
+ *
+ * A filter naming a column this table does not have is skipped, like an unknown
+ * `?sort=`. Exported for the test.
+ */
+export function filterRows<T>(
+  rows: T[],
+  columns: Column<T>[],
+  filters: Filter[],
+): T[] {
+  const active = filters.flatMap((filter) => {
+    const column = columns.find((c) => c.header === filter.field);
+    const spec = column ? filterable(column) : null;
+    return spec ? [{ filter, spec }] : [];
+  });
+
+  if (active.length === 0) return rows;
+
+  return rows.filter((row) =>
+    active.every(({ filter, spec }) =>
+      matchesFilter(spec.value(row), filter, spec.type),
+    ),
+  );
 }
 
 /**
@@ -200,6 +286,7 @@ export function DataTable<T>({
   empty,
   sort,
   dir,
+  filters = [],
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -209,6 +296,8 @@ export function DataTable<T>({
   sort?: string;
   /** `asc` unless this says `desc`. */
   dir?: string;
+  /** Active filters, parsed from `?f=` by the page. */
+  filters?: Filter[];
   /** Path used to build page links, e.g. /admin/customers. */
   basePath: string;
   /** Makes a row clickable. Omit for lists with no detail view. */
@@ -217,13 +306,24 @@ export function DataTable<T>({
   header?: React.ReactNode;
   empty: string;
 }) {
-  // Sorted before the window is taken, so ordering spans every page the table
-  // was handed rather than shuffling the ten rows on screen.
+  const matching = filterRows(rows, columns, filters);
+
+  // Filtered and sorted before the window is taken, so both span every row the
+  // table was handed rather than rearranging the ten on screen. The pager has
+  // to count what survived the filters, or it offers pages that are now empty.
   const { shown, current, pages, first, last } = pageWindow(
-    sortRows(rows, columns, sort, dir),
-    total,
+    sortRows(matching, columns, sort, dir),
+    filters.length > 0 ? matching.length : total,
     page,
   );
+
+  // The four admin lists are paged by the backend, so they hold one page of a
+  // longer list and these filters can only see that page. Said out loud rather
+  // than quietly returning a wrong answer.
+  //
+  // ponytail: goes away when the API takes the filters — `GET /customers` and
+  // friends accept `search`, `status` and `role` and nothing else today.
+  const truncated = filters.length > 0 && total > rows.length ? total : 0;
 
   return (
     <div className="space-y-4">
@@ -234,6 +334,19 @@ export function DataTable<T>({
           </div>
         ) : null}
 
+        <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-3">
+          <TableFilters
+            fields={filterFields(columns, rows)}
+            filters={filters}
+          />
+
+          {truncated ? (
+            <p className="text-xs text-muted-foreground">
+              Filtering the first {rows.length} of {truncated}.
+            </p>
+          ) : null}
+        </div>
+
         <Table>
           <SortableHeadRow columns={columns} sort={sort} dir={dir} />
           <TableBody>
@@ -243,7 +356,9 @@ export function DataTable<T>({
                   colSpan={columns.length}
                   className="h-32 text-center text-sm text-muted-foreground"
                 >
-                  {empty}
+                  {filters.length > 0
+                    ? "No rows match these filters."
+                    : empty}
                 </TableCell>
               </TableRow>
             ) : (
