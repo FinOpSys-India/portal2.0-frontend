@@ -36,7 +36,7 @@ export type ScopedShellProps = {
   nav: NavItem[];
   /** The reader's own record, which the scope does not filter. */
   profileHref: string;
-  user: { name: string; email: string };
+  user: { name: string; email: string; avatarUrl?: string | null };
   companies: PillOption[];
   /**
    * The bell, as a node rather than a number.

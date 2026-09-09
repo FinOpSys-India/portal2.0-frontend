@@ -28,6 +28,7 @@ import { fullName, roleIds } from "@/lib/directory";
 import {
   billingDate,
   documentProjectId,
+  personAvatarUrl,
   personId,
   personName,
   teamNames,
@@ -58,6 +59,8 @@ export interface CustomerFile {
   id: string;
   /** Half of the download URL — see ManagerDocument.projectId. */
   projectId: string | null;
+  /** The uploader's picture, when they have set one. */
+  ownerAvatarUrl?: string | null;
   name: string;
   project: string;
   owner: string;
@@ -194,6 +197,7 @@ export const customerApi = {
     const files = data.documents.map((d) => ({
       id: String(d.id),
       projectId: documentProjectId(d),
+      ownerAvatarUrl: personAvatarUrl(d.uploadedBy),
       name: d.fileName,
       project: d.project?.projectName ?? "",
       owner: personName(d.uploadedBy),

@@ -41,7 +41,7 @@ export default async function CustomerLayout({
     <CustomerShell
       workspace={workspace}
       workspaces={workspaces}
-      user={{ name: profile.fullName, email: profile.email }}
+      user={{ name: profile.fullName, email: profile.email, avatarUrl: profile.avatarUrl }}
       notificationCount={unread}
     >
       {children}

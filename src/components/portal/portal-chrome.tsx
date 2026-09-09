@@ -48,7 +48,7 @@ export function AccountMenu({
   user,
   profileHref,
 }: {
-  user: { name: string; email: string };
+  user: { name: string; email: string; avatarUrl?: string | null };
   profileHref?: string;
 }) {
   const router = useRouter();
@@ -77,7 +77,7 @@ export function AccountMenu({
           aria-label="Account"
           className="rounded-full focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
         >
-          <InitialsAvatar name={user.name} />
+          <InitialsAvatar name={user.name} src={user.avatarUrl} />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

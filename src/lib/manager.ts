@@ -280,6 +280,8 @@ export interface ManagerDocument {
    * only for a row that arrived without one; such a file cannot be opened.
    */
   projectId: string | null;
+  /** The uploader's picture, when they have set one. */
+  ownerAvatarUrl?: string | null;
   name: string;
   companyId: string;
   company: string;

@@ -15,6 +15,8 @@ export interface FileRow {
   owner: string;
   /** Whose row it is: the delete control is offered to them alone. */
   ownerId: string | null;
+  /** Their picture, when the row carried one — see `personAvatarUrl`. */
+  ownerAvatarUrl?: string | null;
   uploadedAt: string;
   size: number;
 }
@@ -64,7 +66,9 @@ export const fileColumns = (viewer: string): Column<FileRow>[] => [
   {
     header: "Document Owner",
     sortValue: (row) => row.owner,
-    cell: (row) => <PersonCell name={row.owner} />,
+    cell: (row) => (
+      <PersonCell name={row.owner} avatarUrl={row.ownerAvatarUrl} />
+    ),
   },
   {
     header: "Upload Date",

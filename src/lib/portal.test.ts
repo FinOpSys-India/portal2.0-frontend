@@ -15,6 +15,7 @@ import {
   teamNames,
   toAddressFields,
   documentPath,
+  personAvatarUrl,
   personId,
   toChatMessage,
   toClientCompany,
@@ -305,6 +306,16 @@ assert.equal(personId({ userId: 12, firstName: "Ada", lastName: "Byron" }), "12"
 // The FK is SET NULL, so a file outlives its uploader's account. Nobody owns
 // such a row — and nobody may delete it from the list.
 assert.equal(personId(null), null);
+
+// The picture, where the row carries one. Directory rows do not — they are
+// built by `toDirectoryUser`, which selects no avatar — so the absent field
+// reads as "no picture" rather than throwing, and those tables draw initials.
+assert.equal(
+  personAvatarUrl({ id: 12, firstName: "Ada", lastName: "Byron", avatarUrl: "https://cdn/a.png" }),
+  "https://cdn/a.png",
+);
+assert.equal(personAvatarUrl({ userId: 12, firstName: "Ada", lastName: "Byron" }), null);
+assert.equal(personAvatarUrl(null), null);
 assert.equal(
   toManagerDocument(
     {

@@ -44,6 +44,8 @@ export interface BackendPerson {
   userId?: number;
   firstName: string;
   lastName: string;
+  /** Built by `projectDto.toPerson`; absent on directory rows. */
+  avatarUrl?: string | null;
   /** Null when the joined row carried no address — `toPerson` always sends the key. */
   email?: string | null;
 }
@@ -56,6 +58,19 @@ export const personId = (p: BackendPerson | null | undefined): string | null => 
   const id = p?.id ?? p?.userId ?? null;
   return id === null ? null : String(id);
 };
+
+/**
+ * Their uploaded picture, when the row carries one.
+ *
+ * `projectDto.toPerson` builds it for every person embedded on a project, task
+ * or document, so the people those screens name can show their own face. The
+ * DIRECTORY rows cannot: `companyDto.toDirectoryUser` selects no avatar, which
+ * is why the admin and manager list tables still draw initials — a backend
+ * change, not one that can be made here.
+ */
+export const personAvatarUrl = (
+  p: BackendPerson | null | undefined,
+): string | null => p?.avatarUrl ?? null;
 
 /* --------------------------------------------------------------- statuses -- */
 
@@ -197,6 +212,7 @@ export function toManagerDocument(
     // Null when the uploader's account has been deleted — the FK is SET NULL,
     // so a file outlives its attribution. Nobody owns such a row.
     ownerId: personId(d.uploadedBy),
+    ownerAvatarUrl: personAvatarUrl(d.uploadedBy),
     uploadedAt: d.createdAt,
     size: d.sizeBytes,
   };

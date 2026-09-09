@@ -45,7 +45,7 @@ export default async function ManagerLayout({
 
   return (
     <ManagerShell
-      user={{ name: profile.name, email: profile.email }}
+      user={{ name: profile.name, email: profile.email, avatarUrl: profile.avatarUrl }}
       companies={companies.map(({ id, name }) => ({ id, name }))}
       notifications={
         <Suspense fallback={<NotificationBell count={0} />}>

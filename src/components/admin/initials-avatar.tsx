@@ -57,14 +57,47 @@ export function tintFor(name: string): (typeof TINTS)[number] {
   return TINTS[hash % TINTS.length];
 }
 
-/** Initials avatar, tinted from the name. */
+/**
+ * Someone's picture, falling back to their initials.
+ *
+ * THE PICTURE IS THE POINT OF THE `src`. Uploading an avatar used to change
+ * exactly one circle on the screen it was uploaded from, because this
+ * component took a name and nothing else — every other avatar in the portal is
+ * drawn here, so none of them could show one however many the API returned.
+ *
+ * A plain `<img>`: the URL is a public bucket on a host `next.config` does not
+ * list, and next/image would refuse it at runtime rather than at build time.
+ * No error fallback, deliberately — the URL is derived from the stored key, so
+ * clearing the picture clears the key and there is no stale URL to break on.
+ *
+ * `aria-hidden` either way. Every caller renders the person's name beside it;
+ * an avatar that also announced the name would say it twice.
+ */
 export function InitialsAvatar({
   name,
+  src,
   className,
 }: {
   name: string;
+  /** Their uploaded picture, when they have one. */
+  src?: string | null;
   className?: string;
 }) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        className={cn(
+          "size-8 shrink-0 rounded-full object-cover",
+          className,
+        )}
+      />
+    );
+  }
+
   const tint = tintFor(name);
 
   return (
@@ -82,12 +115,19 @@ export function InitialsAvatar({
 }
 
 /** Avatar followed by the name. The avatar is decorative; the name carries it. */
-export function PersonCell({ name }: { name: string }) {
+export function PersonCell({
+  name,
+  avatarUrl,
+}: {
+  name: string;
+  /** Passed wherever the row carries one — see `personAvatarUrl`. */
+  avatarUrl?: string | null;
+}) {
   return (
     <span className="flex items-center gap-2.5">
       {/* White ring keeps the circle its own shape once the row tints on
           hover, instead of the tint running up to its edge. */}
-      <InitialsAvatar name={name} className="ring-2 ring-card" />
+      <InitialsAvatar name={name} src={avatarUrl} className="ring-2 ring-card" />
       <span className="font-medium">{name}</span>
     </span>
   );

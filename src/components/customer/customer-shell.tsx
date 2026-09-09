@@ -48,7 +48,7 @@ export function CustomerShell({
 }: {
   workspace: Workspace;
   workspaces: Workspace[];
-  user: { name: string; email: string };
+  user: { name: string; email: string; avatarUrl?: string | null };
   notificationCount?: number;
   children: React.ReactNode;
 }) {

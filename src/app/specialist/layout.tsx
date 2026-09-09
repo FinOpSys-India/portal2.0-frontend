@@ -29,7 +29,7 @@ export default async function SpecialistLayout({
 
   return (
     <SpecialistShell
-      user={{ name: profile.name, email: profile.email }}
+      user={{ name: profile.name, email: profile.email, avatarUrl: profile.avatarUrl }}
       companies={companies.map(({ id, name }) => ({ id, name }))}
       // One counterparty, so the bell counts the one thread that exists.
       notifications={<NotificationBell count={thread.unread} />}
