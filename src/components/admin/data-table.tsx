@@ -283,6 +283,7 @@ export function DataTable<T>({
   basePath,
   rowHref,
   header,
+  action,
   empty,
   sort,
   dir,
@@ -302,8 +303,16 @@ export function DataTable<T>({
   basePath: string;
   /** Makes a row clickable. Omit for lists with no detail view. */
   rowHref?: (row: T) => string;
-  /** Title and actions rendered inside the card, above the table. */
+  /** Title rendered inside the card, at the left of the toolbar. */
   header?: React.ReactNode;
+  /**
+   * The list's own button — New Project, Invite Customer, Upload File.
+   *
+   * Here rather than in the page heading so it stands beside Filter: narrowing
+   * a list and adding to it are the two things done to it, and they used to sit
+   * in different corners of the screen with the table between them.
+   */
+  action?: React.ReactNode;
   empty: string;
 }) {
   const matching = filterRows(rows, columns, filters);
@@ -328,23 +337,20 @@ export function DataTable<T>({
   return (
     <div className="space-y-4">
       <div className="overflow-hidden rounded-xl border border-border bg-card">
-        {header ? (
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border p-6">
-            {header}
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-3">
-          <TableFilters
-            fields={filterFields(columns, rows)}
-            filters={filters}
-          />
+        <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-4">
+          {header}
 
           {truncated ? (
             <p className="text-xs text-muted-foreground">
               Filtering the first {rows.length} of {truncated}.
             </p>
           ) : null}
+
+          <TableFilters
+            fields={filterFields(columns, rows)}
+            filters={filters}
+            action={action}
+          />
         </div>
 
         <Table>

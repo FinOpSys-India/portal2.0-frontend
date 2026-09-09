@@ -15,7 +15,12 @@ export default async function CompanyPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string }>;
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
+  searchParams: Promise<{
+    page?: string;
+    sort?: string;
+    dir?: string;
+    f?: string | string[];
+  }>;
 }) {
   const [{ workspace }, { page: raw, sort, dir, f }] = await Promise.all([
     params,
@@ -29,10 +34,7 @@ export default async function CompanyPage({
 
   return (
     <>
-      <PageHeader
-        title="Company"
-        action={<AddCompany accountEmail={profile.email} />}
-      />
+      <PageHeader title="Company" />
 
       <DataTable<CustomerCompany>
         page={page}
@@ -40,6 +42,7 @@ export default async function CompanyPage({
         dir={dir}
         filters={parseFilters(f)}
         total={companies.length}
+        action={<AddCompany accountEmail={profile.email} />}
         rows={companies}
         basePath={`/customer/${workspace}/company`}
         empty="No companies yet."

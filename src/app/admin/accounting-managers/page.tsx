@@ -12,7 +12,12 @@ export const metadata: Metadata = { title: "Accounting Managers" };
 export default async function AccountingManagersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
+  searchParams: Promise<{
+    page?: string;
+    sort?: string;
+    dir?: string;
+    f?: string | string[];
+  }>;
 }) {
   const { page: raw, sort, dir, f } = await searchParams;
   const page = Math.max(1, Number(raw) || 1);
@@ -20,11 +25,14 @@ export default async function AccountingManagersPage({
   const filters = parseFilters(f);
   // Filtering happens in the table, so it needs more than one page to filter.
   const scan = listWindow(page, filters.length > 0);
-  const { rows, total } = await adminApi.accountingManagers(scan.page, scan.limit);
+  const { rows, total } = await adminApi.accountingManagers(
+    scan.page,
+    scan.limit,
+  );
 
   return (
     <>
-      <PageHeader title="Accounting Managers" action={<InviteManager />} />
+      <PageHeader title="Accounting Managers" />
 
       {/* No detail view: 1.0 has none, and there is nothing here a detail
           page would show that the row does not. */}
@@ -34,6 +42,7 @@ export default async function AccountingManagersPage({
         dir={dir}
         filters={filters}
         total={total}
+        action={<InviteManager />}
         rows={rows}
         basePath="/admin/accounting-managers"
         empty="No accounting managers yet."

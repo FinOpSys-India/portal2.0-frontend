@@ -46,12 +46,6 @@ export default async function SpecialistTasksPage({
         // Not "All Tasks" — one company's, like every list in this portal.
         title="Tasks"
         scope={await scopeName(company)}
-        action={
-          <AddTask
-            from="specialist"
-            projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-          />
-        }
       />
 
       <TaskTable
@@ -61,6 +55,12 @@ export default async function SpecialistTasksPage({
         sort={params.sort}
         dir={params.dir}
         filters={parseFilters(params.f)}
+        action={
+          <AddTask
+            from="specialist"
+            projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+          />
+        }
         empty={
           projects.length > 0
             ? "No tasks on your projects yet."

@@ -9,12 +9,7 @@ import {
   sortRows,
   type SortableColumn,
 } from "@/components/admin/data-table";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { adminApi, type CompanyPlan } from "@/lib/admin";
 
 const PLAN_COLUMNS: SortableColumn<CompanyPlan>[] = [
@@ -80,17 +75,19 @@ export default async function CompanyDetailPage({
             <Table>
               <SortableHeadRow columns={PLAN_COLUMNS} sort={sort} dir={dir} />
               <TableBody>
-                {sortRows(company.plans, PLAN_COLUMNS, sort, dir).map((plan) => (
-                  <TableRow key={plan.service}>
-                    <TableCell className="font-medium">
-                      {plan.service}
-                    </TableCell>
-                    <TableCell>{plan.plan}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {plan.amount}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {sortRows(company.plans, PLAN_COLUMNS, sort, dir).map(
+                  (plan) => (
+                    <TableRow key={plan.service}>
+                      <TableCell className="font-medium">
+                        {plan.service}
+                      </TableCell>
+                      <TableCell>{plan.plan}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {plan.amount}
+                      </TableCell>
+                    </TableRow>
+                  ),
+                )}
               </TableBody>
             </Table>
           </div>

@@ -13,7 +13,12 @@ export const metadata: Metadata = { title: "Customers" };
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
+  searchParams: Promise<{
+    page?: string;
+    sort?: string;
+    dir?: string;
+    f?: string | string[];
+  }>;
 }) {
   const { page: raw, sort, dir, f } = await searchParams;
   const page = Math.max(1, Number(raw) || 1);
@@ -25,7 +30,7 @@ export default async function CustomersPage({
 
   return (
     <>
-      <PageHeader title="Customers" action={<InviteCustomer />} />
+      <PageHeader title="Customers" />
 
       <DataTable<Customer>
         page={page}
@@ -33,6 +38,7 @@ export default async function CustomersPage({
         dir={dir}
         filters={filters}
         total={total}
+        action={<InviteCustomer />}
         rows={rows}
         basePath="/admin/customers"
         rowHref={(row) => `/admin/customers/${encodeURIComponent(row.email)}`}

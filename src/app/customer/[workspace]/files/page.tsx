@@ -25,12 +25,16 @@ export default async function FilesPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string }>;
-  searchParams: Promise<{ project?: string; page?: string; sort?: string; dir?: string; f?: string | string[] }>;
+  searchParams: Promise<{
+    project?: string;
+    page?: string;
+    sort?: string;
+    dir?: string;
+    f?: string | string[];
+  }>;
 }) {
-  const [{ workspace }, { project, page: raw, sort, dir, f }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
+  const [{ workspace }, { project, page: raw, sort, dir, f }] =
+    await Promise.all([params, searchParams]);
   const page = Math.max(1, Number(raw) || 1);
 
   const [files, projects, workspaces, viewer] = await Promise.all([
@@ -60,13 +64,13 @@ export default async function FilesPage({
         rows={files}
         basePath={`/customer/${workspace}/files`}
         header={
-          <>
-            <h1 className="text-lg font-bold tracking-tight">All Documents</h1>
-            <CustomerUploadFile
-              workspace={workspace}
-              projects={projects.map(({ name }) => ({ name }))}
-            />
-          </>
+          <h1 className="text-lg font-bold tracking-tight">All Documents</h1>
+        }
+        action={
+          <CustomerUploadFile
+            workspace={workspace}
+            projects={projects.map(({ name }) => ({ name }))}
+          />
         }
         empty={
           project

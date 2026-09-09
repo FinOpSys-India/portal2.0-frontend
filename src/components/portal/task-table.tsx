@@ -38,6 +38,7 @@ export function TaskTable({
   sort,
   dir,
   filters,
+  action,
   empty = "No tasks on your projects yet.",
 }: {
   tasks: SpecialistTask[];
@@ -46,6 +47,8 @@ export function TaskTable({
   sort?: string;
   dir?: string;
   filters?: Filter[];
+  /** Add Task, in the table's toolbar beside Filter. */
+  action?: React.ReactNode;
   empty?: string;
 }) {
   const [openId, setOpenId] = React.useState<string | null>(null);
@@ -61,6 +64,7 @@ export function TaskTable({
         sort={sort}
         dir={dir}
         filters={filters}
+        action={action}
         total={tasks.length}
         rows={tasks}
         basePath={`/${from}/tasks`}
@@ -87,7 +91,11 @@ export function TaskTable({
               <span className="text-muted-foreground">{task.description}</span>
             ),
           },
-          { header: "Project Name", filter: "enum", cell: (task) => task.project },
+          {
+            header: "Project Name",
+            filter: "enum",
+            cell: (task) => task.project,
+          },
           {
             header: "Deadline",
             filter: "date",

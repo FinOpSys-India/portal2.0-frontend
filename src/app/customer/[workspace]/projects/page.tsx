@@ -16,7 +16,12 @@ export default async function ProjectsPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string }>;
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
+  searchParams: Promise<{
+    page?: string;
+    sort?: string;
+    dir?: string;
+    f?: string | string[];
+  }>;
 }) {
   const [{ workspace }, { page: raw, sort, dir, f }] = await Promise.all([
     params,
@@ -30,10 +35,7 @@ export default async function ProjectsPage({
 
   return (
     <>
-      <PageHeader
-        title="Projects"
-        action={<NewProject workspaceId={workspace} services={services} />}
-      />
+      <PageHeader title="Projects" />
 
       <DataTable<Project>
         page={page}
@@ -41,6 +43,7 @@ export default async function ProjectsPage({
         dir={dir}
         filters={parseFilters(f)}
         total={projects.length}
+        action={<NewProject workspaceId={workspace} services={services} />}
         rows={projects}
         basePath={`/customer/${workspace}/projects`}
         rowHref={(row) => `/customer/${workspace}/projects/${row.id}`}

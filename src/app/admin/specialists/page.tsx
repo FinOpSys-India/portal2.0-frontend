@@ -12,7 +12,12 @@ export const metadata: Metadata = { title: "Specialists" };
 export default async function SpecialistsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
+  searchParams: Promise<{
+    page?: string;
+    sort?: string;
+    dir?: string;
+    f?: string | string[];
+  }>;
 }) {
   const { page: raw, sort, dir, f } = await searchParams;
   const page = Math.max(1, Number(raw) || 1);
@@ -24,7 +29,7 @@ export default async function SpecialistsPage({
 
   return (
     <>
-      <PageHeader title="Specialists" action={<InviteSpecialist />} />
+      <PageHeader title="Specialists" />
 
       <DataTable<Specialist>
         page={page}
@@ -32,6 +37,7 @@ export default async function SpecialistsPage({
         dir={dir}
         filters={filters}
         total={total}
+        action={<InviteSpecialist />}
         rows={rows}
         basePath="/admin/specialists"
         empty="No specialists yet. Invite one to get started."

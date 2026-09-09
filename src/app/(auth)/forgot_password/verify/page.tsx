@@ -35,7 +35,12 @@ export default async function PasswordResetOtpPage({
     // The recovery panel, not the generic OTP one — this is still the same
     // errand the previous screen started.
     <AuthShell panel={AUTH_PANELS.forgotPassword}>
-      <OtpForm challengeId={challenge} email="" purpose="reset" showBackToLogin />
+      <OtpForm
+        challengeId={challenge}
+        email=""
+        purpose="reset"
+        showBackToLogin
+      />
     </AuthShell>
   );
 }

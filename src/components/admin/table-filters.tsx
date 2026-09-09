@@ -68,9 +68,18 @@ const ICONS: Record<FilterType, LucideIcon> = {
 export function TableFilters({
   fields,
   filters,
+  action,
 }: {
   fields: FilterField[];
   filters: Filter[];
+  /**
+   * The list's own button — New Project, Invite Specialist, Upload File.
+   *
+   * It sits in this row rather than in the page heading so the two things a
+   * reader does to a list, narrow it and add to it, are one cluster instead of
+   * one control per corner of the screen.
+   */
+  action?: React.ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -88,7 +97,9 @@ export function TableFilters({
    */
   const [draft, setDraft] = React.useState<Record<string, Filter>>({});
 
-  if (fields.length === 0) return null;
+  // Nothing to filter and nothing to add is nothing to render — but a list
+  // with no filterable column still has its button.
+  if (fields.length === 0 && !action) return null;
 
   const typeOf = (header: string) =>
     fields.find((f) => f.header === header)?.type ?? "text";
@@ -133,7 +144,7 @@ export function TableFilters({
   const drafted = Object.keys(draft).length;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-1 flex-wrap items-center gap-2">
       {filters.map((filter, index) => (
         <Chip
           key={`${filter.field}-${filter.op}-${index}`}
@@ -142,108 +153,6 @@ export function TableFilters({
           onRemove={() => commit(filters.filter((_, i) => i !== index))}
         />
       ))}
-
-      <Popover open={open} onOpenChange={onOpenChange}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <FilterIcon className="size-3.5" aria-hidden />
-            Filter
-            {filters.length > 0 ? (
-              <span className="rounded-full bg-primary px-1.5 text-[11px] leading-4 font-medium text-primary-foreground tabular-nums">
-                {filters.length}
-              </span>
-            ) : null}
-          </Button>
-        </PopoverTrigger>
-
-        <PopoverContent
-          align="start"
-          className="w-[34rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
-        >
-          <div className="flex min-h-72">
-            {/* The rail: every filterable column, so the choice is visible
-                rather than behind a menu. */}
-            <ul className="w-44 shrink-0 space-y-0.5 border-r border-border bg-muted/40 p-2">
-              {fields.map((field) => {
-                const Icon = ICONS[field.type];
-                const on = field.header === activeField.header;
-
-                return (
-                  <li key={field.header}>
-                    <button
-                      type="button"
-                      onClick={() => setActive(field.header)}
-                      aria-current={on}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
-                        on
-                          ? "bg-primary font-medium text-primary-foreground"
-                          : "hover:bg-background",
-                      )}
-                    >
-                      <Icon className="size-3.5 shrink-0" aria-hidden />
-                      <span className="min-w-0 truncate">{field.header}</span>
-                      {/* A column already carrying a filter is marked, so the
-                          rail says what is set without opening each pane. */}
-                      {draft[field.header] ? (
-                        <span
-                          aria-label="has a filter"
-                          className={cn(
-                            "ml-auto size-1.5 shrink-0 rounded-full",
-                            on ? "bg-primary-foreground" : "bg-primary",
-                          )}
-                        />
-                      ) : null}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-
-            <div className="flex min-w-0 flex-1 flex-col">
-              <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                <p className="border-b border-border pb-2 text-sm font-medium">
-                  {activeField.header}
-                </p>
-
-                <div className="pt-3">
-                  <Pane
-                    // Keyed by column so switching panes remounts them: the
-                    // uncontrolled search box inside the enum pane belongs to
-                    // the column it was typed for.
-                    key={activeField.header}
-                    field={activeField}
-                    filter={draft[activeField.header]}
-                    onChange={(filter) =>
-                      setFieldFilter(activeField.header, filter)
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 border-t border-border p-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setDraft({})}
-                  disabled={drafted === 0}
-                  aria-label="Reset all filters"
-                >
-                  <RotateCcw aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => commit(Object.values(draft))}
-                >
-                  Apply
-                </Button>
-              </div>
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
 
       {filters.length > 0 ? (
         <Button
@@ -255,6 +164,116 @@ export function TableFilters({
           Clear All
         </Button>
       ) : null}
+
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        {fields.length > 0 ? (
+          <Popover open={open} onOpenChange={onOpenChange}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <FilterIcon className="size-3.5" aria-hidden />
+                Filter
+                {filters.length > 0 ? (
+                  <span className="rounded-full bg-primary px-1.5 text-[11px] leading-4 font-medium text-primary-foreground tabular-nums">
+                    {filters.length}
+                  </span>
+                ) : null}
+              </Button>
+            </PopoverTrigger>
+
+            <PopoverContent
+              align="start"
+              className="w-[34rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
+            >
+              <div className="flex min-h-72">
+                {/* The rail: every filterable column, so the choice is visible
+                rather than behind a menu. */}
+                <ul className="w-44 shrink-0 space-y-0.5 border-r border-border bg-muted/40 p-2">
+                  {fields.map((field) => {
+                    const Icon = ICONS[field.type];
+                    const on = field.header === activeField.header;
+
+                    return (
+                      <li key={field.header}>
+                        <button
+                          type="button"
+                          onClick={() => setActive(field.header)}
+                          aria-current={on}
+                          className={cn(
+                            "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
+                            on
+                              ? "bg-primary font-medium text-primary-foreground"
+                              : "hover:bg-background",
+                          )}
+                        >
+                          <Icon className="size-3.5 shrink-0" aria-hidden />
+                          <span className="min-w-0 truncate">
+                            {field.header}
+                          </span>
+                          {/* A column already carrying a filter is marked, so the
+                          rail says what is set without opening each pane. */}
+                          {draft[field.header] ? (
+                            <span
+                              aria-label="has a filter"
+                              className={cn(
+                                "ml-auto size-1.5 shrink-0 rounded-full",
+                                on ? "bg-primary-foreground" : "bg-primary",
+                              )}
+                            />
+                          ) : null}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                    <p className="border-b border-border pb-2 text-sm font-medium">
+                      {activeField.header}
+                    </p>
+
+                    <div className="pt-3">
+                      <Pane
+                        // Keyed by column so switching panes remounts them: the
+                        // uncontrolled search box inside the enum pane belongs to
+                        // the column it was typed for.
+                        key={activeField.header}
+                        field={activeField}
+                        filter={draft[activeField.header]}
+                        onChange={(filter) =>
+                          setFieldFilter(activeField.header, filter)
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 border-t border-border p-3">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setDraft({})}
+                      disabled={drafted === 0}
+                      aria-label="Reset all filters"
+                    >
+                      <RotateCcw aria-hidden />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => commit(Object.values(draft))}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        ) : null}
+
+        {action}
+      </div>
     </div>
   );
 }
@@ -283,7 +302,14 @@ function Pane({
   }
 
   if (field.type === "date" || field.type === "number") {
-    return <RangePane field={field.header} type={field.type} filter={filter} onChange={onChange} />;
+    return (
+      <RangePane
+        field={field.header}
+        type={field.type}
+        filter={filter}
+        onChange={onChange}
+      />
+    );
   }
 
   return <TextPane field={field.header} filter={filter} onChange={onChange} />;
@@ -328,7 +354,9 @@ function TextPane({
           type="checkbox"
           checked={empty}
           onChange={(event) =>
-            onChange(event.target.checked ? { field, op: "empty", values: [] } : null)
+            onChange(
+              event.target.checked ? { field, op: "empty", values: [] } : null,
+            )
           }
           className="size-3.5 accent-primary"
         />
@@ -440,8 +468,7 @@ function RangePane({
   onChange: (filter: Filter | null) => void;
 }) {
   const [from, to] = rangeValues(filter);
-  const labels =
-    type === "date" ? ["From", "To"] : ["At least", "At most"];
+  const labels = type === "date" ? ["From", "To"] : ["At least", "At most"];
 
   const set = (next: [string, string]) =>
     onChange(rangeFilter(field, next[0], next[1], type));

@@ -14,7 +14,12 @@ export default async function TeamPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string }>;
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
+  searchParams: Promise<{
+    page?: string;
+    sort?: string;
+    dir?: string;
+    f?: string | string[];
+  }>;
 }) {
   const [{ workspace }, { page: raw, sort, dir, f }] = await Promise.all([
     params,
@@ -25,10 +30,7 @@ export default async function TeamPage({
 
   return (
     <>
-      <PageHeader
-        title="Team"
-        action={<InviteTeammate workspaceId={workspace} />}
-      />
+      <PageHeader title="Team" />
 
       <DataTable<TeamMember>
         page={page}
@@ -36,6 +38,7 @@ export default async function TeamPage({
         dir={dir}
         filters={parseFilters(f)}
         total={team.length}
+        action={<InviteTeammate workspaceId={workspace} />}
         rows={team}
         basePath={`/customer/${workspace}/team`}
         empty="No teammates yet. Invite someone to share access."

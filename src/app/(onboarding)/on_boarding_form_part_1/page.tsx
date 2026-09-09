@@ -32,10 +32,7 @@ export default async function CompanyPage({
   if (!status.isOwner) redirect(landingPathForRole("CUSTOMER"));
 
   return (
-    <AuthShell
-      panel={AUTH_PANELS.signup}
-      step={1}
-    >
+    <AuthShell panel={AUTH_PANELS.signup} step={1}>
       <CompanyForm accountEmail={decodeURIComponent(email)} />
     </AuthShell>
   );

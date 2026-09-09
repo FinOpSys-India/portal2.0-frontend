@@ -71,16 +71,16 @@ export default async function SpecialistDocumentsPage({
         rows={documents}
         basePath="/specialist/documents"
         header={
-          <>
-            <h1 className="text-lg font-bold tracking-tight">All Documents</h1>
-            <SpecialistUploadFile
-              companies={companies.map(({ id, name }) => ({ id, name }))}
-              projects={allProjects.map((p) => ({
-                name: p.name,
-                companyId: p.companyId,
-              }))}
-            />
-          </>
+          <h1 className="text-lg font-bold tracking-tight">All Documents</h1>
+        }
+        action={
+          <SpecialistUploadFile
+            companies={companies.map(({ id, name }) => ({ id, name }))}
+            projects={allProjects.map((p) => ({
+              name: p.name,
+              companyId: p.companyId,
+            }))}
+          />
         }
         empty={
           project ? "No documents on this project yet." : "No documents yet."

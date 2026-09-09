@@ -12,7 +12,12 @@ export const metadata: Metadata = { title: "Companies" };
 export default async function CompaniesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
+  searchParams: Promise<{
+    page?: string;
+    sort?: string;
+    dir?: string;
+    f?: string | string[];
+  }>;
 }) {
   const { page: raw, sort, dir, f } = await searchParams;
   const page = Math.max(1, Number(raw) || 1);
@@ -22,7 +27,10 @@ export default async function CompaniesPage({
   const scan = listWindow(page, filters.length > 0);
   // The assignable managers come back with the rows — same request, so the
   // dropdown cannot list someone the table does not know about.
-  const { rows, total, managers } = await adminApi.companies(scan.page, scan.limit);
+  const { rows, total, managers } = await adminApi.companies(
+    scan.page,
+    scan.limit,
+  );
 
   return (
     <>

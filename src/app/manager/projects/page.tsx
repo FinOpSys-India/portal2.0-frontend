@@ -20,7 +20,12 @@ export const metadata: Metadata = { title: "Projects" };
 export default async function ManagerProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; sort?: string; dir?: string; f?: string | string[] }>;
+  searchParams: Promise<{
+    company?: string;
+    sort?: string;
+    dir?: string;
+    f?: string | string[];
+  }>;
 }) {
   const { company: picked, sort, dir, f } = await searchParams;
   const company = await companyScope(picked);
@@ -39,12 +44,6 @@ export default async function ManagerProjectsPage({
         // table below has never been all of anything — it is this company's.
         title="Projects"
         scope={await scopeName(company)}
-        action={
-          <NewProject
-            companies={companies.map(({ id, name }) => ({ id, name }))}
-            defaultCompanyId={company}
-          />
-        }
       />
 
       {/* Columns are 1.0's, in 1.0's order. Status is deliberately absent: it
@@ -55,6 +54,12 @@ export default async function ManagerProjectsPage({
         dir={dir}
         filters={parseFilters(f)}
         total={projects.length}
+        action={
+          <NewProject
+            companies={companies.map(({ id, name }) => ({ id, name }))}
+            defaultCompanyId={company}
+          />
+        }
         rows={projects}
         basePath="/manager/projects"
         rowHref={(row) => `/manager/projects/${row.id}`}
@@ -64,7 +69,11 @@ export default async function ManagerProjectsPage({
             header: "Project Name",
             cell: (row) => <span className="font-medium">{row.name}</span>,
           },
-          { header: "Service Type", filter: "enum", cell: (row) => row.service },
+          {
+            header: "Service Type",
+            filter: "enum",
+            cell: (row) => row.service,
+          },
           { header: "Created By", cell: (row) => row.createdBy },
           {
             header: "Deadline",

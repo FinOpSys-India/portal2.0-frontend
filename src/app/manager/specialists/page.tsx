@@ -25,7 +25,12 @@ export const metadata: Metadata = { title: "Specialists" };
 export default async function ManagerSpecialistsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; sort?: string; dir?: string; f?: string | string[] }>;
+  searchParams: Promise<{
+    company?: string;
+    sort?: string;
+    dir?: string;
+    f?: string | string[];
+  }>;
 }) {
   const { company: picked, sort, dir, f } = await searchParams;
   const company = await companyScope(picked);

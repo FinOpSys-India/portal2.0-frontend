@@ -23,7 +23,12 @@ export default async function CustomerProjectPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string; id: string }>;
-  searchParams: Promise<{ page?: string; sort?: string; dir?: string; f?: string | string[] }>;
+  searchParams: Promise<{
+    page?: string;
+    sort?: string;
+    dir?: string;
+    f?: string | string[];
+  }>;
 }) {
   const [{ workspace, id }, { page: raw, sort, dir, f }] = await Promise.all([
     params,

@@ -68,16 +68,16 @@ export default async function ManagerDocumentsPage({
         rows={documents}
         basePath="/manager/documents"
         header={
-          <>
-            <h1 className="text-lg font-bold tracking-tight">All Documents</h1>
-            <ManagerUploadFile
-              companies={companies.map(({ id, name }) => ({ id, name }))}
-              projects={allProjects.map(({ name, companyId }) => ({
-                name,
-                companyId,
-              }))}
-            />
-          </>
+          <h1 className="text-lg font-bold tracking-tight">All Documents</h1>
+        }
+        action={
+          <ManagerUploadFile
+            companies={companies.map(({ id, name }) => ({ id, name }))}
+            projects={allProjects.map(({ name, companyId }) => ({
+              name,
+              companyId,
+            }))}
+          />
         }
         empty={
           project ? "No documents on this project yet." : "No documents yet."

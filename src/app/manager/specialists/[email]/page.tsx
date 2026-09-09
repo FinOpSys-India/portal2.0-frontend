@@ -11,12 +11,7 @@ import {
   sortRows,
   type SortableColumn,
 } from "@/components/admin/data-table";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import {
   companyScope,
   managerApi,
@@ -29,7 +24,10 @@ const COLUMNS: SortableColumn<SpecialistTask>[] = [
   // what it holds.
   { header: "Task", sortValue: (task) => task.name },
   { header: "Project Name", sortValue: (task) => task.project },
-  { header: "Deadline", sortValue: (task) => parseDeadline(task.deadline).getTime() },
+  {
+    header: "Deadline",
+    sortValue: (task) => parseDeadline(task.deadline).getTime(),
+  },
   { header: "Status", sortValue: (task) => task.status },
 ];
 

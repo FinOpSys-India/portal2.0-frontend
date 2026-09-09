@@ -39,11 +39,7 @@ export default async function PlanPage({
   if (!companyId) redirect("/on_boarding_form_part_1");
 
   return (
-    <AuthShell
-      panel={AUTH_PANELS.signup}
-      step={2}
-      width="wide"
-    >
+    <AuthShell panel={AUTH_PANELS.signup} step={2} width="wide">
       <PlanPicker
         accountEmail={decodeURIComponent(email)}
         companyId={decodeURIComponent(companyId)}

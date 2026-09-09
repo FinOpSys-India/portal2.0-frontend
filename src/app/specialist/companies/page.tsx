@@ -18,7 +18,12 @@ export const metadata: Metadata = { title: "Companies" };
 export default async function SpecialistCompaniesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; sort?: string; dir?: string; f?: string | string[] }>;
+  searchParams: Promise<{
+    company?: string;
+    sort?: string;
+    dir?: string;
+    f?: string | string[];
+  }>;
 }) {
   const { company: picked, sort, dir, f } = await searchParams;
   const company = await companyScope(picked);
