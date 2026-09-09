@@ -43,22 +43,56 @@ export const REACTIONS: { emoji: string; label: string }[] = [
 ];
 
 /**
- * The composer's picker: 48 emoji, six rows of eight, no categories.
+ * The composer's picker: 96 emoji in eight buckets of twelve.
  *
- * FLAT AND UNSEARCHABLE ON PURPOSE. Search needs a keyword index, categories
- * need tabs and scroll state, and both exist to make a set of two thousand
- * usable. Forty-eight fits in one glance, and anything not here is two
- * keystrokes away in the operating system's own picker (Ctrl+Cmd+Space on a
- * Mac, Win+. on Windows, the keyboard itself on a phone) — which every one of
- * these users already has and which this grid is not trying to replace.
+ * ORDER IS THE CATEGORY, and it has to be at this size. Forty-eight in no
+ * particular order could be scanned; ninety-six cannot, so the list below runs
+ * in blocks — acknowledge, positive, thinking, concern, celebrate, documents,
+ * business, signals — and finding one means knowing roughly how far down it is
+ * rather than reading every cell. That is the whole of the organisation, and it
+ * is why there are no tabs: tabs hide seven eighths of the set behind a click,
+ * which for a set this small costs more than it saves.
+ *
+ * The GRID's column count is the view's business, not this file's — at six
+ * across each block is two rows, at twelve it is one. Keep the blocks twelve
+ * long so both divide evenly and no bucket starts mid-row.
+ *
+ * STILL NO SEARCH, and 96 is the ceiling rather than a step towards more.
+ * Search needs a keyword index and recents need per-user storage; both exist to
+ * make a set of two THOUSAND usable, which is a different feature. Anything not
+ * here is two keystrokes away in the operating system's own picker
+ * (Ctrl+Cmd+Space on a Mac, Win+. on Windows, the keyboard itself on a phone),
+ * which every one of these users already has and which this grid is not trying
+ * to replace.
+ *
+ * WHAT IS DELIBERATELY ABSENT: 😘 😍 😡 😱 🙃 😴 and their neighbours. Threads
+ * here run between an accounting manager and a paying client, and a picker is a
+ * menu of things the product is suggesting an employee send one — a kiss, an
+ * eye-roll or visible panic from the person doing your books is a support
+ * ticket, not a message. Ordinary sympathy and frustration are in row four.
+ *
+ * Nothing here is newer than Unicode 11 (2018), so every glyph has a real face
+ * on the older Windows installs some of these clients are on. A 2021 emoji
+ * renders as a tofu box there, which reads as a broken app rather than a
+ * missing font.
  */
 export const COMPOSER_EMOJI: string[] = [
-  "😀", "😄", "😁", "😆", "😅", "😂", "🙂", "😉",
-  "😊", "😍", "😘", "😎", "🤔", "😐", "😴", "🙃",
-  "😬", "😢", "😭", "😮", "😲", "😳", "😱", "😡",
-  "🤯", "🥳", "🤗", "😷", "🤝", "💪", "👋", "🙏",
-  "👍", "👎", "👏", "🙌", "✅", "❌", "⚠️", "❤️",
-  "🔥", "⭐", "🎉", "💯", "📌", "📎", "📅", "💼",
+  // Acknowledge and approve — by far the most-used row in a work thread.
+  "👍", "👌", "🙏", "✅", "👏", "🙌", "💪", "🤝", "🙋", "👀", "✍️", "🤞",
+  // Positive.
+  "😀", "😃", "😄", "😁", "😆", "😂", "🙂", "😊", "😉", "😌", "😎", "🤗",
+  // Thinking, neutral, unsure.
+  "🤔", "😐", "😑", "😬", "😅", "🤷", "💭", "😶", "😯", "🤨", "🧐", "😕",
+  // Concern, apology, bad news.
+  "😢", "😥", "😞", "😟", "😰", "😓", "😮", "😲", "🤦", "😵", "😔", "👎",
+  // Celebrate.
+  "🎉", "🎊", "🥳", "🔥", "⭐", "🌟", "💯", "✨", "❤️", "🧡", "💚", "💙",
+  // Documents — what most of these threads are actually about.
+  "📌", "📎", "📅", "🗓️", "📁", "📄", "📝", "🖊️", "📊", "📈", "📉", "🧾",
+  // Money and the business around it.
+  "💰", "💵", "💳", "🏦", "🧮", "💼", "🏢", "📦", "🚀", "🎯", "⏰", "⌛",
+  // Signals and status.
+  "❌", "⚠️", "❗", "❓", "🔴", "🟢", "🟡", "🔵", "🚩", "🔒", "🔔", "➡️",
 ];
 
 /**

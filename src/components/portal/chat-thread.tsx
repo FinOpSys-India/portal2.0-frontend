@@ -617,13 +617,19 @@ function EmojiPicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-2">
-        <div className="grid grid-cols-8 gap-0.5">
+        {/* Six wide and scrolling. Ninety-six at six across is sixteen rows,
+            which is taller than a popover should be — so the box is capped and
+            the list scrolls inside it. The cap is in rem rather than rows so it
+            does not need revisiting every time the set changes size. */}
+        <div className="grid max-h-64 grid-cols-6 gap-0.5 overflow-y-auto">
           {COMPOSER_EMOJI.map((emoji) => (
             <button
               key={emoji}
               type="button"
               onClick={() => onPick(emoji)}
-              className="rounded-md p-1 text-lg leading-none hover:bg-muted focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+              /* text-2xl is 24px against the 18px of text-lg — the +33% step
+                 Tailwind actually has, rather than an arbitrary 23.4px. */
+              className="rounded-md p-1 text-2xl leading-none hover:bg-muted focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
             >
               {emoji}
             </button>
