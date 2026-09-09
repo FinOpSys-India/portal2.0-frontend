@@ -389,6 +389,31 @@ export const api = {
 };
 
 /**
+ * The company an owner still owes a subscription for, if any.
+ *
+ * NOT `companies[0]`. That was "first by company name" — `GET /companies/owned`
+ * orders alphabetically — which on an owner with more than one company is as
+ * likely as not the one already paid for. The plan step then opened on a live
+ * company, `POST /billing/checkout` answered 409 SUBSCRIPTION_ALREADY_ACTIVE,
+ * and the owner was left on the one screen that could have unblocked their
+ * account with no way through it. `paymentComplete` goes false when ANY owned
+ * company lacks a subscription, so "there is a bill" and "this is the company
+ * to bill" are different questions and only the second one is answered here.
+ *
+ * `status` is the payment signal the client has: a company is created
+ * ONBOARDING and only the Stripe webhook moves it — to ACTIVE when the
+ * subscription goes live, back to SUSPENDED when it lapses. Both of the
+ * non-ACTIVE states are a company with no live subscription, which is exactly
+ * what checkout is for. The owned-company payload carries no subscription of
+ * its own to read instead.
+ */
+export function unpaidCompany(
+  companies: OwnedCompany[],
+): OwnedCompany | undefined {
+  return companies.find((company) => company.status !== "ACTIVE");
+}
+
+/**
  * Which screen a freshly-authenticated user belongs on.
  *
  * `landingPathForRole` alone was sending every customer straight to the
@@ -411,10 +436,20 @@ export async function landingPathFor(session: Session): Promise<string> {
   const email = encodeURIComponent(session.user.email);
   if (!status.companyCreated) return `/on_boarding_form_part_1?email=${email}`;
 
-  // Company exists but is unpaid. The plan step is addressed by company, and
-  // the status payload does not name one, so it is looked up here.
-  const [company] = await api.ownedCompanies();
-  return company
-    ? `/on_boarding_form_part_2?email=${email}&compID=${company.companyId}`
-    : `/on_boarding_form_part_1?email=${email}`;
+  // A company exists and something is unpaid. The plan step is addressed by
+  // company and the status payload names none, so the one to bill is looked up.
+  const company = unpaidCompany(await api.ownedCompanies());
+  if (company) {
+    return `/on_boarding_form_part_2?email=${email}&compID=${company.companyId}`;
+  }
+
+  /*
+   * Nothing owned is billable, yet `paymentComplete` is false. That is the
+   * archived case: `GET /onboarding` counts every company that is not deleted,
+   * while `GET /companies/owned` drops ARCHIVED ones — so an owner whose
+   * archived company was never paid for has an outstanding step and no company
+   * to complete it on. Sending them round to the company step would have them
+   * create a shell they do not want; the portal at least loads what they have.
+   */
+  return landingPathForRole(session.role);
 }

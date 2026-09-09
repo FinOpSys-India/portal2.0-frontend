@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api } from "@/lib/api";
+import { api, landingPathFor } from "@/lib/api";
+import { ApiError } from "@/lib/http";
 import {
   BOOKKEEPING_TIERS,
   PAYROLL,
@@ -88,6 +89,20 @@ export function PlanPicker({
       // Payment is hosted by Stripe; the app hands off here.
       window.location.assign(checkoutUrl);
     } catch (err) {
+      /*
+       * 409 SUBSCRIPTION_ALREADY_ACTIVE means this screen is open on a company
+       * that is already paid for — a stale link, or the back button after
+       * checkout. There is nothing to buy and nothing the user can do about the
+       * message, so it is not shown: ask where this session belongs now and go
+       * there. That is the next unpaid company if one is left and the portal if
+       * none is, which is the answer this screen was reached instead of.
+       */
+      if (err instanceof ApiError && err.code === "SUBSCRIPTION_ALREADY_ACTIVE") {
+        const user = await api.me();
+        window.location.assign(await landingPathFor({ user, role: user.role }));
+        return;
+      }
+
       setFailure(
         err instanceof Error ? err.message : "Could not start checkout.",
       );

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AUTH_PANELS, AuthShell } from "@/components/auth/auth-shell";
-import { api } from "@/lib/api";
+import { api, unpaidCompany } from "@/lib/api";
 import { PlanPicker } from "./plan-picker";
 
 export const metadata: Metadata = {
@@ -25,9 +25,12 @@ export default async function PlanPage({
 
   // Arriving from the company step carries `compID`. Arriving from a resumed
   // session does not — `GET /onboarding` reports that a company exists without
-  // naming it — and checkout is addressed by company, so it is looked up.
+  // naming it — and checkout is addressed by company, so it is looked up. The
+  // UNPAID one: this screen bills a company, and the first one alphabetically
+  // is as likely as not one that is already live. See `unpaidCompany`.
   const companyId =
-    compID || String((await api.ownedCompanies())[0]?.companyId ?? "");
+    compID ||
+    String(unpaidCompany(await api.ownedCompanies())?.companyId ?? "");
 
   // No company to bill. Rendering the picker anyway means the plan is chosen,
   // Get started is pressed, and the FIRST thing the user is told is a

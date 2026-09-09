@@ -7,7 +7,7 @@
  */
 import assert from "node:assert/strict";
 
-import { landingPathForRole, toSelectedServices } from "./api";
+import { landingPathForRole, toSelectedServices, unpaidCompany } from "./api";
 import { BOOKKEEPING_TIERS, TAX_TIERS } from "./plans";
 
 // Every role lands somewhere distinct, and the routes are the 1.0 ones.
@@ -70,3 +70,26 @@ for (const tier of TAX_TIERS) {
 }
 
 console.log("auth api: all checks passed");
+
+// The plan step bills ONE company, and it is the one with no subscription —
+// never simply the first, which `GET /companies/owned` orders by name. Picking
+// the live one there sent an owner to checkout on a company that already had a
+// subscription, which is a 409 and a dead end on the only screen that could
+// have settled the outstanding bill.
+const owned = [
+  { companyId: 23, companyName: "Acme", status: "ACTIVE" },
+  { companyId: 41, companyName: "Zenith", status: "ONBOARDING" },
+];
+assert.equal(unpaidCompany(owned)?.companyId, 41);
+
+// SUSPENDED counts as unpaid too: the webhook moves a company there when its
+// subscription lapses, so it has no live subscription and checkout is open.
+assert.equal(
+  unpaidCompany([{ companyId: 7, companyName: "Lapsed", status: "SUSPENDED" }])
+    ?.companyId,
+  7,
+);
+
+// Every company live: there is nothing to bill, and the caller routes to the
+// portal rather than opening checkout on one that would refuse it.
+assert.equal(unpaidCompany([owned[0]]), undefined);
