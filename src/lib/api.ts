@@ -444,12 +444,13 @@ export async function landingPathFor(session: Session): Promise<string> {
   }
 
   /*
-   * Nothing owned is billable, yet `paymentComplete` is false. That is the
-   * archived case: `GET /onboarding` counts every company that is not deleted,
-   * while `GET /companies/owned` drops ARCHIVED ones — so an owner whose
-   * archived company was never paid for has an outstanding step and no company
-   * to complete it on. Sending them round to the company step would have them
-   * create a shell they do not want; the portal at least loads what they have.
+   * There is an outstanding bill and nothing owned to settle it on — every
+   * company reads ACTIVE while `paymentComplete` says otherwise, which is the
+   * two sources disagreeing (a company left ACTIVE after its subscription
+   * lapsed, say). Opening checkout on a live company is the 409 this function
+   * exists to avoid, and the company step would have them create a shell they
+   * did not ask for, so the portal is the honest destination: the backend's own
+   * `requirePaidAccount` will say what is owed if anything still is.
    */
   return landingPathForRole(session.role);
 }
