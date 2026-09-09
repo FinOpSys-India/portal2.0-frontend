@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import {
   Building2,
+  CreditCard,
   FolderKanban,
   MessageSquare,
   Paperclip,
@@ -29,6 +30,10 @@ const SEGMENTS = [
   { segment: "files", label: "All Documents", icon: Paperclip },
   { segment: "company", label: "Company", icon: Building2 },
   { segment: "team", label: "Team", icon: Users },
+  // Owner-only in practice — the page says so to a teammate rather than being
+  // hidden, because a nav that changes shape per reader is how someone concludes
+  // the feature does not exist.
+  { segment: "billing", label: "Billing", icon: CreditCard },
   { segment: "profile", label: "Profile", icon: UserRound },
 ];
 
