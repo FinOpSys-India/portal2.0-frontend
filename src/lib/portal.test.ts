@@ -146,6 +146,17 @@ const message = {
 assert.equal(toChatMessage(message).id, "91");
 assert.equal(toChatMessage(message).mine, true);
 assert.deepEqual(toChatMessage(message).attachments, []);
+assert.deepEqual(toChatMessage(message).reactions, []);
+
+// `deleted` is a BOOLEAN off a TIMESTAMP, and both absent and null mean alive.
+// A truthiness slip here would tombstone every message in the thread, which is
+// the loudest possible failure and therefore the one worth pinning.
+assert.equal(toChatMessage(message).deleted, false);
+assert.equal(toChatMessage({ ...message, deletedAt: null }).deleted, false);
+assert.equal(
+  toChatMessage({ ...message, deletedAt: "2026-08-20T11:00:00.000Z" }).deleted,
+  true,
+);
 
 // An attachment-only message has a NULL body. Rendering that as "null" is the
 // bug this guards; the composer wants an empty string and the file.

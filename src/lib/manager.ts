@@ -254,6 +254,21 @@ export interface ChatMessage {
    * live row gets `[]` and picks the real list up on the next load.
    */
   reactions: MessageReaction[];
+  /**
+   * The sender removed it. The bubble stays and says so, rather than the
+   * message disappearing — a row that vanishes between two glances reads as a
+   * bug, and on the other person's screen it erases the fact that anything was
+   * ever said.
+   *
+   * ponytail: TRUE ONLY WITHIN THE SESSION THAT SAW THE DELETE. The delete is
+   * soft (`chat_messages.deleted_at`) and the socket delivers the UPDATE, so
+   * both sides get the tombstone live — but `chatRepository.listMessages`
+   * filters `deletedAt: null`, so the row is gone on the next load and the
+   * tombstone with it. Making it permanent is a backend change: return deleted
+   * rows with `body` and `attachments` stripped and `deletedAt` set, which is
+   * what this field already reads.
+   */
+  deleted: boolean;
 }
 
 export interface ChatAttachment {

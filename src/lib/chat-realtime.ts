@@ -81,6 +81,10 @@ export function toLiveMessage(
     // Empty for the same reason, and it is not a gap worth closing here: a
     // message arriving over the socket is one nobody can have reacted to yet.
     reactions: [],
+    // The soft delete arrives as an UPDATE on this table, so unlike the two
+    // fields above this one the socket CAN describe on its own — it is the
+    // whole reason the other side's tombstone appears without a reload.
+    deleted: Boolean(row.deleted_at),
   };
 }
 

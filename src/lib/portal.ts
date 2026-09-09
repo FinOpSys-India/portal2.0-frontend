@@ -289,6 +289,17 @@ export interface BackendMessage {
    * without it should render a thread with no chips rather than crash.
    */
   reactions?: MessageReaction[];
+  /**
+   * Stamped when the sender deleted it. The message stays in the thread as a
+   * tombstone rather than vanishing, which is what every chat app does and what
+   * the alternative gets wrong: a bubble that silently disappears reads as a
+   * bug, or worse, as the other person never having said anything.
+   *
+   * OPTIONAL AND, TODAY, NEVER SENT. `chatRepository.listMessages` filters
+   * `deletedAt: null`, so a deleted row does not come back from the API at all
+   * — see the note on `deleted` in `ChatMessage`.
+   */
+  deletedAt?: string | null;
 }
 
 export interface BackendConversation {
@@ -322,6 +333,7 @@ export function toChatMessage(m: BackendMessage): ChatMessage {
     // Passed through as sent: grouping and counting are the server's, because
     // `mine` is a fact about the caller that no mapper here can recover.
     reactions: m.reactions ?? [],
+    deleted: Boolean(m.deletedAt),
   };
 }
 

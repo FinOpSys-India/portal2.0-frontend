@@ -160,8 +160,17 @@ export function ChatThread({
       // The payload could not describe the message — an attachment-only row.
       // Re-read the thread rather than render an empty bubble.
       onReload: reload,
+      // Marked, not removed: the other side's bubble becomes "This message was
+      // deleted" in place. Dropping the row instead would erase the fact that
+      // anything was ever said, and shift every bubble under it.
       onDelete: (id) =>
-        setMessages((rows) => (rows ?? []).filter((m) => m.id !== id)),
+        setMessages((rows) =>
+          (rows ?? []).map((m) =>
+            m.id === id
+              ? { ...m, deleted: true, body: "", attachments: [], reactions: [] }
+              : m,
+          ),
+        ),
     }).then((stop) => {
       // Resolved after an unmount that already ran: stop it immediately rather
       // than leaving a socket open on a thread nobody is looking at.
@@ -208,13 +217,29 @@ export function ChatThread({
   }
 
   /**
-   * Removed from the list before the request returns, and put back if it
-   * fails. A delete that leaves the bubble on screen until a round trip
-   * finishes reads as a broken button and gets clicked twice.
+   * Turned into a tombstone before the request returns, and put back if it
+   * fails. A delete that leaves the bubble intact until a round trip finishes
+   * reads as a broken button and gets clicked twice.
+   *
+   * THE ROW STAYS. The backend's delete is soft — `chat_messages.deleted_at` —
+   * and what the sender sees here is what the other side gets over the socket:
+   * the bubble in place, saying it was deleted. Filtering it out instead left
+   * the two screens disagreeing about whether a message had ever existed.
+   *
+   * `body`, `attachments` and `reactions` are cleared along with the flag, so
+   * nothing that was in the message survives in this tab's memory. The bytes of
+   * an attachment are a separate question the server answers: chatService
+   * refuses to sign a download for a deleted message's file.
    */
   async function remove(message: ChatMessage) {
     const previous = messages;
-    setMessages((rows) => (rows ?? []).filter((m) => m.id !== message.id));
+    setMessages((rows) =>
+      (rows ?? []).map((m) =>
+        m.id === message.id
+          ? { ...m, deleted: true, body: "", attachments: [], reactions: [] }
+          : m,
+      ),
+    );
     try {
       await chatApi.deleteMessage(message.id);
     } catch (err) {
@@ -409,6 +434,26 @@ function Bubble({
   onReact: (message: ChatMessage, emoji: string) => void;
 }) {
   const files = message.attachments;
+
+  /*
+   * A deleted message keeps its place, its side and its time, and loses
+   * everything else — no text, no files, no chips, and neither action, since
+   * there is nothing left to react to or delete twice. The outline instead of
+   * a filled bubble is what makes it legible at a glance as an absence rather
+   * than as something somebody actually sent.
+   */
+  if (message.deleted) {
+    return (
+      <div className={cn("flex", message.mine && "flex-row-reverse")}>
+        <div className="flex w-fit max-w-[70%] items-end gap-2 rounded-xl border border-dashed border-border px-3 py-1.5 text-muted-foreground">
+          <p className="text-sm italic">This message was deleted</p>
+          <span className="ml-auto shrink-0 text-[11px] leading-5 tabular-nums">
+            {messageTime(message.sentAt)}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("group flex items-end gap-1", message.mine && "flex-row-reverse")}>
