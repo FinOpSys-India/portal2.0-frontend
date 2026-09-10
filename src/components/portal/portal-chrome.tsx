@@ -72,8 +72,8 @@ export function NotificationBell({ items = [] }: { items?: Notification[] }) {
         </button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-88 p-0">
-        <DropdownMenuLabel className="flex items-center justify-between px-3 py-2.5">
+      <DropdownMenuContent align="end" className="w-96 p-0">
+        <DropdownMenuLabel className="flex items-baseline justify-between px-4 py-3">
           <span>New messages</span>
           {count > 0 ? (
             <span className="text-xs font-normal text-muted-foreground tabular-nums">
@@ -84,39 +84,59 @@ export function NotificationBell({ items = [] }: { items?: Notification[] }) {
         <DropdownMenuSeparator className="my-0" />
 
         {items.length === 0 ? (
-          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
             No new messages.
           </p>
         ) : (
           /* Capped, and the cap is stated. An unbounded dropdown scrolls off the
              viewport on a manager holding a busy book, and a list that silently
              stops is worse than one that says it did. */
-          <ul className="max-h-96 overflow-y-auto">
+          <ul className="max-h-96 divide-y divide-border overflow-y-auto">
             {items.slice(0, 8).map((item) => (
               <li key={item.id}>
-                <DropdownMenuItem asChild className="px-3 py-2.5">
-                  <Link href={item.href} className="block cursor-pointer">
-                    <span className="flex w-full items-baseline gap-2">
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                        {item.contact}
+                {/*
+                 * `p-0` on the item, padding on the span INSIDE the link.
+                 * DropdownMenuItem is `flex items-center`, and `asChild` merges
+                 * its classes onto the link by concatenation — no tailwind-merge
+                 * — so a `block` on the link loses to `flex` on stylesheet order
+                 * and every line collapses onto one row. One flex-col child is
+                 * immune to whatever display the item imposes.
+                 */}
+                <DropdownMenuItem asChild className="rounded-none p-0">
+                  <Link
+                    href={item.href}
+                    className="cursor-pointer focus:bg-accent"
+                  >
+                    <span className="flex w-full flex-col gap-1.5 px-4 py-3">
+                      {/* WHO, and WHEN. The name leads because it is what the
+                          reader recognises; the date is the least of it, so it
+                          sits right-aligned and small. */}
+                      <span className="flex items-baseline gap-3">
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                          {item.contact}
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                          {item.when}
+                        </span>
                       </span>
-                      <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
-                        {item.when}
-                      </span>
-                    </span>
 
-                    <span className="mt-0.5 flex w-full items-center gap-2">
-                      {/* The company tag. Two people on two accounts can have
-                          the same name, and the reply goes to whichever thread
-                          this row opens. */}
-                      <span className="max-w-[9rem] truncate rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                        {item.company}
+                      {/* WHICH ACCOUNT. Its own line, because two people on two
+                          companies can share a name and the reply goes wherever
+                          this row opens — the tag is not decoration. */}
+                      <span className="flex items-center gap-2">
+                        <span className="max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                          {item.company}
+                        </span>
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                        {item.preview || "Sent an attachment"}
-                      </span>
-                      <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground tabular-nums">
-                        {item.unread}
+
+                      {/* WHAT ARRIVED, and how much of it. */}
+                      <span className="flex items-center gap-3">
+                        <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                          {item.preview || "Sent an attachment"}
+                        </span>
+                        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground tabular-nums">
+                          {item.unread}
+                        </span>
                       </span>
                     </span>
                   </Link>
@@ -129,7 +149,7 @@ export function NotificationBell({ items = [] }: { items?: Notification[] }) {
         {items.length > 8 ? (
           <>
             <DropdownMenuSeparator className="my-0" />
-            <p className="px-3 py-2 text-xs text-muted-foreground">
+            <p className="px-4 py-2.5 text-xs text-muted-foreground">
               {items.length - 8} more not shown.
             </p>
           </>
