@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -22,10 +23,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  fromDateValue,
   operatorLabel,
   rangeFilter,
   rangeValues,
   serializeFilter,
+  toDateValue,
   type Filter,
   type FilterType,
 } from "@/lib/table-filter";
@@ -201,7 +204,7 @@ export function FilterButton({
 
       <PopoverContent
         align="end"
-        className="w-[34rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
+        className="w-[42rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
       >
         <div className="flex min-h-80">
           {/* The rail: every filterable column, so the choice is visible
@@ -319,7 +322,11 @@ function Pane({
     );
   }
 
-  if (field.type === "date" || field.type === "number") {
+  if (field.type === "date") {
+    return <DatePane field={field.header} filter={filter} onChange={onChange} />;
+  }
+
+  if (field.type === "number") {
     return (
       <RangePane
         field={field.header}
@@ -474,6 +481,74 @@ function EnumPane({
  * tested. Native `date` and `number` inputs, so the browser's own picker,
  * keyboard handling and locale come for free.
  */
+/**
+ * A date range, picked on a two-month calendar.
+ *
+ * Two `<input type="date">` boxes were correct and unreadable: "deadlines in
+ * the next fortnight" is a shape on a calendar and three typed fields
+ * otherwise. The range still travels as the same From/To pair, so `?f=`, the
+ * chip and the comparison are unchanged.
+ *
+ * One end alone is a filter — a start with no end reads as "on or after this
+ * day", which is what `rangeFilter` builds from it.
+ */
+function DatePane({
+  field,
+  filter,
+  onChange,
+}: {
+  field: string;
+  filter: Filter | undefined;
+  onChange: (filter: Filter | null) => void;
+}) {
+  const [from, to] = rangeValues(filter);
+  const range = { from: fromDateValue(from), to: fromDateValue(to) };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {from || to
+            ? `${from ? pretty(from) : "Any"} – ${to ? pretty(to) : "Any"}`
+            : "Pick a day, or a range across two"}
+        </p>
+        {from || to ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="text-muted-foreground"
+            onClick={() => onChange(null)}
+          >
+            Clear
+          </Button>
+        ) : null}
+      </div>
+
+      <Calendar
+        mode="range"
+        numberOfMonths={2}
+        autoFocus
+        // Opens on the month already filtered to, not on today: reopening the
+        // pane should show the range the rows below are narrowed by.
+        defaultMonth={range.from}
+        selected={range}
+        onSelect={(next) =>
+          onChange(
+            rangeFilter(
+              field,
+              toDateValue(next?.from),
+              toDateValue(next?.to),
+              "date",
+            ),
+          )
+        }
+        className="rounded-lg border border-border p-2"
+      />
+    </div>
+  );
+}
+
 function RangePane({
   field,
   type,

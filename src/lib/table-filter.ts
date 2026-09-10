@@ -192,6 +192,27 @@ export function rangeValues(filter: Filter | undefined): [string, string] {
 }
 
 /**
+ * `2026-09-30` as a local Date, or undefined when there is nothing to read.
+ *
+ * The calendar in the filter panel speaks `Date`, the URL speaks this format,
+ * and both conversions belong beside the comparison that uses them — a
+ * `new Date("2026-09-30")` anywhere else would land on UTC midnight and show
+ * the previous day west of Greenwich.
+ */
+export function fromDateValue(value: string): Date | undefined {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return undefined;
+  return new Date(year, month - 1, day);
+}
+
+/** A Date back to `2026-09-30`, in the reader's own timezone. */
+export function toDateValue(date: Date | undefined): string {
+  if (!date) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/**
  * Does one row's value for this column pass this filter?
  *
  * `value` is whatever the column sorts on: text for names, a timestamp for

@@ -13,6 +13,8 @@ import {
   rangeFilter,
   rangeValues,
   serializeFilter,
+  toDateValue,
+  fromDateValue,
   type Filter,
 } from "./table-filter";
 
@@ -184,6 +186,24 @@ async function main() {
   ]) {
     const filter = rangeFilter("Progress", from, to, "number");
     assert.deepEqual(rangeValues(filter ?? undefined), [from, to]);
+  }
+
+  /* ------------------------------------------------- calendar values ---- */
+
+  // What the calendar hands back and what the URL carries are the same day, in
+  // the reader's timezone — `toISOString` here would slide it west of
+  // Greenwich onto the day before.
+  assert.equal(toDateValue(new Date(2026, 8, 30)), "2026-09-30");
+  assert.equal(toDateValue(new Date(2026, 0, 1)), "2026-01-01");
+  assert.equal(toDateValue(undefined), "");
+
+  assert.equal(fromDateValue("2026-09-30")?.getTime(), day(2026, 9, 30));
+  assert.equal(fromDateValue(""), undefined);
+  assert.equal(fromDateValue("not-a-date"), undefined);
+
+  // Round trip, including a day that crosses a DST boundary in most zones.
+  for (const date of [new Date(2026, 2, 29), new Date(2026, 9, 25), new Date(2026, 11, 31)]) {
+    assert.equal(fromDateValue(toDateValue(date))?.getTime(), date.getTime());
   }
 
   console.log("table filters: all checks passed");
