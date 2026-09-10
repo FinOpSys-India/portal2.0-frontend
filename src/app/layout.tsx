@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Inter } from "next/font/google";
 
+import { NetworkEcho } from "@/components/dev/network-echo";
 import { Toaster } from "@/components/ui/toast";
 import "./globals.css";
 
@@ -34,6 +36,12 @@ export default function RootLayout({
         {/* One viewport for the whole app — a write confirms from wherever it
             was made, including a dialog that closes on its way out. */}
         <Toaster />
+        {/* Dev only: replays the server render's backend GETs from the browser
+            so they appear in the Network tab. Renders nothing, and its effect
+            is compiled out of a production build. */}
+        <Suspense>
+          <NetworkEcho />
+        </Suspense>
       </body>
     </html>
   );

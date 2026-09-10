@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   // A stray lockfile in the home directory makes Next guess the wrong root.
   turbopack: { root: __dirname },
 
+  // Server components fetch the backend node-to-node, so those calls never
+  // appear in the browser's Network tab. This prints them — full URL, status,
+  // duration — to the `next dev` terminal instead. Dev-only; ignored in a build.
+  logging: { fetches: { fullUrl: true } },
+
   /**
    * 1.0's misspelled workspace picker, kept alive.
    *

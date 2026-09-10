@@ -30,6 +30,7 @@ import {
   CSRF_HEADER,
   backendUrl,
 } from "@/lib/backend";
+import { record } from "@/lib/dev-calls";
 import { PORTAL_CACHE_SECONDS, PORTAL_CACHE_TAG } from "@/lib/cache-tag";
 
 const onServer = typeof window === "undefined";
@@ -344,6 +345,12 @@ async function request<T>(
   init: RequestInit = {},
   retry = true,
 ): Promise<T> {
+  // Server reads are the ones DevTools cannot see — they happen during SSR.
+  // Recording them here, above the cache branch, catches the cached ones too;
+  // src/components/dev/network-echo.tsx replays the list from the browser.
+  // No-op outside development.
+  if (onServer && !init.method) record(path);
+
   const csrf = await readCookie(CSRF_COOKIE);
   // Typed rather than inferred: `RequestInit["headers"]` also admits a Headers
   // instance and an array of pairs, and the cache partition below reads
