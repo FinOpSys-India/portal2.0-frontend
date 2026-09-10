@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 
 import { DataTable } from "@/components/admin/data-table";
-import { fileColumns, ScopeBreadcrumb } from "@/components/portal/file-list";
+import {
+  fileColumns,
+  ScopeBreadcrumb,
+  type FileRow,
+} from "@/components/portal/file-list";
 import { ProjectFilter } from "@/components/portal/project-filter";
-import { customerApi, type CustomerFile } from "@/lib/customer";
-import { viewerId } from "@/lib/portal";
+import { customerApi } from "@/lib/customer";
+import { viewerId, withService } from "@/lib/portal";
 
 import { CustomerUploadFile } from "./upload-file";
 import { parseFilters } from "@/lib/table-filter";
@@ -55,13 +59,13 @@ export default async function FilesPage({
         <ScopeBreadcrumb company={companyName} project={project ?? null} />
       </div>
 
-      <DataTable<CustomerFile>
+      <DataTable<FileRow>
         page={page}
         sort={sort}
         dir={dir}
         filters={parseFilters(f)}
         total={files.length}
-        rows={files}
+        rows={withService(files, projects)}
         basePath={`/customer/${workspace}/files`}
         header={
           <h1 className="text-lg font-bold tracking-tight">All Documents</h1>

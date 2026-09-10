@@ -1,7 +1,7 @@
 import { PersonCell } from "@/components/admin/initials-avatar";
 import type { Column } from "@/components/admin/data-table";
 import { DocumentActions, FilePreview } from "@/components/portal/file-preview";
-import { fileKind, formatFileSize, type ManagerDocument } from "@/lib/manager";
+import { fileKind, formatFileSize } from "@/lib/manager";
 import { documentPath } from "@/lib/portal";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,14 @@ export interface FileRow {
   projectId: string | null;
   name: string;
   project: string | null;
+  /**
+   * The service line of the project the file hangs off — "Bookkeeping", "Tax".
+   *
+   * Null when the file has no project, and so no service. The document rows the
+   * API sends do not carry it (`toCompanyDocument` nests only the project's
+   * name, status and deadline), so pages join it on with `withService`.
+   */
+  service: string | null;
   owner: string;
   /** Whose row it is: the delete control is offered to them alone. */
   ownerId: string | null;
@@ -64,6 +72,14 @@ export const fileColumns = (viewer: string): Column<FileRow>[] => [
       row.project ?? <span className="text-muted-foreground">Unattached</span>,
   },
   {
+    header: "Service",
+    // As on the projects table: a company runs a handful of service lines, so
+    // the checklist is short and closed.
+    filter: "enum",
+    cell: (row) =>
+      row.service ?? <span className="text-muted-foreground">—</span>,
+  },
+  {
     header: "Document Owner",
     sortValue: (row) => row.owner,
     cell: (row) => (
@@ -90,11 +106,16 @@ export const fileColumns = (viewer: string): Column<FileRow>[] => [
   },
 ];
 
+/** A staff portal's file row: a `FileRow` that also names its company. */
+export interface DocumentRow extends FileRow {
+  company: string;
+}
+
 /**
  * The staff lists span companies by default, so theirs name the company. A
  * customer's list cannot — it is one workspace — and uses `fileColumns`.
  */
-export const documentColumns = (viewer: string): Column<ManagerDocument>[] => {
+export const documentColumns = (viewer: string): Column<DocumentRow>[] => {
   const [name, ...rest] = fileColumns(viewer);
   return [
     name,

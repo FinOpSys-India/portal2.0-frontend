@@ -273,6 +273,34 @@ export function documentPath(doc: {
     : null;
 }
 
+/**
+ * Join each file to its project's service line.
+ *
+ * A JOIN ON THE PAGE, not a field on the row, because the API never sends it:
+ * `GET /documents` nests the project's name, status and deadline and nothing
+ * else. Every page that renders this table already loads the project list it
+ * needs for the project pill and the upload dialog, so the service costs no
+ * further request — resolved on the project ID rather than its name, since the
+ * staff lists span companies and two of them may name a project alike.
+ *
+ * ponytail: a file whose project is missing from `projects` reads "—". On the
+ * specialist portal that is any file on a colleague's project, since theirs
+ * lists only what is routed to them. Fix by sending the service line down on
+ * the document row.
+ */
+export function withService<T extends { projectId: string | null }>(
+  rows: T[],
+  projects: { id: string; service: string }[],
+): (T & { service: string | null })[] {
+  const byProject = new Map(projects.map((p) => [p.id, p.service]));
+  return rows.map((row) => ({
+    ...row,
+    // `||`, not `??`: an unnamed service line comes back as "".
+    service: (row.projectId && byProject.get(row.projectId)) || null,
+  }));
+}
+
+
 /* ------------------------------------------------------------------ chat -- */
 
 export interface BackendMessage {

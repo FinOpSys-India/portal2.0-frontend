@@ -21,6 +21,7 @@ import {
   toChatMessage,
   toClientCompany,
   toManagerDocument,
+  withService,
   toManagedProject,
   toPlans,
   toProjectStatus,
@@ -473,4 +474,37 @@ assert.deepEqual(
     zip: "73301",
     country: "United States of America",
   },
+);
+
+/* --------------------------------------------------- withService ---------- */
+
+// The join the file lists render their Service column off. Keyed on the project
+// ID, so a file lands on ITS company's project rather than a namesake on
+// another account.
+assert.deepEqual(
+  withService(
+    [
+      { id: "1", projectId: "10" },
+      { id: "2", projectId: "20" },
+      // No project, so no service.
+      { id: "3", projectId: null },
+      // A project the caller's list does not hold — a colleague's, on the
+      // specialist portal.
+      { id: "4", projectId: "99" },
+      // Attached to a project whose service line came back unnamed.
+      { id: "5", projectId: "30" },
+    ],
+    [
+      { id: "10", service: "Bookkeeping" },
+      { id: "20", service: "Tax" },
+      { id: "30", service: "" },
+    ],
+  ),
+  [
+    { id: "1", projectId: "10", service: "Bookkeeping" },
+    { id: "2", projectId: "20", service: "Tax" },
+    { id: "3", projectId: null, service: null },
+    { id: "4", projectId: "99", service: null },
+    { id: "5", projectId: "30", service: null },
+  ],
 );

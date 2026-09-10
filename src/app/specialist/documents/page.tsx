@@ -4,10 +4,10 @@ import { DataTable } from "@/components/admin/data-table";
 import {
   documentColumns,
   ScopeBreadcrumb,
+  type DocumentRow,
 } from "@/components/portal/file-list";
 import { ProjectFilter } from "@/components/portal/project-filter";
-import type { ManagerDocument } from "@/lib/manager";
-import { viewerId } from "@/lib/portal";
+import { viewerId, withService } from "@/lib/portal";
 import { companyScope, specialistApi } from "@/lib/specialist";
 
 import { SpecialistUploadFile } from "./upload-file";
@@ -62,13 +62,13 @@ export default async function SpecialistDocumentsPage({
         <ScopeBreadcrumb company={companyName} project={project ?? null} />
       </div>
 
-      <DataTable<ManagerDocument>
+      <DataTable<DocumentRow>
         page={1}
         sort={sort}
         dir={dir}
         filters={parseFilters(f)}
         total={documents.length}
-        rows={documents}
+        rows={withService(documents, allProjects)}
         basePath="/specialist/documents"
         header={
           <h1 className="text-lg font-bold tracking-tight">All Documents</h1>
