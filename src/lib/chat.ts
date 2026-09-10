@@ -14,7 +14,7 @@
  * but because an admin is never one of a conversation's two sides.
  */
 
-import { del, get, post } from "@/lib/http";
+import { del, get, post, put } from "@/lib/http";
 import {
   personName,
   toChatMessage,
@@ -22,7 +22,12 @@ import {
   type BackendMessage,
 } from "@/lib/portal";
 import type { ChatMessage } from "@/lib/manager";
-import type { MessageReaction } from "@/lib/reactions";
+import {
+  reactionName,
+  toMessageReaction,
+  type BackendReaction,
+  type MessageReaction,
+} from "@/lib/reactions";
 
 /* -------------------------------------------------------------- contacts -- */
 
@@ -218,25 +223,69 @@ export const chatApi = {
   },
 
   /**
-   * Add or remove the viewer's reaction. ONE ROUTE, NOT TWO: it toggles.
+   * Set the viewer's reaction on a message, or on one file inside it.
    *
-   * A DELETE would have to carry the emoji anyway — a reactor can hold several
-   * on one message, so "remove my reaction" is not a complete instruction — at
-   * which point the pair is one endpoint written twice, and the client has to
-   * know which of the two to call, which is a fact only the server's row
-   * actually settles.
+   * `PUT`, and the method is the semantics: this SETS the reaction rather than
+   * toggling it, so sending "love" twice leaves one "love" and sending "like"
+   * after it replaces it. One reaction per person per target — which is why the
+   * remove below needs no emoji.
    *
-   * What comes back is the message's WHOLE reaction list, regrouped. Not a
-   * delta and not just the emoji that changed: somebody else's reaction can
-   * land between the click and the answer, and a delta would render a count
-   * this client computed rather than the one the database holds.
+   * `reaction` IS A NAME, NOT THE CHARACTER. The API takes a server-side enum
+   * (`"love"`, `"like"`); the emoji is this client's rendering of it and never
+   * goes over the wire. An unmapped emoji is refused here rather than sent, so
+   * a picker that grows a seventh entry before the backend does fails on the
+   * click with something readable instead of a 400 out of validation.
+   *
+   * `attachmentId` moves the target from the message to one of its files. The
+   * path is keyed on the message either way — the id narrows it.
+   *
+   * NULL MEANS "THE SERVER DID NOT SAY". The spec states no response body, so a
+   * 204 or a bare `{ success: true }` is possible, and the caller keeps its
+   * optimistic state in that case. Returning `[]` instead — which is what this
+   * did before — reads an empty answer as "no reactions" and wipes every chip
+   * off a message that has them.
    */
-  async react(messageId: string, emoji: string): Promise<MessageReaction[]> {
-    const data = await post<{ reactions?: MessageReaction[] }>(
-      `/chat/messages/${encodeURIComponent(messageId)}/reactions`,
-      { emoji },
+  async setReaction(
+    messageId: string,
+    emoji: string,
+    attachmentId?: number,
+  ): Promise<MessageReaction[] | null> {
+    const reaction = reactionName(emoji);
+    if (!reaction) throw new Error(`${emoji} is not one of the reactions.`);
+
+    const data = await put<{ reactions?: BackendReaction[] }>(
+      `/chat/messages/${encodeURIComponent(messageId)}/reaction`,
+      attachmentId === undefined ? { reaction } : { reaction, attachmentId },
     );
-    return data.reactions ?? [];
+    return data?.reactions?.map(toMessageReaction) ?? null;
+  },
+
+  /**
+   * Take the viewer's reaction off a message, or off one of its files.
+   *
+   * No emoji and no body: under the PUT above a person holds at most one
+   * reaction per target, so "remove mine" is already a complete instruction.
+   *
+   * `attachmentId` rides in the QUERY STRING rather than a body, which is what
+   * the API asks for and also the only reliable way to send it — DELETE bodies
+   * are dropped by enough proxies and fetch implementations that one would be a
+   * silent way to clear the reaction on the MESSAGE instead of on the file.
+   *
+   * Returns the same "null means the server did not say" as `setReaction`.
+   */
+  async clearReaction(
+    messageId: string,
+    attachmentId?: number,
+  ): Promise<MessageReaction[] | null> {
+    const query =
+      attachmentId === undefined
+        ? ""
+        : `?attachmentId=${encodeURIComponent(attachmentId)}`;
+
+    const data = await del<{ reactions?: BackendReaction[] }>(
+      `/chat/messages/${encodeURIComponent(messageId)}/reaction${query}`,
+    );
+    return data?.reactions?.map(toMessageReaction) ?? null;
   },
 };
 

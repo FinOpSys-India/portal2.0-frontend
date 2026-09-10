@@ -29,7 +29,10 @@ import type {
   SpecialistTask,
   TaskStatus,
 } from "@/lib/manager";
-import type { MessageReaction } from "@/lib/reactions";
+import {
+  toMessageReaction,
+  type BackendReaction,
+} from "@/lib/reactions";
 import type { ProfileValues } from "@/lib/schemas";
 
 /* ---------------------------------------------------------------- people -- */
@@ -277,7 +280,13 @@ export interface BackendMessage {
   conversationId: number;
   sender: BackendPerson | null;
   body: string | null;
-  attachments: { id: number; fileName: string; sizeBytes: number }[];
+  attachments: {
+    id: number;
+    fileName: string;
+    sizeBytes: number;
+    /** Present when the backend nests per-file reactions. See `toChatMessage`. */
+    reactions?: BackendReaction[];
+  }[];
   createdAt: string;
   mine: boolean | null;
   /**
@@ -290,7 +299,7 @@ export interface BackendMessage {
    * the endpoint that serves it is being built separately, and a deployment
    * without it should render a thread with no chips rather than crash.
    */
-  reactions?: MessageReaction[];
+  reactions?: BackendReaction[];
   /**
    * Stamped when the sender deleted it. The message stays in the thread as a
    * tombstone rather than vanishing, which is what every chat app does and what
@@ -315,6 +324,11 @@ export interface BackendConversation {
   unreadCount: number;
 }
 
+/** The flat list's rows belonging to one file, for a backend that does not nest them. */
+function onFile(m: BackendMessage, attachmentId: number): BackendReaction[] {
+  return (m.reactions ?? []).filter((r) => r.attachmentId === attachmentId);
+}
+
 export function toChatMessage(m: BackendMessage): ChatMessage {
   return {
     id: String(m.id),
@@ -331,10 +345,22 @@ export function toChatMessage(m: BackendMessage): ChatMessage {
       id: a.id,
       name: a.fileName,
       size: a.sizeBytes,
+      // Nested if the backend sends it that way, otherwise picked out of the
+      // message's flat list by `attachmentId`. Both shapes are live options —
+      // see `BackendReaction.attachmentId`.
+      reactions: (a.reactions ?? onFile(m, a.id)).map(toMessageReaction),
     })),
-    // Passed through as sent: grouping and counting are the server's, because
-    // `mine` is a fact about the caller that no mapper here can recover.
-    reactions: m.reactions ?? [],
+    // Grouping and counting stay the server's — `mine` is a fact about the
+    // caller that no mapper here can recover. What IS done here is naming: the
+    // API sends `{ reaction: "love" }`, and the chip draws a character, so each
+    // row is resolved through the one table that maps the two.
+    //
+    // FILTERED, not passed through. A flat list carries the files' reactions
+    // too, and rendering those under the bubble would put a chip on the message
+    // that somebody actually put on a spreadsheet inside it.
+    reactions: (m.reactions ?? [])
+      .filter((r) => r.attachmentId === undefined || r.attachmentId === null)
+      .map(toMessageReaction),
     deleted: Boolean(m.deletedAt),
   };
 }

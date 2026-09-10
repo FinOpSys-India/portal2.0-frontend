@@ -15,8 +15,9 @@
  * reading.
  */
 
-/** One emoji on a message, grouped and counted by the server. */
+/** One reaction on a message, grouped and counted by the server. */
 export interface MessageReaction {
+  /** The character the chip draws. Resolved from the wire `reaction` name. */
   emoji: string;
   /** Everyone who reacted with it, the viewer included. */
   count: number;
@@ -25,22 +26,84 @@ export interface MessageReaction {
 }
 
 /**
+ * A reaction row as it arrives, in either of the two shapes a deployment sends.
+ *
+ * The API names reactions (`"love"`, `"like"`), so `reaction` is what a current
+ * backend writes. `emoji` is kept because it is what this client sent before the
+ * endpoint existed, and a row carrying one is not worth failing over — see
+ * `toMessageReaction`.
+ */
+export interface BackendReaction {
+  reaction?: string;
+  emoji?: string;
+  count?: number;
+  mine?: boolean;
+  /**
+   * Set when the row belongs to one FILE on the message rather than to the
+   * message itself — the same id `PUT .../reaction` takes as `attachmentId`.
+   *
+   * Read defensively rather than speculatively: a backend that returns
+   * attachment reactions in the message's own flat list, instead of nesting
+   * them under each file, would otherwise have them rendered as reactions on
+   * the message. That is not a missing feature, it is chips appearing under the
+   * wrong thing, so `toChatMessage` partitions on this key.
+   */
+  attachmentId?: number | null;
+}
+
+/**
  * The six offered on a bubble.
  *
- * The emoji is what gets stored and sent — not a key like "like". The column
- * stays readable in a database client, and a seventh reaction needs no
- * migration. `label` is the button's accessible name: a screen reader reading
- * the raw character announces the CLDR name ("face with tears of joy"), which
- * says what the picture is rather than what pressing it means.
+ * THE WIRE VALUE IS `name`, NOT THE EMOJI. `PUT /chat/messages/:id/reaction`
+ * takes `{ "reaction": "love" }` — a server-side enum — so the character is a
+ * rendering detail this file owns and never leaves the client. An earlier
+ * version of this comment argued the opposite, on the reasoning that storing
+ * the character keeps the column readable and needs no migration for a seventh
+ * reaction; the API settled it the other way, and a seventh now costs a backend
+ * change as well as a row here.
+ *
+ * `label` is the button's accessible name: a screen reader reading the raw
+ * character announces the CLDR name ("face with tears of joy"), which says what
+ * the picture is rather than what pressing it means.
  */
-export const REACTIONS: { emoji: string; label: string }[] = [
-  { emoji: "👍", label: "Like" },
-  { emoji: "😂", label: "Laugh" },
-  { emoji: "😢", label: "Sad" },
-  { emoji: "😮", label: "Wow" },
-  { emoji: "❤️", label: "Love" },
-  { emoji: "🙏", label: "Thanks" },
+export const REACTIONS: { emoji: string; name: string; label: string }[] = [
+  { emoji: "👍", name: "like", label: "Like" },
+  { emoji: "😂", name: "laugh", label: "Laugh" },
+  { emoji: "😢", name: "sad", label: "Sad" },
+  { emoji: "😮", name: "wow", label: "Wow" },
+  { emoji: "❤️", name: "love", label: "Love" },
+  { emoji: "🙏", name: "thanks", label: "Thanks" },
 ];
+
+/** The wire name for a chip's emoji, or null when it is not one of the six. */
+export function reactionName(emoji: string): string | null {
+  return REACTIONS.find((r) => r.emoji === emoji)?.name ?? null;
+}
+
+/**
+ * The character for a wire name, falling back to the name itself.
+ *
+ * A backend that grows a seventh reaction before this list does would otherwise
+ * render a blank chip. Showing the raw word ("shipped") is ugly and legible;
+ * showing nothing is a chip that cannot be read or explained.
+ */
+export function reactionEmoji(name: string): string {
+  return REACTIONS.find((r) => r.name === name)?.emoji ?? name;
+}
+
+/**
+ * One server row, whichever shape it arrived in.
+ *
+ * `count` defaults to 1 rather than 0: a row that exists describes at least one
+ * reactor, and a chip reading "0" is the thing every branch here avoids.
+ */
+export function toMessageReaction(row: BackendReaction): MessageReaction {
+  return {
+    emoji: row.emoji ?? (row.reaction ? reactionEmoji(row.reaction) : ""),
+    count: row.count ?? 1,
+    mine: row.mine ?? false,
+  };
+}
 
 /**
  * The composer's picker: 96 emoji in eight buckets of twelve.
@@ -96,39 +159,58 @@ export const COMPOSER_EMOJI: string[] = [
 ];
 
 /**
- * The viewer's reaction, added or removed, as the server will report it.
+ * Drop whatever the viewer is holding, wherever it is.
+ *
+ * ONE REACTION PER PERSON PER TARGET, which is the API's model rather than this
+ * client's preference: `PUT .../reaction` SETS the viewer's reaction and
+ * `DELETE .../reaction` takes a target and no emoji, which is only a complete
+ * instruction if there is at most one to remove. So "clear mine" needs no
+ * argument — it finds the row by `mine`, not by character.
+ *
+ * REMOVING THE LAST HOLDER DELETES THE ENTRY rather than leaving a count of
+ * zero, which is the only case here that is not arithmetic — a chip reading "0"
+ * is the bug this function exists to not have.
+ *
+ * Nothing here mutates its input: the caller keeps the old array to put back
+ * when the request fails.
+ */
+export function clearLocal(reactions: MessageReaction[]): MessageReaction[] {
+  return reactions.flatMap((r) => {
+    if (!r.mine) return [r];
+    if (r.count <= 1) return [];
+    return [{ ...r, count: r.count - 1, mine: false }];
+  });
+}
+
+/**
+ * Move the viewer's reaction to `emoji`, as the server will report it.
  *
  * Optimistic: the chip has to move on the click, not on the round trip, because
  * a reaction that waits for a network answer reads as a dead button and gets
- * pressed again. The caller keeps the old array to put back if the request
- * fails, so nothing here mutates its input.
+ * pressed again.
  *
- * REMOVING THE LAST ONE DELETES THE ENTRY rather than leaving a count of zero,
- * which is the only case here that is not arithmetic — a chip reading "0" is
- * the bug this function exists to not have.
+ * A SET, NOT AN ADD. Clicking ❤️ while holding 👍 leaves the viewer on ❤️ alone
+ * — the 👍 chip loses a count and, if nobody else held it, disappears. That is
+ * `PUT` semantics, and computing it any other way here would paint two owned
+ * chips that the server's answer then contradicts a moment later.
+ *
+ * Clicking the one already held is NOT this function — the caller sends the
+ * DELETE and uses `clearLocal`. Routing it here instead would re-set the same
+ * reaction, which under PUT is a no-op, so the chip would never come off.
  */
-export function toggleLocal(
+export function setLocal(
   reactions: MessageReaction[],
   emoji: string,
 ): MessageReaction[] {
-  const existing = reactions.find((r) => r.emoji === emoji);
+  const freed = clearLocal(reactions);
+  const existing = freed.find((r) => r.emoji === emoji);
 
-  if (!existing) {
-    // Appended, not sorted in: the server returns them in the order they were
-    // first used, and re-ordering on every click would move the chips out from
-    // under the cursor.
-    return [...reactions, { emoji, count: 1, mine: true }];
-  }
+  // Appended, not sorted in: the server returns them in the order they were
+  // first used, and re-ordering on every click would move the chips out from
+  // under the cursor.
+  if (!existing) return [...freed, { emoji, count: 1, mine: true }];
 
-  if (!existing.mine) {
-    return reactions.map((r) =>
-      r.emoji === emoji ? { ...r, count: r.count + 1, mine: true } : r,
-    );
-  }
-
-  if (existing.count <= 1) return reactions.filter((r) => r.emoji !== emoji);
-
-  return reactions.map((r) =>
-    r.emoji === emoji ? { ...r, count: r.count - 1, mine: false } : r,
+  return freed.map((r) =>
+    r.emoji === emoji ? { ...r, count: r.count + 1, mine: true } : r,
   );
 }

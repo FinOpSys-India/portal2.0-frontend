@@ -276,6 +276,15 @@ export interface ChatAttachment {
   id: number;
   name: string;
   size: number;
+  /**
+   * Reactions on THIS FILE, not on the message carrying it — the API reacts to
+   * either, keyed by the same message id and narrowed by `attachmentId`.
+   *
+   * Same server-side grouping as a message's own list, and empty for the same
+   * reasons: a live socket row cannot describe them, and a backend that does
+   * not send them yet renders a file with no chips rather than crashing.
+   */
+  reactions: MessageReaction[];
 }
 
 export type { MessageReaction };

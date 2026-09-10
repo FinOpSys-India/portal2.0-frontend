@@ -172,8 +172,55 @@ assert.equal(withFile.body, "");
 // and dropping it — which the singular shape did — made every attachment in the
 // app unopenable.
 assert.deepEqual(withFile.attachments, [
-  { id: 5, name: "register.pdf", size: 2048 },
+  { id: 5, name: "register.pdf", size: 2048, reactions: [] },
 ]);
+
+/*
+ * REACTIONS ARE PARTITIONED BY TARGET. A file and the message carrying it are
+ * separate targets on the API (`attachmentId` narrows the same route), so a
+ * flat list carrying both must not put a chip meant for a spreadsheet under the
+ * sentence above it. The two shapes below are both live: nested per attachment,
+ * and flat with an `attachmentId` on the row.
+ */
+const nestedReactions = toChatMessage({
+  ...message,
+  reactions: [{ reaction: "like", count: 2, mine: false }],
+  attachments: [
+    {
+      id: 5,
+      fileName: "register.pdf",
+      sizeBytes: 2048,
+      reactions: [{ reaction: "love", count: 1, mine: true }],
+    },
+  ],
+});
+assert.deepEqual(nestedReactions.reactions, [{ emoji: "👍", count: 2, mine: false }]);
+assert.deepEqual(nestedReactions.attachments[0].reactions, [
+  { emoji: "❤️", count: 1, mine: true },
+]);
+
+const flatReactions = toChatMessage({
+  ...message,
+  reactions: [
+    { reaction: "like", count: 2, mine: false },
+    { reaction: "love", count: 1, mine: true, attachmentId: 5 },
+  ],
+  attachments: [{ id: 5, fileName: "register.pdf", sizeBytes: 2048 }],
+});
+// The file's row is NOT among the message's own.
+assert.deepEqual(flatReactions.reactions, [{ emoji: "👍", count: 2, mine: false }]);
+assert.deepEqual(flatReactions.attachments[0].reactions, [
+  { emoji: "❤️", count: 1, mine: true },
+]);
+
+// A row for a file that is not on this message belongs to neither list.
+const orphan = toChatMessage({
+  ...message,
+  reactions: [{ reaction: "love", count: 1, mine: true, attachmentId: 99 }],
+  attachments: [{ id: 5, fileName: "register.pdf", sizeBytes: 2048 }],
+});
+assert.deepEqual(orphan.reactions, []);
+assert.deepEqual(orphan.attachments[0].reactions, []);
 
 // Several files on one message: the backend accepts them and the old shape
 // silently kept only the first.
