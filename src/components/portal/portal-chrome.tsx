@@ -15,46 +15,127 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api";
 
-/**
- * Notification bell.
- *
- * The count is unread chat — the only thing this app has to notify about — and
- * the bell LINKS to the thread carrying it. A badge you cannot click is a dead
- * end: it tells the reader something arrived and then leaves them to go find
- * it. Without an `href` it stays an inert button rather than a link to nowhere.
- */
-export function NotificationBell({
-  count = 0,
-  href,
-}: {
-  count?: number;
-  href?: string;
-}) {
-  const label = count > 0 ? `Notifications, ${count} unread` : "Notifications";
-  const className =
-    "relative flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30";
-  const inner = (
-    <>
-      <Bell className="size-5" aria-hidden />
-      {count > 0 ? (
-        <span
-          aria-hidden
-          className="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground"
-        >
-          {count}
-        </span>
-      ) : null}
-    </>
-  );
+/** One row in the bell's list: a thread with something new in it. */
+export interface Notification {
+  /** The conversation id — stable, and what the row is keyed on. */
+  id: string;
+  /** Where clicking lands. Deep enough to open the thread, not just the inbox. */
+  href: string;
+  /** Which account this arrived on. Every row is tagged, because the list merges companies. */
+  company: string;
+  contact: string;
+  preview: string;
+  unread: number;
+  /**
+   * ALREADY WORDED — "Today", "Yesterday", a date. Formatted by the layout that
+   * built the row, so this file (which every portal's chrome pulls into the
+   * client bundle) does not import a date helper out of lib/manager.
+   */
+  when: string;
+}
 
-  return href ? (
-    <Link href={href} aria-label={label} className={className}>
-      {inner}
-    </Link>
-  ) : (
-    <button type="button" aria-label={label} className={className}>
-      {inner}
-    </button>
+/**
+ * Notification bell, and the list behind it.
+ *
+ * A COUNT ALONE IS A SCAVENGER HUNT. "3 unread" over a portal that scopes chat
+ * by company AND by side of the account leaves the reader guessing both before
+ * they find the message — so the badge opens the list it is counting: every
+ * thread with something new, newest first, each tagged with the company it
+ * arrived on, and each a link straight into that thread.
+ *
+ * The list is merged across companies, which is the one view chat has nowhere
+ * else: every chat route requires `?companyId=`, so the inbox can only ever show
+ * one account at a time. This is where a manager sees all of them at once.
+ */
+export function NotificationBell({ items = [] }: { items?: Notification[] }) {
+  const count = items.reduce((sum, n) => sum + n.unread, 0);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={
+            count > 0 ? `Notifications, ${count} unread` : "Notifications"
+          }
+          className="relative flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+        >
+          <Bell className="size-5" aria-hidden />
+          {count > 0 ? (
+            <span
+              aria-hidden
+              className="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground"
+            >
+              {count}
+            </span>
+          ) : null}
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="end" className="w-88 p-0">
+        <DropdownMenuLabel className="flex items-center justify-between px-3 py-2.5">
+          <span>New messages</span>
+          {count > 0 ? (
+            <span className="text-xs font-normal text-muted-foreground tabular-nums">
+              {count} unread
+            </span>
+          ) : null}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator className="my-0" />
+
+        {items.length === 0 ? (
+          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+            No new messages.
+          </p>
+        ) : (
+          /* Capped, and the cap is stated. An unbounded dropdown scrolls off the
+             viewport on a manager holding a busy book, and a list that silently
+             stops is worse than one that says it did. */
+          <ul className="max-h-96 overflow-y-auto">
+            {items.slice(0, 8).map((item) => (
+              <li key={item.id}>
+                <DropdownMenuItem asChild className="px-3 py-2.5">
+                  <Link href={item.href} className="block cursor-pointer">
+                    <span className="flex w-full items-baseline gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                        {item.contact}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                        {item.when}
+                      </span>
+                    </span>
+
+                    <span className="mt-0.5 flex w-full items-center gap-2">
+                      {/* The company tag. Two people on two accounts can have
+                          the same name, and the reply goes to whichever thread
+                          this row opens. */}
+                      <span className="max-w-[9rem] truncate rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                        {item.company}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                        {item.preview || "Sent an attachment"}
+                      </span>
+                      <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground tabular-nums">
+                        {item.unread}
+                      </span>
+                    </span>
+                  </Link>
+                </DropdownMenuItem>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {items.length > 8 ? (
+          <>
+            <DropdownMenuSeparator className="my-0" />
+            <p className="px-3 py-2 text-xs text-muted-foreground">
+              {items.length - 8} more not shown.
+            </p>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

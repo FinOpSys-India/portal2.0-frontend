@@ -15,7 +15,12 @@
  */
 
 import { del, get, post } from "@/lib/http";
-import { personName, toChatMessage, type BackendMessage } from "@/lib/portal";
+import {
+  personName,
+  toChatMessage,
+  type BackendConversation,
+  type BackendMessage,
+} from "@/lib/portal";
 import type { ChatMessage } from "@/lib/manager";
 import type { MessageReaction } from "@/lib/reactions";
 
@@ -79,6 +84,71 @@ export function toContact(c: BackendContact): ChatContact {
     lastMessageAt: c.lastMessageAt ?? "",
     unread: c.unreadCount ?? 0,
   };
+}
+
+/* --------------------------------------------------------------- unread -- */
+
+/** One thread with something in it the reader has not seen. */
+export interface UnreadThread {
+  conversationId: string;
+  companyId: string;
+  /** Named on every row, because the bell merges several companies into one list. */
+  company: string;
+  /** The person on the other end. */
+  contact: string;
+  /** The last thing they said, for a row that says what arrived. */
+  preview: string;
+  unread: number;
+  /** ISO instant, so the merged list can be ordered across companies. */
+  at: string;
+}
+
+/**
+ * Everything unread, across every company the reader holds.
+ *
+ * ONE REQUEST PER COMPANY, because `?companyId=` is required on chat with no
+ * exemption — a thread list merged server-side would put two clients' people on
+ * one response, which is the rule the whole feature turns on. The merge happens
+ * here instead, where the reader's own company list is the scope.
+ *
+ * READ-ONLY, deliberately. The obvious alternative — `POST /chat/conversations`
+ * per company, which is open-or-return — would CREATE a thread with every
+ * counterparty just to draw a bell, on every render. A conversation with unread
+ * messages in it necessarily already exists, so listing is both cheaper and the
+ * only one of the two that cannot have side effects.
+ *
+ * A company whose list fails contributes nothing rather than failing the bell:
+ * this is a dropdown in the chrome, and a 402 on one unpaid account must not
+ * blank the notifications for the others.
+ *
+ * ponytail: N requests wide, bounded by how many companies one person holds.
+ * A cross-company endpoint is the fix if that stops being a handful.
+ */
+export async function unreadThreads(
+  companies: { id: string; name: string }[],
+): Promise<UnreadThread[]> {
+  const perCompany = await Promise.all(
+    companies.map(async (company) => {
+      const data = await get<{ conversations: BackendConversation[] }>(
+        `/chat/conversations?companyId=${encodeURIComponent(company.id)}`,
+      ).catch(() => ({ conversations: [] as BackendConversation[] }));
+
+      return data.conversations
+        .filter((row) => (row.unreadCount ?? 0) > 0)
+        .map((row) => ({
+          conversationId: String(row.id),
+          companyId: company.id,
+          company: row.companyName ?? company.name,
+          contact: personName(row.counterpart),
+          preview: row.lastMessage?.body ?? "",
+          unread: row.unreadCount ?? 0,
+          at: row.lastMessageAt ?? "",
+        }));
+    }),
+  );
+
+  // Newest first, across companies. ISO instants, so this is a text compare.
+  return perCompany.flat().sort((a, b) => b.at.localeCompare(a.at));
 }
 
 export const chatApi = {

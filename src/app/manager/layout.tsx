@@ -3,20 +3,20 @@ import { Suspense } from "react";
 
 import { ManagerShell } from "@/components/manager/manager-shell";
 import { NotificationBell } from "@/components/portal/portal-chrome";
-import { managerApi, newestUnread, totalUnread } from "@/lib/manager";
+import { dayLabel, managerApi, unreadConversations } from "@/lib/manager";
 
 export const metadata: Metadata = {
   title: { default: "Manager – FinOpSys", template: "%s – Manager – FinOpSys" },
 };
 
 /**
- * The unread count, off the critical path.
+ * The bell's list, off the critical path.
  *
  * `conversations()` sweeps every company this manager holds — eight requests,
  * each of which re-authenticates and re-checks access before it reads anything.
- * Awaited in the layout it delayed the entire frame, nav included, to put one
- * number on the bell. Behind a boundary it arrives whenever it arrives and the
- * bell simply starts at zero.
+ * Awaited in the layout it delayed the entire frame, nav included, to fill one
+ * dropdown. Behind a boundary it arrives whenever it arrives and the bell simply
+ * starts empty.
  */
 async function UnreadBell() {
   /*
@@ -24,27 +24,28 @@ async function UnreadBell() {
    * unhandled throw in here escapes the boundary and the route's error.tsx
    * replaces the whole page. That is what turned one 504 on the eight-company
    * conversation sweep into "Something went wrong" on /manager/projects/:id,
-   * whose own project, task and document reads had all returned 200. A count
-   * nobody can read is worth zero, so it renders zero.
+   * whose own project, task and document reads had all returned 200. A list
+   * nobody can read is worth zero, so it renders empty.
    */
   const conversations = await managerApi.conversations().catch(() => []);
-  const open = newestUnread(conversations);
 
-  /*
-   * The bell is a link to the thread it is counting. A manager holds several
-   * companies and several people per company, so "you have 3 unread" without a
-   * destination is a scavenger hunt: chat is scoped by company AND by side of
-   * the account, so the reader would have to guess both before finding the
-   * message. All three land in the query the inbox already reads.
-   */
   return (
     <NotificationBell
-      count={totalUnread(conversations)}
-      href={
-        open
-          ? `/manager/connect/chat?company=${encodeURIComponent(open.companyId)}&party=${open.party}&conversation=${encodeURIComponent(open.id)}`
-          : "/manager/connect"
-      }
+      items={unreadConversations(conversations).map((c) => ({
+        id: c.id,
+        /*
+         * Company AND party AND thread. The manager's inbox is scoped by both —
+         * `/chat/contacts/...` is per company and per side of the account — so a
+         * link carrying less than all three lands on a roster the message is not
+         * in. The inbox reads `?conversation=` and opens that row.
+         */
+        href: `/manager/connect/chat?company=${encodeURIComponent(c.companyId)}&party=${c.party}&conversation=${encodeURIComponent(c.id)}`,
+        company: c.company,
+        contact: c.contact,
+        preview: c.lastMessage,
+        unread: c.unread,
+        when: c.lastMessageAt ? dayLabel(c.lastMessageAt) : "",
+      }))}
     />
   );
 }
@@ -66,7 +67,7 @@ export default async function ManagerLayout({
       user={{ name: profile.fullName, email: profile.email, avatarUrl: profile.avatarUrl }}
       companies={companies.map(({ id, name }) => ({ id, name }))}
       notifications={
-        <Suspense fallback={<NotificationBell count={0} />}>
+        <Suspense fallback={<NotificationBell />}>
           <UnreadBell />
         </Suspense>
       }

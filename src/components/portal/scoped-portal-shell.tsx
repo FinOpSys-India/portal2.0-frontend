@@ -93,7 +93,7 @@ function Shell({
       headerRight={
         <>
           <CompanySwitcher companies={companies} />
-          {notifications ?? <NotificationBell count={0} />}
+          {notifications ?? <NotificationBell />}
           <AccountMenu user={user} profileHref={`${profileHref}${query}`} />
         </>
       }

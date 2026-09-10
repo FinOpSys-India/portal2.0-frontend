@@ -48,13 +48,18 @@ export function CustomerShell({
   workspace,
   workspaces,
   user,
-  notificationCount = 0,
+  notifications,
   children,
 }: {
   workspace: Workspace;
   workspaces: Workspace[];
   user: { name: string; email: string; avatarUrl?: string | null };
-  notificationCount?: number;
+  /**
+   * The bell, filled by the layout. A NODE rather than a count, so the sweep
+   * that fills it can sit behind its own Suspense boundary instead of holding
+   * up the frame — same shape as the manager and specialist shells.
+   */
+  notifications?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -77,10 +82,7 @@ export function CustomerShell({
             options={workspaces}
             onSelect={(id) => router.push(`/customer/${id}/projects`)}
           />
-          <NotificationBell
-            count={notificationCount}
-            href={`/customer/${workspace.id}/connect/chat`}
-          />
+          {notifications ?? <NotificationBell />}
           <AccountMenu
             user={user}
             profileHref={`/customer/${workspace.id}/profile`}

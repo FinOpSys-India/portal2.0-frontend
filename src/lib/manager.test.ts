@@ -15,12 +15,12 @@ import {
   dayLabel,
   fileKind,
   formatFileSize,
-  newestUnread,
   parseDeadline,
   scoped,
   sortByUnreadThenRecent,
   totalUnread,
   unassigned,
+  unreadConversations,
   type Conversation,
   type ManagedProject,
 } from "./manager";
@@ -114,14 +114,18 @@ const live = [
   conversation({ id: "read-newest", unread: 0, lastMessageAt: "2026-08-30T09:00:00.000Z" }),
   conversation({ id: "unread-newest", unread: 5, lastMessageAt: "2026-08-14T09:00:00.000Z" }),
 ];
-assert.equal(newestUnread(live)?.id, "unread-newest");
-assert.equal(live[0].id, "unread-older", "picking must not reorder the input");
-assert.equal(
-  newestUnread(live.map((c) => ({ ...c, unread: 0 }))),
-  undefined,
-  "nothing unread means the bell has no thread to point at",
+assert.deepEqual(
+  unreadConversations(live).map((c) => c.id),
+  ["unread-newest", "unread-older"],
+  "read threads are not notifications, and the newest unread leads",
 );
-assert.equal(newestUnread([]), undefined);
+assert.equal(live[0].id, "unread-older", "listing must not reorder the input");
+assert.deepEqual(
+  unreadConversations(live.map((c) => ({ ...c, unread: 0 }))),
+  [],
+  "nothing unread means an empty list, not a stale one",
+);
+assert.deepEqual(unreadConversations([]), []);
 
 /* ------------------------------------------------------------- chat days -- */
 

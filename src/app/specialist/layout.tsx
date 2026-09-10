@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 
+import { Suspense } from "react";
+
 import { SpecialistShell } from "@/components/specialist/specialist-shell";
 import { NotificationBell } from "@/components/portal/portal-chrome";
+import { unreadThreads } from "@/lib/chat";
+import { dayLabel } from "@/lib/manager";
 import { specialistApi } from "@/lib/specialist";
 
 export const metadata: Metadata = {
@@ -11,30 +15,58 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * One thread per company, and a specialist works several.
+ *
+ * The bell used to count `specialistApi.thread()`, which resolves the FIRST
+ * company only — a message from any other account was invisible in the chrome
+ * until the reader happened to switch the header to it. Every company is swept
+ * here, and each row is tagged with which one it came from.
+ */
+async function UnreadBell() {
+  const companies = await specialistApi.companies().catch(() => []);
+  const threads = await unreadThreads(
+    companies.map(({ id, name }) => ({ id, name })),
+  ).catch(() => []);
+
+  return (
+    <NotificationBell
+      items={threads.map((t) => ({
+        id: t.conversationId,
+        // `?company=` is what decides WHICH thread the chat page opens.
+        href: `/specialist/connect/chat?company=${encodeURIComponent(t.companyId)}`,
+        company: t.company,
+        contact: t.contact,
+        preview: t.preview,
+        unread: t.unread,
+        when: t.at ? dayLabel(t.at) : "",
+      }))}
+    />
+  );
+}
+
 export default async function SpecialistLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [profile, companies, thread] = await Promise.all([
+  const [profile, companies] = await Promise.all([
     specialistApi.profile(),
     specialistApi.companies(),
-    /*
-     * Same reason the manager's bell and the customer's unread count swallow
-     * theirs: this is one number in the top bar, and awaited hard it can take
-     * every specialist route down with it when chat times out.
-     */
-    specialistApi.thread().catch(() => ({ id: null, contact: "", unread: 0 })),
   ]);
 
   return (
     <SpecialistShell
       user={{ name: profile.name, email: profile.email, avatarUrl: profile.avatarUrl }}
       companies={companies.map(({ id, name }) => ({ id, name }))}
-      // One counterparty, so the bell counts the one thread that exists — and
-      // links straight to it, since there is nowhere else it could mean.
+      /*
+       * Behind a boundary for the same reason the manager's is: this is one
+       * request per company for a dropdown, and the nav must not wait on it.
+       */
       notifications={
-        <NotificationBell count={thread.unread} href="/specialist/connect/chat" />
+        <Suspense fallback={<NotificationBell />}>
+          <UnreadBell />
+        </Suspense>
       }
     >
       {children}

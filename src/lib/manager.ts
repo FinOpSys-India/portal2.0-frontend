@@ -1508,17 +1508,17 @@ export function totalUnread(conversations: Conversation[]): number {
 }
 
 /**
- * The thread the bell opens: the most recently written of the unread ones.
+ * The threads the bell lists: everything unread, newest first.
  *
  * Compared as text, not through `parseDeadline`, because `conversations()`
  * carries the backend's ISO instant here — and ISO instants sort correctly as
  * strings, which is the whole point of the format. A thread that has never been
  * written to has `""`, which sorts last and is unread-zero anyway.
  */
-export function newestUnread(
+export function unreadConversations(
   conversations: Conversation[],
-): Conversation | undefined {
+): Conversation[] {
   return conversations
     .filter((c) => c.unread > 0)
-    .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))[0];
+    .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
 }
