@@ -6,6 +6,7 @@ import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { FilePreview } from "@/components/portal/file-preview";
 import { StatusBadge } from "@/components/portal/status-badge";
+import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { customerApi, type CustomerFile } from "@/lib/customer";
 import { documentPath } from "@/lib/portal";
@@ -45,7 +46,15 @@ export default async function CustomerProjectPage({
     <>
       <PageHeader
         title={project.name}
-        action={<StatusBadge status={project.status} />}
+        /* A DIV, not a fragment: PageHeader's row is `justify-between`, so two
+           bare children would be pushed to opposite ends of it with the title
+           stranded between them. These two are a pair on the right. */
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={project.status} />
+            <ExportProjectCsv projectId={project.id} projectName={project.name} />
+          </div>
+        }
       />
 
       <div className="grid gap-6">

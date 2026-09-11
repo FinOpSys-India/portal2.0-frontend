@@ -627,6 +627,113 @@ export async function uploadViaSignedUrls<T>(
   });
 }
 
+/* ------------------------------------------------------------- downloads -- */
+
+/**
+ * The filename the server asked for, out of `Content-Disposition`.
+ *
+ * Reads the RFC 5987 `filename*` FIRST when both are present: that is the one
+ * carrying a charset, and a server that sends both is sending the plain
+ * `filename` as the ASCII-only fallback for clients that cannot read the other.
+ * Taking the fallback when the real name is right there is how an export of
+ * "Zürich Q3.csv" arrives called "Zurich Q3.csv".
+ *
+ * Returns null rather than a guess when the header is absent or unparseable —
+ * the caller has a name in mind and it is better than anything invented here.
+ */
+export function filenameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+
+  const extended = /filename\*\s*=\s*(?:UTF-8|utf-8)''([^;]+)/.exec(header);
+  if (extended) {
+    try {
+      return decodeURIComponent(extended[1].trim());
+    } catch {
+      // A malformed percent-escape is not worth failing a download over.
+    }
+  }
+
+  const plain = /filename\s*=\s*"([^"]*)"|filename\s*=\s*([^;]+)/.exec(header);
+  const name = (plain?.[1] ?? plain?.[2] ?? "").trim();
+  // Basename only. A server that says `../../etc/passwd` is not choosing where
+  // this lands, and the browser would refuse it anyway — this makes it explicit
+  // rather than relying on that.
+  return name ? (name.split(/[\\/]/).pop() || null) : null;
+}
+
+/**
+ * Fetch a file and hand it to the browser to save.
+ *
+ * NOT THROUGH `request()`, and it cannot be: that path runs every response
+ * through `unwrap`, which parses JSON and returns `data`. A CSV body is not
+ * JSON, so it would come back as `null` — a download that silently produced
+ * nothing. Here the bytes are taken as bytes.
+ *
+ * WHAT IS REUSED IS THE ERROR PATH. A failure still arrives as the backend's
+ * own `{ success: false, error }` envelope, so `unwrap` is called on it to
+ * throw the real message — which matters most for the one this endpoint can
+ * genuinely return: a 402 from the paywall in front of /projects, which should
+ * say so rather than saving a file containing an error.
+ *
+ * A 401 refreshes once and retries, the same as every other call. Without it
+ * the export is the one button in the app that stops working at token expiry
+ * while the page around it still loads.
+ *
+ * CLIENT ONLY. It ends in an anchor click, so there is no server equivalent —
+ * a server component calling this would have nowhere to put the file.
+ */
+export async function downloadFile(
+  path: string,
+  fallbackName: string,
+  retry = true,
+): Promise<void> {
+  if (onServer) throw new Error("downloadFile is browser-only.");
+
+  const res = await fetch(url(path), {
+    headers: await authHeaders(),
+    credentials: "include",
+  });
+
+  if (res.status === 401 && retry && (await refreshSession())) {
+    return downloadFile(path, fallbackName, false);
+  }
+
+  // Throws the backend's own message, or a status-carrying fallback.
+  if (!res.ok) await unwrap(res);
+
+  /*
+   * A JSON body on a SUCCESSFUL response means the endpoint answered with a
+   * payload where a file was expected. Saying so beats saving it: the user
+   * would otherwise get a .csv full of `{"success":true,...}` and no hint that
+   * the export never ran.
+   */
+  if (res.headers.get("content-type")?.includes("application/json")) {
+    throw new ApiError(
+      "The server sent data instead of a file. The export endpoint may not be deployed yet.",
+      res.status,
+      "EXPORT_NOT_A_FILE",
+    );
+  }
+
+  const blob = await res.blob();
+  const href = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.download =
+    filenameFromDisposition(res.headers.get("content-disposition")) ??
+    fallbackName;
+
+  // Appended before clicking: a detached anchor is ignored by Firefox, which is
+  // the browser this would silently fail in.
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+
+  // Released on the next tick rather than immediately — revoking while the
+  // browser is still reading the blob cancels the save in Safari.
+  setTimeout(() => URL.revokeObjectURL(href), 10_000);
+}
+
 /* ------------------------------------------------------------ pagination -- */
 
 /**

@@ -5,6 +5,7 @@ import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AddTask } from "@/components/portal/add-task";
 import { FilePreview } from "@/components/portal/file-preview";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
+import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { managerApi } from "@/lib/manager";
 import { documentPath } from "@/lib/portal";
@@ -54,7 +55,13 @@ export default async function ManagerProjectPage({
     <>
       {/* No Assign control: the specialist follows the company's staffing for
           this project's service line, set on the Companies screen. */}
-      <PageHeader title="Project Information" description={project.name} />
+      <PageHeader
+        title="Project Information"
+        description={project.name}
+        action={
+          <ExportProjectCsv projectId={project.id} projectName={project.name} />
+        }
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid gap-6">

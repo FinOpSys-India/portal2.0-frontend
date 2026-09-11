@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { DataTable } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
+import { ExportProjectsCsv } from "@/components/portal/export-csv";
 import { ProgressBar } from "@/components/portal/progress-bar";
 import {
   companyScope,
@@ -51,10 +52,16 @@ export default async function ManagerProjectsPage({
       filters={parseFilters(f)}
       total={projects.length}
       action={
-        <NewProject
-          companies={companies.map(({ id, name }) => ({ id, name }))}
-          defaultCompanyId={company}
-        />
+        <>
+          <ExportProjectsCsv
+            companyId={company}
+            companyName={await scopeName(company)}
+          />
+          <NewProject
+            companies={companies.map(({ id, name }) => ({ id, name }))}
+            defaultCompanyId={company}
+          />
+        </>
       }
       rows={projects}
       basePath="/manager/projects"

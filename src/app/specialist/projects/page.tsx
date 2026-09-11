@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { DataTable } from "@/components/admin/data-table";
+import { ExportProjectsCsv } from "@/components/portal/export-csv";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ProgressBar } from "@/components/portal/progress-bar";
 import { type ManagedProject, parseDeadline, scoped } from "@/lib/manager";
@@ -40,6 +41,12 @@ export default async function SpecialistProjectsPage({
       dir={dir}
       filters={parseFilters(f)}
       total={projects.length}
+      action={
+        <ExportProjectsCsv
+          companyId={company}
+          companyName={await scopeName(company)}
+        />
+      }
       rows={projects}
       basePath="/specialist/projects"
       rowHref={(row) => scoped(`/specialist/projects/${row.id}`, company)}

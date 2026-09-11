@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { DataTable } from "@/components/admin/data-table";
+import { ExportProjectsCsv } from "@/components/portal/export-csv";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { customerApi, type Project } from "@/lib/customer";
@@ -40,7 +41,12 @@ export default async function ProjectsPage({
       dir={dir}
       filters={parseFilters(f)}
       total={projects.length}
-      action={<NewProject workspaceId={workspace} services={services} />}
+      action={
+        <>
+          <ExportProjectsCsv companyId={workspace} />
+          <NewProject workspaceId={workspace} services={services} />
+        </>
+      }
       rows={projects}
       basePath={`/customer/${workspace}/projects`}
       rowHref={(row) => `/customer/${workspace}/projects/${row.id}`}
