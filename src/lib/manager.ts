@@ -1462,7 +1462,7 @@ export function dayLabel(sentAt: string, now = new Date()): string {
 
   if (days === 0) return "Today";
   if (days === 1) return "Yesterday";
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
@@ -1471,7 +1471,7 @@ export function dayLabel(sentAt: string, now = new Date()): string {
 
 /** Clock time on a message, e.g. "3:42 PM". */
 export function messageTime(sentAt: string): string {
-  return new Date(sentAt).toLocaleTimeString(undefined, {
+  return new Date(sentAt).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
   });

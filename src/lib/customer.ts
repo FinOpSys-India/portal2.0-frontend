@@ -32,6 +32,7 @@ import {
   personName,
   teamNames,
   toProjectStatus,
+  usDate,
   type BackendCompany,
   type BackendDocument,
   type BackendProject,
@@ -188,7 +189,7 @@ export const customerApi = {
       project: d.project?.projectName ?? "",
       owner: personName(d.uploadedBy),
       ownerId: personId(d.uploadedBy),
-      uploadedAt: d.createdAt,
+      uploadedAt: usDate(d.createdAt),
       size: d.sizeBytes,
     }));
 
@@ -232,7 +233,7 @@ export const customerApi = {
       project: meta.project,
       owner: personName(doc.uploadedBy),
       ownerId: personId(doc.uploadedBy),
-      uploadedAt: doc.createdAt,
+      uploadedAt: usDate(doc.createdAt),
       size: doc.sizeBytes,
     };
   },

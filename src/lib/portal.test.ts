@@ -21,6 +21,7 @@ import {
   toChatMessage,
   toClientCompany,
   toManagerDocument,
+  usDate,
   withService,
   toManagedProject,
   toPlans,
@@ -375,6 +376,10 @@ const nested = toManagerDocument(
   { companyId: "3", companyName: "Northwind" },
 );
 assert.equal(nested.projectId, "42");
+// M/D/YYYY on screen, never the backend's ISO instant and never the reader's
+// locale. Day-of-month is left to the runner's timezone; the shape is not.
+assert.match(nested.uploadedAt, /^\d{1,2}\/\d{1,2}\/2026$/);
+assert.equal(usDate("2026-08-20T10:00:00.000Z"), nested.uploadedAt);
 assert.equal(documentPath(nested), "/api/projects/42/documents/7/download");
 
 const flat = toManagerDocument(

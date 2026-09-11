@@ -13,6 +13,7 @@ import {
   MAX_EMAIL_ATTACHMENTS,
   acceptAttachments,
   dayLabel,
+  messageTime,
   fileKind,
   formatFileSize,
   parseDeadline,
@@ -141,11 +142,12 @@ assert.equal(
   "Today",
   "later today is still today, not tomorrow",
 );
-assert.match(
+assert.equal(
   dayLabel(new Date(2026, 7, 11, 12, 0).toISOString(), now),
-  /2026/,
-  "older than yesterday falls back to a dated label",
+  "August 11, 2026",
+  "older than yesterday falls back to a US-worded date, whatever the reader's locale",
 );
+assert.equal(messageTime(new Date(2026, 7, 19, 15, 42).toISOString()), "3:42 PM");
 
 /* ------------------------------------------------------------- file size -- */
 

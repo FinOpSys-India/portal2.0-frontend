@@ -15,6 +15,7 @@ import {
   put,
 } from "@/lib/http";
 import { fullName, roleIds, type DirectoryUser } from "@/lib/directory";
+import { usDate } from "@/lib/portal";
 
 export type CustomerRole = "Owner" | "Teammate";
 
@@ -296,7 +297,7 @@ function toCompany(row: AccountRow): Company {
     // `currentPeriodEnd` is when the next invoice is raised, which is what the
     // "Billing Date" column has always meant. Null before the first checkout.
     billingDate: row.billing?.currentPeriodEnd
-      ? new Date(row.billing.currentPeriodEnd).toLocaleDateString("en-US")
+      ? usDate(row.billing.currentPeriodEnd)
       : null,
     teamMembers: [
       team?.owner,

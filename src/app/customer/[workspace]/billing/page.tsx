@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { subscription, type SubscriptionLine } from "@/lib/billing";
 import { formatMoney } from "@/lib/plans";
+import { usDate } from "@/lib/portal";
 
 import { ManageBilling } from "./manage-billing";
 
@@ -20,7 +21,7 @@ export const metadata: Metadata = { title: "Billing" };
 
 /** M/D/YYYY, the format every other date in this portal renders in. */
 function stamp(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleDateString("en-US") : "—";
+  return iso ? usDate(iso) : "—";
 }
 
 /**

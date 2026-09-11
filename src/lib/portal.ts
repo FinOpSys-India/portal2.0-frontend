@@ -218,7 +218,7 @@ export function toManagerDocument(
     // so a file outlives its attribution. Nobody owns such a row.
     ownerId: personId(d.uploadedBy),
     ownerAvatarUrl: personAvatarUrl(d.uploadedBy),
-    uploadedAt: d.createdAt,
+    uploadedAt: usDate(d.createdAt),
     size: d.sizeBytes,
   };
 }
@@ -445,10 +445,22 @@ export interface BackendCompany {
   }[];
 }
 
+/**
+ * Every date this portal prints: M/D/YYYY, always US, never the reader's locale.
+ *
+ * The backend speaks ISO instants; rendering one raw put
+ * `2026-08-20T10:00:00.000Z` in a table cell, and leaving the locale to the
+ * runtime put 20/08/2026 there for anyone outside the US. Both are the same
+ * bug — the format is a product decision, not the browser's.
+ */
+export function usDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US");
+}
+
 /** M/D/YYYY, matching the "Billing Date" column since 1.0. Blank before checkout. */
 export function billingDate(company: BackendCompany): string | null {
   const end = company.billing?.currentPeriodEnd;
-  return end ? new Date(end).toLocaleDateString("en-US") : null;
+  return end ? usDate(end) : null;
 }
 
 export function teamNames(company: BackendCompany): string[] {
