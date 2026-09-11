@@ -205,6 +205,14 @@ async function main() {
   assert.equal(on("notin", ["Acme Air"]), false);
   assert.equal(on("notin", ["Nothing Ltd"]), true);
 
+  // "All of these": every named value has to be on the row, which is the
+  // question the Any/All toggle asks.
+  const all = (values: string[]) =>
+    matchesFilter(companies, { field: "Companies", op: "all", values }, "list");
+  assert.equal(all(["Acme Air", "Zephyr Freight"]), true);
+  assert.equal(all(["Acme Air", "Nothing Ltd"]), false);
+  assert.equal(all(["Acme Air"]), true);
+
   // A customer on no company at all is the empty case, not a row with a blank
   // name in it.
   assert.equal(

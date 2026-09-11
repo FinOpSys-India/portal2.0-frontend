@@ -185,19 +185,30 @@ export function filterFields<T>(columns: Column<T>[], rows: T[]): FilterField[] 
     // A `list` cell holds several values, and each is its own option — the
     // three companies a customer is on are three things to filter by, not one
     // line reading "A, B, C".
-    const held = rows.flatMap((row) => {
+    //
+    // Counted per ROW, not per value: a customer on the same company twice is
+    // one customer, and the number beside the checkbox says how many rows the
+    // box would keep.
+    const counts: Record<string, number> = {};
+    const held: string[] = [];
+
+    for (const row of rows) {
       const value = spec.value(row);
-      return (Array.isArray(value) ? value : [value]).map((v) =>
+      const items = (Array.isArray(value) ? value : [value]).map((v) =>
         String(v).trim(),
       );
-    });
+      held.push(...items);
+      for (const item of new Set(items)) {
+        counts[item] = (counts[item] ?? 0) + 1;
+      }
+    }
 
     const options = [...new Set(column.filterOptions ?? held)]
       .map((option) => option.trim())
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b));
 
-    return [{ header: column.header, type: spec.type, options }];
+    return [{ header: column.header, type: spec.type, options, counts }];
   });
 }
 
@@ -401,7 +412,15 @@ export function DataTable<T>({
   const controls = (
     <div className="flex flex-wrap items-center gap-2">
       <FilterChips fields={fields} filters={filters} />
-      <FilterButton fields={fields} filters={filters} />
+      <FilterButton
+        fields={fields}
+        filters={filters}
+        count={filters.length > 0 ? matching.length : total}
+        // The page's own noun, so the panel's footer reads "16 customers"
+        // rather than a bare number. Nested tables have no heading of their
+        // own and say "rows".
+        noun={title?.toLowerCase() ?? "rows"}
+      />
       {action}
     </div>
   );
@@ -546,7 +565,7 @@ export function ChipsCell({ items }: { items: string[] }) {
       {items.map((item) => (
         <span
           key={item}
-          className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+          className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-foreground/75"
         >
           {item}
         </span>

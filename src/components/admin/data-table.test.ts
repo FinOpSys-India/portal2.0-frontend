@@ -257,6 +257,20 @@ async function main() {
     "Zephyr Freight",
   ]);
 
+  // The number beside each checkbox counts ROWS holding that value. A person
+  // on no company adds nothing, and a company nobody is on has no count at all
+  // — which is what the pane renders as a blank rather than a zero.
+  // Before the whole-object compare, not after: `assert.deepEqual` under
+  // node:assert/strict is `deepStrictEqual`, which is typed `asserts actual is
+  // T` — so it narrows `counts` to the literal shape below and a later lookup
+  // of a key outside it stops compiling.
+  assert.equal(peopleFields[1].counts?.["Nothing Ltd"], undefined);
+  assert.deepEqual(peopleFields[1].counts, {
+    "Acme Air": 1,
+    "SkyBridge Aviation": 1,
+    "Zephyr Freight": 1,
+  });
+
   // Without that list, the options are what the rows hold — each value on its
   // own, never the joined line the cell renders.
   const derived = filterFields(

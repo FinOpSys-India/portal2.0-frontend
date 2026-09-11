@@ -41,6 +41,8 @@ export type FilterField = {
   type: FilterType;
   /** The distinct values in the loaded rows. Enum columns only. */
   options?: string[];
+  /** How many rows hold each option, for the number beside its checkbox. */
+  counts?: Record<string, number>;
 };
 
 /** The rail's icon per column type, so a field is recognisable before reading. */
@@ -146,9 +148,15 @@ export function FilterChips({
 export function FilterButton({
   fields,
   filters,
+  count,
+  noun = "rows",
 }: {
   fields: FilterField[];
   filters: Filter[];
+  /** Rows the list holds now — the panel's footer says what is being cut. */
+  count?: number;
+  /** What those rows are called: "customers", "projects", "rows". */
+  noun?: string;
 }) {
   const commit = useCommitFilters();
 
@@ -206,9 +214,34 @@ export function FilterButton({
 
       <PopoverContent
         align="end"
-        className="w-[42rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
+        className="w-[40rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
       >
-        <div className="flex min-h-80">
+        {/* Says what the panel is and how much of it is set, so an opened
+            panel answers "am I looking at a filtered list?" before anything
+            is read off the rail. */}
+        <div className="flex items-center gap-2.5 border-b border-border px-5 py-3.5">
+          <p className="text-sm font-semibold">Filters</p>
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[11px] leading-none font-medium",
+              drafted > 0
+                ? "bg-primary/10 text-primary"
+                : "bg-muted text-muted-foreground",
+            )}
+          >
+            {drafted > 0 ? `${drafted} set` : "None set"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Close filters"
+            className="ml-auto rounded-md p-1 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        </div>
+
+        <div className="flex min-h-72">
           {/* The rail: every filterable column, so the choice is visible
               rather than behind a menu. */}
           <ul className="w-48 shrink-0 space-y-1 border-r border-border bg-muted/40 p-3">
@@ -225,8 +258,8 @@ export function FilterButton({
                     className={cn(
                       "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
                       on
-                        ? "bg-primary font-medium text-primary-foreground"
-                        : "hover:bg-background",
+                        ? "bg-primary/10 font-medium text-primary"
+                        : "text-muted-foreground hover:bg-background hover:text-foreground",
                     )}
                   >
                     <Icon className="size-4 shrink-0" aria-hidden />
@@ -236,10 +269,7 @@ export function FilterButton({
                     {draft[field.header] ? (
                       <span
                         aria-label="has a filter"
-                        className={cn(
-                          "ml-auto size-1.5 shrink-0 rounded-full",
-                          on ? "bg-primary-foreground" : "bg-primary",
-                        )}
+                        className="ml-auto size-1.5 shrink-0 rounded-full bg-primary"
                       />
                     ) : null}
                   </button>
@@ -250,9 +280,20 @@ export function FilterButton({
 
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              <p className="border-b border-border pb-3 text-sm font-semibold">
-                {activeField.header}
-              </p>
+              <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
+                <p className="text-sm font-semibold">{activeField.header}</p>
+                {/* Per column, beside the column it clears. Reset all sits in
+                    the footer and means every column at once — two different
+                    questions that used to share one button. */}
+                <button
+                  type="button"
+                  onClick={() => setFieldFilter(activeField.header, null)}
+                  disabled={!draft[activeField.header]}
+                  className="text-xs font-medium text-primary transition-colors duration-150 hover:underline disabled:pointer-events-none disabled:text-muted-foreground/50"
+                >
+                  Clear
+                </button>
+              </div>
 
               <div className="pt-4">
                 <Pane
@@ -269,30 +310,37 @@ export function FilterButton({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 border-t border-border px-5 py-3.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setDraft({})}
-                disabled={drafted === 0}
-                aria-label="Reset all filters"
-              >
-                <RotateCcw aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="px-5"
-                // Closed here rather than in `commit`, which the chips share
-                // and which has no panel to close.
-                onClick={() => {
-                  setOpen(false);
-                  commit(Object.values(draft));
-                }}
-              >
-                Apply
-              </Button>
+            <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-3.5">
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {count === undefined ? null : `${count} ${noun}`}
+              </p>
+
+              <div className="flex items-center gap-2.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => setDraft({})}
+                  disabled={drafted === 0}
+                >
+                  <RotateCcw className="size-3.5" aria-hidden />
+                  Reset all
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="px-5"
+                  // Closed here rather than in `commit`, which the chips share
+                  // and which has no panel to close.
+                  onClick={() => {
+                    setOpen(false);
+                    commit(Object.values(draft));
+                  }}
+                >
+                  Apply
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -317,15 +365,19 @@ function Pane({
     return (
       <EnumPane
         field={field.header}
+        type={field.type}
         options={field.options ?? []}
-        selected={filter?.values ?? []}
+        counts={field.counts}
+        filter={filter}
         onChange={onChange}
       />
     );
   }
 
   if (field.type === "date") {
-    return <DatePane field={field.header} filter={filter} onChange={onChange} />;
+    return (
+      <DatePane field={field.header} filter={filter} onChange={onChange} />
+    );
   }
 
   if (field.type === "number") {
@@ -403,16 +455,30 @@ function TextPane({
  */
 function EnumPane({
   field,
+  type,
   options,
-  selected,
+  counts,
+  filter,
   onChange,
 }: {
   field: string;
+  type: FilterType;
   options: string[];
-  selected: string[];
+  counts?: Record<string, number>;
+  filter: Filter | undefined;
   onChange: (filter: Filter | null) => void;
 }) {
   const [query, setQuery] = React.useState("");
+
+  // A cell holding several values can be asked both questions — on ANY of
+  // these companies, or on ALL of them. A single-value column has only the
+  // first, so the toggle is not offered there.
+  const multi = type === "list";
+  const empty = filter?.op === "empty";
+  const selected = empty ? [] : (filter?.values ?? []);
+  const [mode, setMode] = React.useState<"in" | "all">(
+    filter?.op === "all" ? "all" : "in",
+  );
 
   // Company and project columns filter as enums too, and those lists run to
   // whatever the page loaded. Offered only when the list is long enough to
@@ -424,11 +490,16 @@ function EnumPane({
     ? options.filter((o) => o.toLowerCase().includes(query.toLowerCase()))
     : options;
 
+  function apply(values: string[], op: "in" | "all" = mode) {
+    onChange(values.length ? { field, op, values } : null);
+  }
+
   function toggle(option: string) {
-    const values = selected.includes(option)
-      ? selected.filter((v) => v !== option)
-      : [...selected, option];
-    onChange(values.length ? { field, op: "in", values } : null);
+    apply(
+      selected.includes(option)
+        ? selected.filter((v) => v !== option)
+        : [...selected, option],
+    );
   }
 
   return (
@@ -443,10 +514,39 @@ function EnumPane({
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search values"
+            placeholder={`Search ${field.toLowerCase()}`}
             aria-label={`Search ${field} values`}
             className="h-9 pl-9 text-sm"
           />
+        </div>
+      ) : null}
+
+      {multi ? (
+        <div className="inline-flex rounded-full border border-border p-0.5 text-xs">
+          {(
+            [
+              ["in", "Any of these"],
+              ["all", "All of these"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={mode === value}
+              onClick={() => {
+                setMode(value);
+                apply(selected, value);
+              }}
+              className={cn(
+                "rounded-full px-3 py-1 font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
+                mode === value
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       ) : null}
 
@@ -457,7 +557,7 @@ function EnumPane({
       ) : shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">No values match.</p>
       ) : (
-        <ul className="-mx-2 max-h-64 space-y-1 overflow-y-auto px-2">
+        <ul className="-mx-2 max-h-56 space-y-1 overflow-y-auto px-2">
           {byInitial(shown, searchable).map(([letter, group]) => (
             <li key={letter}>
               {letter ? (
@@ -479,6 +579,13 @@ function EnumPane({
                         className="size-3.5 shrink-0 accent-primary"
                       />
                       <span className="min-w-0 truncate">{option}</span>
+                      {/* How many rows the box keeps. A zero is worth seeing:
+                          it is a company nobody on this list belongs to. */}
+                      {counts?.[option] === undefined ? null : (
+                        <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">
+                          {counts[option]}
+                        </span>
+                      )}
                     </label>
                   </li>
                 ))}
@@ -487,6 +594,26 @@ function EnumPane({
           ))}
         </ul>
       )}
+
+      {/* The one question a checklist cannot ask: rows holding none of them.
+          Multi-value columns only — a status column is never blank. */}
+      {multi ? (
+        <label className="flex items-center gap-2.5 border-t border-border pt-3 text-sm">
+          <input
+            type="checkbox"
+            checked={empty}
+            onChange={(event) =>
+              onChange(
+                event.target.checked
+                  ? { field, op: "empty", values: [] }
+                  : null,
+              )
+            }
+            className="size-3.5 accent-primary"
+          />
+          Only rows with no {field.toLowerCase()}
+        </label>
+      ) : null}
     </div>
   );
 }

@@ -27,6 +27,7 @@ export type Operator =
   | "isnot"
   | "empty"
   | "in"
+  | "all"
   | "notin"
   | "gte"
   | "lte"
@@ -69,6 +70,10 @@ export const OPERATORS: Record<FilterType, OperatorSpec[]> = {
   ],
   list: [
     { op: "in", label: "is any of", inputs: 1 },
+    // Only a multi-value cell can hold all of them at once, which is why this
+    // is here and not on `enum`: a customer is on several companies, a project
+    // has one status.
+    { op: "all", label: "has all of", inputs: 1 },
     { op: "notin", label: "is none of", inputs: 1 },
   ],
   date: [
@@ -284,6 +289,10 @@ export function matchesFilter(
       return !some((item) => fold(item) === fold(first));
     case "in":
       return some(named);
+    case "all":
+      return filter.values.every((v) =>
+        items.some((item) => fold(item) === fold(v)),
+      );
     case "notin":
       return !some(named);
     default:
