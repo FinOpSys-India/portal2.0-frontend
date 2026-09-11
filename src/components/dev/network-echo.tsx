@@ -3,12 +3,14 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
+import { ECHO_ENABLED } from "@/lib/dev-calls";
+
 /**
  * Replays the server render's backend GETs from the browser, so every API a
  * page uses appears in the Network tab.
  *
  * The portal renders on the server, which means its data fetches never reach
- * the browser and DevTools has nothing to show. This asks /__dev/calls what the
+ * the browser and DevTools has nothing to show. This asks /dev-echo what the
  * render just fetched and re-issues each path through the same-origin proxy —
  * the proxy attaches the bearer token, so each replay is the real authenticated
  * request with the real response body, filterable under Fetch/XHR as `/api/`.
@@ -24,18 +26,21 @@ import { useEffect } from "react";
  *
  * These are DUPLICATE requests — the page already has its data. Timings here
  * are not the page's timings.
+ *
+ * Always on locally; on a deployed build only with NEXT_PUBLIC_API_ECHO=1 —
+ * see ECHO_ENABLED for what turning that on exposes.
  */
 export function NetworkEcho() {
   const pathname = usePathname();
   const search = useSearchParams().toString();
 
   useEffect(() => {
-    if (process.env.NODE_ENV !== "development") return;
+    if (!ECHO_ENABLED) return;
 
     let cancelled = false;
 
     (async () => {
-      const res = await fetch("/__dev/calls").catch(() => null);
+      const res = await fetch("/dev-echo").catch(() => null);
       if (!res?.ok || cancelled) return;
 
       const { paths } = (await res.json().catch(() => ({ paths: [] }))) as {
