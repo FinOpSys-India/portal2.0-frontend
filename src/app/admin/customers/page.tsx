@@ -1,9 +1,19 @@
 import type { Metadata } from "next";
 
-import { ChipsCell, DataTable } from "@/components/admin/data-table";
+import {
+  ChipsCell,
+  DataTable,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { RoleBadge } from "@/components/admin/role-badge";
-import { listWindow, adminApi, type Customer } from "@/lib/admin";
+import {
+  listWindow,
+  adminApi,
+  FILTER_SCAN,
+  type Customer,
+} from "@/lib/admin";
 import { InviteCustomer } from "./invite-customer";
 import { parseFilters } from "@/lib/table-filter";
 
@@ -14,30 +24,39 @@ export default async function CustomersPage({
 }: {
   searchParams: Promise<{
     page?: string;
+    size?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
   }>;
 }) {
-  const { page: raw, sort, dir, f } = await searchParams;
-  const page = Math.max(1, Number(raw) || 1);
+  const { page: raw, size: rawSize, sort, dir, f } = await searchParams;
+  const page = parsePage(raw);
+  const size = parsePageSize(rawSize);
 
   const filters = parseFilters(f);
   // Filtering happens in the table, so it needs more than one page to filter.
-  const scan = listWindow(page, filters.length > 0);
-  const { rows, total } = await adminApi.customers(scan.page, scan.limit);
+  const scan = listWindow(page, filters.length > 0, size);
+  // The company checklist names EVERY company, not only the ones held by the
+  // customers on this page — a filter that can only offer what is already on
+  // screen is a filter for a list you have already read. One request, in
+  // parallel with the rows.
+  const [{ rows, total }, companies] = await Promise.all([
+    adminApi.customers(scan.page, scan.limit),
+    adminApi.companies(1, FILTER_SCAN),
+  ]);
 
   return (
     <DataTable<Customer>
       title="Customers"
       page={page}
+      size={size}
       sort={sort}
       dir={dir}
       filters={filters}
       total={total}
       action={<InviteCustomer />}
       rows={rows}
-      basePath="/admin/customers"
       rowHref={(row) => `/admin/customers/${encodeURIComponent(row.email)}`}
       empty="No customers yet. Invite one to get started."
       columns={[
@@ -65,6 +84,9 @@ export default async function CustomersPage({
           // companies, and they are separate records rather than one name.
           header: "Companies",
           sortValue: (row) => row.companies.join(", "),
+          filter: "list",
+          filterValues: (row) => row.companies,
+          filterOptions: companies.rows.map((company) => company.name),
           cell: (row) => <ChipsCell items={row.companies} />,
         },
       ]}

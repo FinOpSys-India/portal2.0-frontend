@@ -12,8 +12,14 @@
  * do, the parsed filters below are what gets forwarded instead.
  */
 
-/** How a column's values compare. Decides which operators the bar offers. */
-export type FilterType = "text" | "enum" | "date" | "number";
+/**
+ * How a column's values compare. Decides which operators the bar offers.
+ *
+ * `list` is `enum` for a cell that holds SEVERAL values — the companies a
+ * customer belongs to, the services a company bought. It matches on any one of
+ * them, where `enum` compares the cell as a whole.
+ */
+export type FilterType = "text" | "enum" | "date" | "number" | "list";
 
 export type Operator =
   | "contains"
@@ -58,6 +64,10 @@ export const OPERATORS: Record<FilterType, OperatorSpec[]> = {
     { op: "empty", label: "is empty", inputs: 0 },
   ],
   enum: [
+    { op: "in", label: "is any of", inputs: 1 },
+    { op: "notin", label: "is none of", inputs: 1 },
+  ],
+  list: [
     { op: "in", label: "is any of", inputs: 1 },
     { op: "notin", label: "is none of", inputs: 1 },
   ],
@@ -213,32 +223,69 @@ export function toDateValue(date: Date | undefined): string {
 }
 
 /**
+ * Checklist options under their initial letter, or one unlabelled group.
+ *
+ * Options arrive sorted, so this only cuts them where the initial changes.
+ * Anything not starting with a letter — a company written "3M", a quoted name —
+ * collects under `#`, which is where the sort puts it anyway.
+ */
+export function byInitial(
+  options: string[],
+  grouped: boolean,
+): [string, string[]][] {
+  if (!grouped) return [["", options]];
+
+  const groups = new Map<string, string[]>();
+
+  for (const option of options) {
+    // NFD first, so an accented initial files under its own letter rather than
+    // under `#` — Ålesund Air is an A to everyone reading the list.
+    const initial = option.trim().charAt(0).toUpperCase().normalize("NFD")[0];
+    const key = /[A-Z]/.test(initial ?? "") ? initial : "#";
+    groups.set(key, [...(groups.get(key) ?? []), option]);
+  }
+
+  return [...groups];
+}
+
+/**
  * Does one row's value for this column pass this filter?
  *
  * `value` is whatever the column sorts on: text for names, a timestamp for
  * dates, a number for counts. That is why a date column has to declare
  * `filter: "date"` — as text, its timestamp would compare like a phone number.
+ *
+ * An ARRAY is a cell holding several values, and passes when any one of them
+ * does: a customer on three companies is matched by a filter naming any of the
+ * three. A single value is the one-item case of the same rule, so both go down
+ * the same branches rather than through a parallel set.
  */
 export function matchesFilter(
-  value: string | number,
+  value: string | number | string[],
   filter: Filter,
   type: FilterType,
 ): boolean {
   const [first = "", second = ""] = filter.values;
+  const items = Array.isArray(value) ? value : [value];
+  const some = (test: (item: string | number) => boolean) => items.some(test);
+  const named = (item: string | number) =>
+    filter.values.some((v) => fold(item) === fold(v));
 
   switch (filter.op) {
+    // `every`, so an empty array — a customer on no company at all — reads as
+    // empty rather than as a row with nothing to say.
     case "empty":
-      return String(value).trim() === "";
+      return items.every((item) => String(item).trim() === "");
     case "contains":
-      return fold(value).includes(fold(first));
+      return some((item) => fold(item).includes(fold(first)));
     case "is":
-      return fold(value) === fold(first);
+      return some((item) => fold(item) === fold(first));
     case "isnot":
-      return fold(value) !== fold(first);
+      return !some((item) => fold(item) === fold(first));
     case "in":
-      return filter.values.some((v) => fold(value) === fold(v));
+      return some(named);
     case "notin":
-      return !filter.values.some((v) => fold(value) === fold(v));
+      return !some(named);
     default:
       return matchesRange(Number(value), filter, type, first, second);
   }

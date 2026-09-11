@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 
-import { DataTable } from "@/components/admin/data-table";
+import {
+  DataTable,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { ExportProjectsCsv } from "@/components/portal/export-csv";
 import { ProgressBar } from "@/components/portal/progress-bar";
@@ -21,13 +25,24 @@ export default async function ManagerProjectsPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    page?: string;
+    size?: string;
     company?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
   }>;
 }) {
-  const { company: picked, sort, dir, f } = await searchParams;
+  const {
+    company: picked,
+    page: rawPage,
+    size: rawSize,
+    sort,
+    dir,
+    f,
+  } = await searchParams;
+  const page = parsePage(rawPage);
+  const size = parsePageSize(rawSize);
   const company = await companyScope(picked);
   const [projects, companies] = await Promise.all([
     managerApi.projects(company),
@@ -46,7 +61,8 @@ export default async function ManagerProjectsPage({
       // table below has never been all of anything — it is this company's.
       title="Projects"
       scope={await scopeName(company)}
-      page={1}
+      page={page}
+      size={size}
       sort={sort}
       dir={dir}
       filters={parseFilters(f)}
@@ -64,7 +80,6 @@ export default async function ManagerProjectsPage({
         </>
       }
       rows={projects}
-      basePath="/manager/projects"
       rowHref={(row) => `/manager/projects/${row.id}`}
       empty="No projects for this company."
       columns={[

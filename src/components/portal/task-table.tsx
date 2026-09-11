@@ -35,6 +35,7 @@ export function TaskTable({
   tasks,
   from,
   page = 1,
+  size,
   sort,
   dir,
   filters,
@@ -46,6 +47,7 @@ export function TaskTable({
   tasks: SpecialistTask[];
   from: "manager" | "specialist";
   page?: number;
+  size?: number;
   sort?: string;
   dir?: string;
   filters?: Filter[];
@@ -66,6 +68,7 @@ export function TaskTable({
     <>
       <DataTable<SpecialistTask>
         page={page}
+        size={size}
         sort={sort}
         dir={dir}
         filters={filters}
@@ -74,7 +77,6 @@ export function TaskTable({
         scope={scope}
         total={tasks.length}
         rows={tasks}
-        basePath={`/${from}/tasks`}
         empty={empty}
         // No `rowHref`: the detail is a dialog, so the row must not navigate.
         columns={[

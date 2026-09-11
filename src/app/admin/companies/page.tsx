@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 
-import { DataTable, ListCell } from "@/components/admin/data-table";
+import {
+  DataTable,
+  ListCell,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { listWindow, adminApi, type Company } from "@/lib/admin";
 import { AssignManager } from "./assign-manager";
@@ -13,17 +18,19 @@ export default async function CompaniesPage({
 }: {
   searchParams: Promise<{
     page?: string;
+    size?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
   }>;
 }) {
-  const { page: raw, sort, dir, f } = await searchParams;
-  const page = Math.max(1, Number(raw) || 1);
+  const { page: raw, size: rawSize, sort, dir, f } = await searchParams;
+  const page = parsePage(raw);
+  const size = parsePageSize(rawSize);
 
   const filters = parseFilters(f);
   // Filtering happens in the table, so it needs more than one page to filter.
-  const scan = listWindow(page, filters.length > 0);
+  const scan = listWindow(page, filters.length > 0, size);
   // The assignable managers come back with the rows — same request, so the
   // dropdown cannot list someone the table does not know about.
   const { rows, total, managers } = await adminApi.companies(
@@ -36,18 +43,23 @@ export default async function CompaniesPage({
     <DataTable<Company>
       title="Companies"
       page={page}
+      size={size}
       sort={sort}
       dir={dir}
       filters={filters}
       total={total}
       rows={rows}
-      basePath="/admin/companies"
       rowHref={(row) => `/admin/companies/${encodeURIComponent(row.id)}`}
       empty="No companies yet."
       columns={[
         // Columns match 1.0's, including listing team members by name.
         {
           header: "Company Name",
+          // A checklist, like every other place a list is narrowed by company:
+          // picking three companies is one filter, where Contains can only ask
+          // about one spelling at a time.
+          filter: "enum",
+          sortValue: (row) => row.name,
           cell: (row) => <span className="font-medium">{row.name}</span>,
         },
         {
@@ -58,6 +70,8 @@ export default async function CompaniesPage({
         {
           header: "Active Services",
           sortValue: (row) => row.activeServices.join(", "),
+          filter: "list",
+          filterValues: (row) => row.activeServices,
           cell: (row) => <ListCell items={row.activeServices} />,
         },
         {

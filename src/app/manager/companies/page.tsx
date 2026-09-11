@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 
-import { DataTable, ListCell } from "@/components/admin/data-table";
+import {
+  DataTable,
+  ListCell,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { AssignCompanySpecialist } from "@/components/manager/assign-company-specialist";
 import {
@@ -26,13 +31,24 @@ export default async function ManagerCompaniesPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    page?: string;
+    size?: string;
     company?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
   }>;
 }) {
-  const { company: picked, sort, dir, f } = await searchParams;
+  const {
+    company: picked,
+    page: rawPage,
+    size: rawSize,
+    sort,
+    dir,
+    f,
+  } = await searchParams;
+  const page = parsePage(rawPage);
+  const size = parsePageSize(rawSize);
   const company = await companyScope(picked);
   // No specialist roster here any more: the staffing dialog asks the server for
   // its own options when it opens, which spared this page a directory sweep per
@@ -45,18 +61,23 @@ export default async function ManagerCompaniesPage({
     <DataTable<ClientCompany>
       title="Companies"
       scope={await scopeName(company)}
-      page={1}
+      page={page}
+      size={size}
       sort={sort}
       dir={dir}
       filters={parseFilters(f)}
       total={companies.length}
       rows={companies}
-      basePath="/manager/companies"
       rowHref={(row) => `/manager/companies/${encodeURIComponent(row.id)}`}
       empty="No companies assigned to you yet."
       columns={[
         {
           header: "Company Name",
+          // A checklist, like every other place a list is narrowed by company:
+          // picking three companies is one filter, where Contains can only ask
+          // about one spelling at a time.
+          filter: "enum",
+          sortValue: (row) => row.name,
           cell: (row) => <span className="font-medium">{row.name}</span>,
         },
         {
@@ -67,6 +88,8 @@ export default async function ManagerCompaniesPage({
         {
           header: "Active Services",
           sortValue: (row) => row.activeServices.join(", "),
+          filter: "list",
+          filterValues: (row) => row.activeServices,
           cell: (row) => <ListCell items={row.activeServices} />,
         },
         {

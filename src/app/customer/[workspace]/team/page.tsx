@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 
-import { DataTable } from "@/components/admin/data-table";
+import {
+  DataTable,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { customerApi, type TeamMember } from "@/lib/customer";
 import { InviteTeammate } from "./invite-teammate";
@@ -15,29 +19,29 @@ export default async function TeamPage({
   params: Promise<{ workspace: string }>;
   searchParams: Promise<{
     page?: string;
+    size?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
   }>;
 }) {
-  const [{ workspace }, { page: raw, sort, dir, f }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
-  const page = Math.max(1, Number(raw) || 1);
+  const [{ workspace }, { page: raw, size: rawSize, sort, dir, f }] =
+    await Promise.all([params, searchParams]);
+  const page = parsePage(raw);
+  const size = parsePageSize(rawSize);
   const team = await customerApi.team(workspace);
 
   return (
     <DataTable<TeamMember>
       title="Team"
       page={page}
+      size={size}
       sort={sort}
       dir={dir}
       filters={parseFilters(f)}
       total={team.length}
       action={<InviteTeammate workspaceId={workspace} />}
       rows={team}
-      basePath={`/customer/${workspace}/team`}
       empty="No teammates yet. Invite someone to share access."
       columns={[
         {

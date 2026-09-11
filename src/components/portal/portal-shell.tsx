@@ -133,7 +133,9 @@ export function PortalShell({
             {/* Mobile sidebar is a sheet, so its own trigger is unreachable
                 once it closes. Desktop keeps the trigger in the menu. */}
             <SidebarTrigger className="-ml-1 md:hidden" />
-            {back ? <BackLink href={back.href}>{back.label}</BackLink> : null}
+            {back ? (
+              <BackLink href={back.href} label={back.label} />
+            ) : null}
             <div className="ml-auto flex items-center gap-3">{headerRight}</div>
           </header>
 
@@ -188,21 +190,21 @@ function LogoutButton() {
   );
 }
 
-/** Pill link back to a section, rendered in the top bar. */
-function BackLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
+/**
+ * Pill link back to a section, rendered in the top bar.
+ *
+ * Reads "Back" — the section name lives in the sidebar, lit, right next to it.
+ * The destination stays in `aria-label` so it is not lost to screen readers.
+ */
+function BackLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
+      aria-label={`Back to ${label}`}
       className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border pr-3.5 pl-2.5 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:border-primary/25 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
     >
       <ChevronLeft className="size-4" aria-hidden />
-      {children}
+      Back
     </Link>
   );
 }

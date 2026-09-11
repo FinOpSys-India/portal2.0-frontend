@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 
-import { DataTable } from "@/components/admin/data-table";
+import {
+  DataTable,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import {
   fileColumns,
   ScopeBreadcrumb,
@@ -32,14 +36,16 @@ export default async function FilesPage({
   searchParams: Promise<{
     project?: string;
     page?: string;
+    size?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
   }>;
 }) {
-  const [{ workspace }, { project, page: raw, sort, dir, f }] =
+  const [{ workspace }, { project, page: raw, size: rawSize, sort, dir, f }] =
     await Promise.all([params, searchParams]);
-  const page = Math.max(1, Number(raw) || 1);
+  const page = parsePage(raw);
+  const size = parsePageSize(rawSize);
 
   const [files, projects, workspaces, viewer] = await Promise.all([
     customerApi.files(workspace, project),
@@ -61,12 +67,12 @@ export default async function FilesPage({
 
       <DataTable<FileRow>
         page={page}
+        size={size}
         sort={sort}
         dir={dir}
         filters={parseFilters(f)}
         total={files.length}
         rows={withService(files, projects)}
-        basePath={`/customer/${workspace}/files`}
         header={
           <h1 className="text-lg font-bold tracking-tight">All Documents</h1>
         }

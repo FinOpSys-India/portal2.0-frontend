@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { DataTable } from "@/components/admin/data-table";
+import {
+  DataTable,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { FilePreview } from "@/components/portal/file-preview";
@@ -26,16 +30,16 @@ export default async function CustomerProjectPage({
   params: Promise<{ workspace: string; id: string }>;
   searchParams: Promise<{
     page?: string;
+    size?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
   }>;
 }) {
-  const [{ workspace, id }, { page: raw, sort, dir, f }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
-  const page = Math.max(1, Number(raw) || 1);
+  const [{ workspace, id }, { page: raw, size: rawSize, sort, dir, f }] =
+    await Promise.all([params, searchParams]);
+  const page = parsePage(raw);
+  const size = parsePageSize(rawSize);
   const project = await customerApi.project(workspace, id);
 
   if (!project) notFound();
@@ -72,12 +76,12 @@ export default async function CustomerProjectPage({
           <h2 className="mb-3 text-sm font-semibold">Attached Files</h2>
           <DataTable<CustomerFile>
             page={page}
+            size={size}
             sort={sort}
             dir={dir}
             filters={parseFilters(f)}
             total={files.length}
             rows={files}
-            basePath={`/customer/${workspace}/projects/${id}`}
             empty="No files attached to this project yet."
             columns={[
               {

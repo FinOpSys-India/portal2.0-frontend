@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { AddTask } from "@/components/portal/add-task";
+import { parsePage, parsePageSize } from "@/components/admin/data-table";
 import { TaskTable } from "@/components/portal/task-table";
 import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
 import { parseFilters } from "@/lib/table-filter";
@@ -27,6 +28,7 @@ export default async function SpecialistTasksPage({
   searchParams: Promise<{
     company?: string;
     page?: string;
+    size?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
@@ -45,7 +47,8 @@ export default async function SpecialistTasksPage({
       scope={await scopeName(company)}
       tasks={tasks}
       from="specialist"
-      page={Number(params.page) || 1}
+      page={parsePage(params.page)}
+      size={parsePageSize(params.size)}
       sort={params.sort}
       dir={params.dir}
       filters={parseFilters(params.f)}

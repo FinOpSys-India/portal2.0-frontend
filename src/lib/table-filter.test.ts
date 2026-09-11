@@ -8,6 +8,7 @@
 import assert from "node:assert/strict";
 
 import {
+  byInitial,
   matchesFilter,
   parseFilters,
   rangeFilter,
@@ -187,6 +188,66 @@ async function main() {
     const filter = rangeFilter("Progress", from, to, "number");
     assert.deepEqual(rangeValues(filter ?? undefined), [from, to]);
   }
+
+  /* ----------------------------------------------- multi-value cells ---- */
+
+  // A cell holding several values — the companies a customer is on — passes on
+  // ANY of them. Selecting one company must not require it to be the only one.
+  const companies = ["Acme Air", "SkyBridge Aviation", "Zephyr Freight"];
+  const on = (op: "in" | "notin", values: string[]) =>
+    matchesFilter(companies, { field: "Companies", op, values }, "list");
+
+  assert.equal(on("in", ["SkyBridge Aviation"]), true);
+  assert.equal(on("in", ["Nothing Ltd"]), false);
+  // Several selected is an OR within the one filter, which is what "is any of"
+  // says on the chip.
+  assert.equal(on("in", ["Nothing Ltd", "Acme Air"]), true);
+  assert.equal(on("notin", ["Acme Air"]), false);
+  assert.equal(on("notin", ["Nothing Ltd"]), true);
+
+  // A customer on no company at all is the empty case, not a row with a blank
+  // name in it.
+  assert.equal(
+    matchesFilter([], { field: "Companies", op: "empty", values: [] }, "list"),
+    true,
+  );
+  assert.equal(
+    matchesFilter(
+      companies,
+      { field: "Companies", op: "empty", values: [] },
+      "list",
+    ),
+    false,
+  );
+
+  // Single values are the one-item case of the same rule — unchanged.
+  assert.equal(
+    matchesFilter("Active", { field: "Status", op: "in", values: ["Active"] }, "enum"),
+    true,
+  );
+  assert.equal(
+    matchesFilter("Active", { field: "Status", op: "in", values: ["On Hold"] }, "enum"),
+    false,
+  );
+
+  /* ------------------------------------------------ checklist letters ---- */
+
+  // Long lists are read by initial. Accented and non-letter initials still
+  // land somewhere sensible rather than each opening a group of their own.
+  assert.deepEqual(
+    byInitial(["3M Freight", "Acme Air", "Ålesund Air", "Boreal Ltd"], true),
+    [
+      ["#", ["3M Freight"]],
+      ["A", ["Acme Air", "Ålesund Air"]],
+      ["B", ["Boreal Ltd"]],
+    ],
+  );
+
+  // A short list is one group with no heading — a four-value status column is
+  // read whole.
+  assert.deepEqual(byInitial(["Active", "On Hold"], false), [
+    ["", ["Active", "On Hold"]],
+  ]);
 
   /* ------------------------------------------------- calendar values ---- */
 

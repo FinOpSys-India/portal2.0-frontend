@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 
-import { DataTable } from "@/components/admin/data-table";
+import {
+  DataTable,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import {
   companyScope,
@@ -25,13 +29,24 @@ export default async function ManagerSpecialistsPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    page?: string;
+    size?: string;
     company?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
   }>;
 }) {
-  const { company: picked, sort, dir, f } = await searchParams;
+  const {
+    company: picked,
+    page: rawPage,
+    size: rawSize,
+    sort,
+    dir,
+    f,
+  } = await searchParams;
+  const page = parsePage(rawPage);
+  const size = parsePageSize(rawSize);
   const company = await companyScope(picked);
   const specialists = await managerApi.specialists(company);
 
@@ -39,16 +54,14 @@ export default async function ManagerSpecialistsPage({
     <DataTable<Specialist>
       title="Specialists"
       scope={await scopeName(company)}
-      page={1}
+      page={page}
+      size={size}
       sort={sort}
       dir={dir}
       filters={parseFilters(f)}
       total={specialists.length}
       rows={specialists}
-      basePath={`/manager/specialists${company ? `?company=${encodeURIComponent(company)}` : ""}`}
-      rowHref={(row) =>
-        `/manager/specialists/${encodeURIComponent(row.email)}`
-      }
+      rowHref={(row) => `/manager/specialists/${encodeURIComponent(row.email)}`}
       empty={
         company
           ? "Nobody is working a project for this company yet."

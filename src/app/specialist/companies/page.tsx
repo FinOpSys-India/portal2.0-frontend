@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 
-import { DataTable, ListCell } from "@/components/admin/data-table";
+import {
+  DataTable,
+  ListCell,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { type ClientCompany, scoped } from "@/lib/manager";
 import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
@@ -18,13 +23,24 @@ export default async function SpecialistCompaniesPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    page?: string;
+    size?: string;
     company?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
   }>;
 }) {
-  const { company: picked, sort, dir, f } = await searchParams;
+  const {
+    company: picked,
+    page: rawPage,
+    size: rawSize,
+    sort,
+    dir,
+    f,
+  } = await searchParams;
+  const page = parsePage(rawPage);
+  const size = parsePageSize(rawSize);
   const company = await companyScope(picked);
   const [all, manager] = await Promise.all([
     specialistApi.companies(),
@@ -37,13 +53,13 @@ export default async function SpecialistCompaniesPage({
     <DataTable<ClientCompany>
       title="Companies"
       scope={await scopeName(company)}
-      page={1}
+      page={page}
+      size={size}
       sort={sort}
       dir={dir}
       filters={parseFilters(f)}
       total={companies.length}
       rows={companies}
-      basePath="/specialist/companies"
       rowHref={(row) =>
         scoped(`/specialist/companies/${encodeURIComponent(row.id)}`, company)
       }
@@ -51,6 +67,11 @@ export default async function SpecialistCompaniesPage({
       columns={[
         {
           header: "Company",
+          // A checklist, like every other place a list is narrowed by company:
+          // picking three companies is one filter, where Contains can only ask
+          // about one spelling at a time.
+          filter: "enum",
+          sortValue: (row) => row.name,
           cell: (row) => <span className="font-medium">{row.name}</span>,
         },
         {
@@ -72,6 +93,8 @@ export default async function SpecialistCompaniesPage({
         {
           header: "Active Services",
           sortValue: (row) => row.activeServices.join(", "),
+          filter: "list",
+          filterValues: (row) => row.activeServices,
           cell: (row) => <ListCell items={row.activeServices} />,
         },
         {

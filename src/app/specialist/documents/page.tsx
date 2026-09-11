@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 
-import { DataTable } from "@/components/admin/data-table";
+import {
+  DataTable,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import {
   documentColumns,
   ScopeBreadcrumb,
@@ -28,6 +32,8 @@ export default async function SpecialistDocumentsPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    page?: string;
+    size?: string;
     company?: string;
     project?: string;
     sort?: string;
@@ -35,7 +41,17 @@ export default async function SpecialistDocumentsPage({
     f?: string | string[];
   }>;
 }) {
-  const { company: picked, project, sort, dir, f } = await searchParams;
+  const {
+    company: picked,
+    page: rawPage,
+    size: rawSize,
+    project,
+    sort,
+    dir,
+    f,
+  } = await searchParams;
+  const page = parsePage(rawPage);
+  const size = parsePageSize(rawSize);
   const company = await companyScope(picked);
 
   const [documents, projects, companies, viewer] = await Promise.all([
@@ -63,13 +79,13 @@ export default async function SpecialistDocumentsPage({
       </div>
 
       <DataTable<DocumentRow>
-        page={1}
+        page={page}
+        size={size}
         sort={sort}
         dir={dir}
         filters={parseFilters(f)}
         total={documents.length}
         rows={withService(documents, allProjects)}
-        basePath="/specialist/documents"
         header={
           <h1 className="text-lg font-bold tracking-tight">All Documents</h1>
         }

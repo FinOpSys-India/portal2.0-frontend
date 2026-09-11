@@ -23,6 +23,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  byInitial,
   fromDateValue,
   operatorLabel,
   rangeFilter,
@@ -46,6 +47,7 @@ export type FilterField = {
 const ICONS: Record<FilterType, LucideIcon> = {
   text: Type,
   enum: ListChecks,
+  list: ListChecks,
   date: CalendarDays,
   number: Hash,
 };
@@ -311,7 +313,7 @@ function Pane({
   filter: Filter | undefined;
   onChange: (filter: Filter | null) => void;
 }) {
-  if (field.type === "enum") {
+  if (field.type === "enum" || field.type === "list") {
     return (
       <EnumPane
         field={field.header}
@@ -414,7 +416,9 @@ function EnumPane({
 
   // Company and project columns filter as enums too, and those lists run to
   // whatever the page loaded. Offered only when the list is long enough to
-  // need it, so a four-value status column stays one glance.
+  // need it, so a four-value status column stays one glance — and the same
+  // length is what earns the A/B/C headings below: a list of companies is read
+  // by initial, a list of four statuses is read whole.
   const searchable = options.length > 8;
   const shown = query
     ? options.filter((o) => o.toLowerCase().includes(query.toLowerCase()))
@@ -453,18 +457,32 @@ function EnumPane({
       ) : shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">No values match.</p>
       ) : (
-        <ul className="-mx-2 max-h-56 space-y-1 overflow-y-auto px-2">
-          {shown.map((option) => (
-            <li key={option}>
-              <label className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm hover:bg-muted">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(option)}
-                  onChange={() => toggle(option)}
-                  className="size-3.5 shrink-0 accent-primary"
-                />
-                <span className="min-w-0 truncate">{option}</span>
-              </label>
+        <ul className="-mx-2 max-h-64 space-y-1 overflow-y-auto px-2">
+          {byInitial(shown, searchable).map(([letter, group]) => (
+            <li key={letter}>
+              {letter ? (
+                // Sticky, so the letter being read stays named while its own
+                // run of companies scrolls past it.
+                <p className="sticky top-0 z-10 bg-popover px-2 pt-2 pb-1 text-[11px] font-semibold text-muted-foreground">
+                  {letter}
+                </p>
+              ) : null}
+
+              <ul className="space-y-1">
+                {group.map((option) => (
+                  <li key={option}>
+                    <label className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm hover:bg-muted">
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(option)}
+                        onChange={() => toggle(option)}
+                        className="size-3.5 shrink-0 accent-primary"
+                      />
+                      <span className="min-w-0 truncate">{option}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
             </li>
           ))}
         </ul>

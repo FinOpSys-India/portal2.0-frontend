@@ -119,6 +119,27 @@ export const SPECIALIST_ROLES = [
 export const PAGE_SIZE = 10;
 
 /**
+ * The counts the rows-per-page box offers.
+ *
+ * A list, not a limit — any number can be typed into the box. The top of it is
+ * the cap, because 100 is what `GET /customers` and friends will serve (see
+ * `FILTER_SCAN`) and the client-side lists are capped there too rather than
+ * rendering four hundred rows into one page.
+ */
+export const PAGE_SIZES = [10, 25, 50, 100];
+
+/** `?size=`, clamped to a count the lists can actually serve. */
+export function parsePageSize(raw?: string | number): number {
+  const size = Math.floor(Number(raw));
+  return size > 0 ? Math.min(size, Math.max(...PAGE_SIZES)) : PAGE_SIZE;
+}
+
+/** `?page=`, which is 1 for anything that is not a page number. */
+export function parsePage(raw?: string | number): number {
+  return Math.max(1, Math.floor(Number(raw)) || 1);
+}
+
+/**
  * How many rows a filtered list asks for.
  *
  * These four lists are paged by the BACKEND, and the filters run in the table
@@ -133,8 +154,8 @@ export const PAGE_SIZE = 10;
 export const FILTER_SCAN = 100;
 
 /** What to request: one page normally, as much as allowed when filtering. */
-export function listWindow(page: number, filtered: boolean) {
-  return filtered ? { page: 1, limit: FILTER_SCAN } : { page, limit: PAGE_SIZE };
+export function listWindow(page: number, filtered: boolean, size = PAGE_SIZE) {
+  return filtered ? { page: 1, limit: FILTER_SCAN } : { page, limit: size };
 }
 
 export interface InviteInput {
@@ -333,7 +354,10 @@ export const adminApi = {
       customers: CustomerRow[];
       pagination: { total: number };
     }>(`/customers?${pageQuery(page, limit)}`);
-    return { rows: data.customers.map(toCustomer), total: data.pagination.total };
+    return {
+      rows: data.customers.map(toCustomer),
+      total: data.pagination.total,
+    };
   },
 
   /**
@@ -366,17 +390,26 @@ export const adminApi = {
     };
   },
 
-  async specialists(page: number, limit = PAGE_SIZE): Promise<Page<Specialist>> {
+  async specialists(
+    page: number,
+    limit = PAGE_SIZE,
+  ): Promise<Page<Specialist>> {
     const data = await get<{
       specialists: SpecialistRow[];
       pagination: { total: number };
     }>(`/specialists?${pageQuery(page, limit)}`);
     // `pagination.total`, not the page length — that counted the rows on screen,
     // so the pager always computed exactly one page.
-    return { rows: data.specialists.map(toSpecialist), total: data.pagination.total };
+    return {
+      rows: data.specialists.map(toSpecialist),
+      total: data.pagination.total,
+    };
   },
 
-  async accountingManagers(page: number, limit = PAGE_SIZE): Promise<Page<AccountingManager>> {
+  async accountingManagers(
+    page: number,
+    limit = PAGE_SIZE,
+  ): Promise<Page<AccountingManager>> {
     const data = await get<{
       accountingManagers: ManagerRow[];
       pagination: { total: number };
@@ -468,9 +501,12 @@ export const adminApi = {
    * two more requests, off a fixture that held neither.
    */
   async assignManager(companyId: string, managerUserId: number): Promise<void> {
-    await put(`/companies/${encodeURIComponent(companyId)}/accounting-manager`, {
-      accountingManagerUserId: managerUserId,
-    });
+    await put(
+      `/companies/${encodeURIComponent(companyId)}/accounting-manager`,
+      {
+        accountingManagerUserId: managerUserId,
+      },
+    );
   },
 
   /**

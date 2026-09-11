@@ -17,7 +17,12 @@ import {
   type SortableColumn,
 } from "./data-table";
 import { parseFilters } from "../../lib/table-filter";
-import { PAGE_SIZE } from "../../lib/admin";
+import {
+  PAGE_SIZE,
+  PAGE_SIZES,
+  parsePage,
+  parsePageSize,
+} from "../../lib/admin";
 
 const rows = (n: number) => Array.from({ length: n }, (_, i) => i);
 
@@ -66,6 +71,41 @@ async function main() {
   assert.equal(pageWindow(rows(25), 25, NaN).current, 1);
   // Clamped to the last page, so it still renders rows rather than nothing.
   assert.equal(pageWindow(rows(25), 25, 99).shown.length, 5);
+
+  /* ---------------------------------------------------- rows per page ---- */
+
+  // The size box writes ?size=, and both paging models have to honour it: the
+  // window, the page count and the "Showing x–y" line all move with it.
+  const wide = pageWindow(rows(25), 25, 1, 25);
+  assert.equal(wide.shown.length, 25);
+  assert.equal(wide.pages, 1);
+  assert.equal(wide.last, 25);
+
+  const bySeven = pageWindow(rows(25), 25, 3, 7);
+  assert.deepEqual(bySeven.shown, [14, 15, 16, 17, 18, 19, 20]);
+  assert.equal(bySeven.pages, 4);
+  assert.equal(bySeven.first, 15);
+
+  // A server page of 25 is still handed over whole — the size it was fetched
+  // with is the size it is shown at.
+  const serverWide = pageWindow(rows(25), 90, 2, 25);
+  assert.deepEqual(serverWide.shown, rows(25));
+  assert.equal(serverWide.first, 26);
+
+  // ?size= comes off the URL too. Anything that is not a count falls back to
+  // ten, and a typed number is capped at what the API will serve.
+  assert.equal(parsePageSize(undefined), PAGE_SIZE);
+  assert.equal(parsePageSize("abc"), PAGE_SIZE);
+  assert.equal(parsePageSize("0"), PAGE_SIZE);
+  assert.equal(parsePageSize("-5"), PAGE_SIZE);
+  assert.equal(parsePageSize("7"), 7);
+  assert.equal(parsePageSize("25.9"), 25);
+  assert.equal(parsePageSize("4000"), Math.max(...PAGE_SIZES));
+
+  assert.equal(parsePage(undefined), 1);
+  assert.equal(parsePage("0"), 1);
+  assert.equal(parsePage("-3"), 1);
+  assert.equal(parsePage("4"), 4);
 
   /* ------------------------------------------------------------- empty ---- */
 
@@ -172,6 +212,62 @@ async function main() {
 
   // Rows are not reordered or mutated on the way through.
   assert.equal(projects[0].name, "Payroll Q3");
+
+  /* --------------------------------------------------- multi-value cols -- */
+
+  type Person = { name: string; companies: string[] };
+  const people: Person[] = [
+    { name: "Ada", companies: ["Acme Air", "Zephyr Freight"] },
+    { name: "Bo", companies: ["SkyBridge Aviation"] },
+    { name: "Cy", companies: [] },
+  ];
+  const peopleColumns: Column<Person>[] = [
+    { header: "Name", cell: (r) => r.name },
+    {
+      header: "Companies",
+      // Sorts as the reader sees it, filters as separate values — the two are
+      // different questions about the same cell.
+      sortValue: (r) => r.companies.join(", "),
+      filter: "list",
+      filterValues: (r) => r.companies,
+      filterOptions: ["Acme Air", "Nothing Ltd", "SkyBridge Aviation", "Zephyr Freight"],
+      cell: (r) => r.companies.join(", "),
+    },
+  ];
+  const whoIsOn = (query: string) =>
+    filterRows(people, peopleColumns, parseFilters(query)).map((p) => p.name);
+
+  // One of several companies is enough — Ada is on two.
+  assert.deepEqual(whoIsOn("Companies:in:Zephyr%20Freight"), ["Ada"]);
+  assert.deepEqual(
+    whoIsOn("Companies:in:Acme%20Air|SkyBridge%20Aviation"),
+    ["Ada", "Bo"],
+  );
+  assert.deepEqual(whoIsOn("Companies:notin:Acme%20Air"), ["Bo", "Cy"]);
+
+  // The checklist offers every company the page knows about, not only the ones
+  // the loaded rows happen to hold — "Nothing Ltd" is on nobody and still
+  // listed, sorted with the rest.
+  const peopleFields = filterFields(peopleColumns, people);
+  assert.equal(peopleFields[1].type, "list");
+  assert.deepEqual(peopleFields[1].options, [
+    "Acme Air",
+    "Nothing Ltd",
+    "SkyBridge Aviation",
+    "Zephyr Freight",
+  ]);
+
+  // Without that list, the options are what the rows hold — each value on its
+  // own, never the joined line the cell renders.
+  const derived = filterFields(
+    [{ ...peopleColumns[1], filterOptions: undefined }],
+    people,
+  );
+  assert.deepEqual(derived[0].options, [
+    "Acme Air",
+    "SkyBridge Aviation",
+    "Zephyr Freight",
+  ]);
 
   /* ------------------------------------------------------- filter fields -- */
 

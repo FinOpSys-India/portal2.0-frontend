@@ -6,6 +6,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { PageLink, PageSizeBox } from "@/components/admin/pager";
 import { SortLink } from "@/components/admin/sort-link";
 import {
   FilterButton,
@@ -29,6 +30,10 @@ import {
   type FilterType,
 } from "@/lib/table-filter";
 import { cn } from "@/lib/utils";
+
+// Re-exported so a list page reads `?page=` and `?size=` off the same import
+// it already takes the table from.
+export { parsePage, parsePageSize } from "@/lib/admin";
 
 export type SortableColumn<T> = {
   header: string;
@@ -58,9 +63,27 @@ export type Column<T> = {
    *
    * Dates and numbers MUST say so: they sort on a timestamp or a count, and as
    * text a deadline compares like a long number. `enum` offers the values the
-   * loaded rows actually hold, as a checklist.
+   * loaded rows actually hold, as a checklist, and `list` does the same for a
+   * cell holding several of them.
    */
   filter?: FilterType;
+  /**
+   * The values a `list` column holds for one row — the companies a customer
+   * belongs to, not the comma-joined line the cell renders.
+   *
+   * `sortValue` cannot serve here: it joins them into one string so the column
+   * sorts as the reader sees it, and "Acme, Beta" is not something anyone picks
+   * off a checklist.
+   */
+  filterValues?: (row: T) => string[];
+  /**
+   * The checklist's options, when the page knows more than the rows do.
+   *
+   * Without it the options are whatever the loaded rows hold, which on a
+   * backend-paged list is one page of them — so the Companies checklist would
+   * name the six companies on screen rather than every company there is.
+   */
+  filterOptions?: string[];
 };
 
 /**
@@ -128,7 +151,7 @@ export function sortRows<T>(
 /** What a column filters on, and how — or null when it does not filter. */
 function filterable<T>(column: Column<T>): {
   type: FilterType;
-  value: (row: T) => string | number;
+  value: (row: T) => string | number | string[];
 } | null {
   // Opting out of sorting opts out of filtering too: both need a value, and a
   // column of buttons or avatars has none.
@@ -136,7 +159,10 @@ function filterable<T>(column: Column<T>): {
   const cell = column.cell;
   return {
     type: column.filter ?? "text",
-    value: column.sortValue ?? ((row: T) => cellText(cell(row))),
+    value:
+      column.filterValues ??
+      column.sortValue ??
+      ((row: T) => cellText(cell(row))),
   };
 }
 
@@ -152,9 +178,22 @@ export function filterFields<T>(columns: Column<T>[], rows: T[]): FilterField[] 
     const spec = filterable(column);
     if (!spec) return [];
 
-    if (spec.type !== "enum") return [{ header: column.header, type: spec.type }];
+    if (spec.type !== "enum" && spec.type !== "list") {
+      return [{ header: column.header, type: spec.type }];
+    }
 
-    const options = [...new Set(rows.map((row) => String(spec.value(row)).trim()))]
+    // A `list` cell holds several values, and each is its own option — the
+    // three companies a customer is on are three things to filter by, not one
+    // line reading "A, B, C".
+    const held = rows.flatMap((row) => {
+      const value = spec.value(row);
+      return (Array.isArray(value) ? value : [value]).map((v) =>
+        String(v).trim(),
+      );
+    });
+
+    const options = [...new Set(column.filterOptions ?? held)]
+      .map((option) => option.trim())
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b));
 
@@ -210,8 +249,13 @@ export function filterRows<T>(
  * Exported for the test: it is the one piece of arithmetic here that can be
  * wrong without looking wrong.
  */
-export function pageWindow<T>(rows: T[], total: number, page: number) {
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+export function pageWindow<T>(
+  rows: T[],
+  total: number,
+  page: number,
+  size = PAGE_SIZE,
+) {
+  const pages = Math.max(1, Math.ceil(total / size));
   // Clamped, so a hand-typed ?page=99 lands on the last page rather than on an
   // empty table that reads as "this list is broken".
   const current = Math.min(Math.max(1, Math.floor(page) || 1), pages);
@@ -219,11 +263,11 @@ export function pageWindow<T>(rows: T[], total: number, page: number) {
   return {
     pages,
     current,
-    first: total === 0 ? 0 : (current - 1) * PAGE_SIZE + 1,
-    last: Math.min(current * PAGE_SIZE, total),
+    first: total === 0 ? 0 : (current - 1) * size + 1,
+    last: Math.min(current * size, total),
     shown:
-      rows.length > PAGE_SIZE
-        ? rows.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
+      rows.length > size
+        ? rows.slice((current - 1) * size, current * size)
         : rows,
   };
 }
@@ -282,7 +326,7 @@ export function DataTable<T>({
   rows,
   total,
   page,
-  basePath,
+  size = PAGE_SIZE,
   rowHref,
   header,
   title,
@@ -297,14 +341,14 @@ export function DataTable<T>({
   rows: T[];
   total: number;
   page: number;
+  /** Rows per page, straight off `?size=`. Defaults to ten. */
+  size?: number;
   /** Column header to sort by, straight off `?sort=`. */
   sort?: string;
   /** `asc` unless this says `desc`. */
   dir?: string;
   /** Active filters, parsed from `?f=` by the page. */
   filters?: Filter[];
-  /** Path used to build page links, e.g. /admin/customers. */
-  basePath: string;
   /** Makes a row clickable. Omit for lists with no detail view. */
   rowHref?: (row: T) => string;
   /** Title rendered inside the card, at the left of the toolbar. */
@@ -335,6 +379,7 @@ export function DataTable<T>({
     sortRows(matching, columns, sort, dir),
     filters.length > 0 ? matching.length : total,
     page,
+    size,
   );
 
   // The four admin lists are paged by the backend, so they hold one page of a
@@ -348,8 +393,14 @@ export function DataTable<T>({
   const fields = filterFields(columns, rows);
   // Filter beside the page's own button, never wrapped around it: they are the
   // two things done to a list, and they read as a pair.
+  //
+  // The applied chips sit in that same row, left of the button that made them,
+  // rather than in a strip of their own above the rows: what is filtered and
+  // how to change it belong together, and the strip cost every narrowed list a
+  // band of chrome between its heading and its first row.
   const controls = (
     <div className="flex flex-wrap items-center gap-2">
+      <FilterChips fields={fields} filters={filters} />
       <FilterButton fields={fields} filters={filters} />
       {action}
     </div>
@@ -361,13 +412,13 @@ export function DataTable<T>({
     </p>
   ) : null;
 
-  // The chips stay against the rows they narrowed. Rendered only when there is
-  // something to say, so an unfiltered list is not topped by an empty strip.
+  // What is left of the strip: the card's own heading, and the note about rows
+  // the filters could not see. Rendered only when there is something to say, so
+  // an unfiltered list is not topped by an empty band.
   const applied =
-    filters.length > 0 || caption || (!title && (header || fields.length)) ? (
+    caption || (!title && (header || fields.length)) ? (
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-4">
         {header}
-        <FilterChips fields={fields} filters={filters} />
         {caption}
         {title ? null : <div className="ml-auto">{controls}</div>}
       </div>
@@ -440,68 +491,32 @@ export function DataTable<T>({
             Showing {first}–{last} of {total}
           </p>
 
-          <div className="flex items-center gap-2">
-            <PageLink
-              href={`${basePath}?page=${current - 1}`}
-              disabled={current <= 1}
-              label="Previous page"
-            >
-              <ChevronLeft className="size-4" aria-hidden />
-            </PageLink>
-            <span className="text-sm tabular-nums">
-              {current} / {pages}
-            </span>
-            <PageLink
-              href={`${basePath}?page=${current + 1}`}
-              disabled={current >= pages}
-              label="Next page"
-            >
-              <ChevronRight className="size-4" aria-hidden />
-            </PageLink>
+          <div className="flex items-center gap-4">
+            <PageSizeBox size={size} />
+
+            <div className="flex items-center gap-2">
+              <PageLink
+                page={current - 1}
+                disabled={current <= 1}
+                label="Previous page"
+              >
+                <ChevronLeft className="size-4" aria-hidden />
+              </PageLink>
+              <span className="text-sm tabular-nums">
+                {current} / {pages}
+              </span>
+              <PageLink
+                page={current + 1}
+                disabled={current >= pages}
+                label="Next page"
+              >
+                <ChevronRight className="size-4" aria-hidden />
+              </PageLink>
+            </div>
           </div>
         </div>
       ) : null}
     </div>
-  );
-}
-
-function PageLink({
-  href,
-  disabled,
-  label,
-  children,
-}: {
-  href: string;
-  disabled: boolean;
-  label: string;
-  children: React.ReactNode;
-}) {
-  const className =
-    "inline-flex size-9 items-center justify-center rounded-lg border border-border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30";
-
-  if (disabled) {
-    return (
-      <span
-        aria-disabled
-        aria-label={label}
-        className={cn(className, "pointer-events-none opacity-40")}
-      >
-        {children}
-      </span>
-    );
-  }
-
-  return (
-    <Link
-      href={href}
-      aria-label={label}
-      className={cn(
-        className,
-        "hover:border-primary/25 hover:bg-accent hover:text-accent-foreground",
-      )}
-    >
-      {children}
-    </Link>
   );
 }
 

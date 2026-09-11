@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 
-import { ChipsCell, DataTable } from "@/components/admin/data-table";
+import {
+  ChipsCell,
+  DataTable,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { RoleBadge } from "@/components/admin/role-badge";
 import {
@@ -23,27 +28,44 @@ export default async function ManagerCustomersPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    page?: string;
+    size?: string;
     company?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
   }>;
 }) {
-  const { company: picked, sort, dir, f } = await searchParams;
+  const {
+    company: picked,
+    page: rawPage,
+    size: rawSize,
+    sort,
+    dir,
+    f,
+  } = await searchParams;
+  const page = parsePage(rawPage);
+  const size = parsePageSize(rawSize);
   const company = await companyScope(picked);
-  const customers = await managerApi.customers(company);
+  // The checklist names every company this manager handles, not only the ones
+  // held by the customers on screen — same reason the admin list reads its
+  // company list separately.
+  const [customers, companies] = await Promise.all([
+    managerApi.customers(company),
+    managerApi.companies(),
+  ]);
 
   return (
     <DataTable<ManagerCustomer>
       title="Customers"
       scope={await scopeName(company)}
-      page={1}
+      page={page}
+      size={size}
       sort={sort}
       dir={dir}
       filters={parseFilters(f)}
       total={customers.length}
       rows={customers}
-      basePath="/manager/customers"
       rowHref={(row) => `/manager/customers/${encodeURIComponent(row.email)}`}
       empty="No customers on this company yet."
       columns={[
@@ -68,6 +90,9 @@ export default async function ManagerCustomersPage({
           // Multi-valued: 1.0 renders this as a comma list.
           header: "Company",
           sortValue: (row) => row.companies.join(", "),
+          filter: "list",
+          filterValues: (row) => row.companies,
+          filterOptions: companies.map((row) => row.name),
           cell: (row) => <ChipsCell items={row.companies} />,
         },
       ]}

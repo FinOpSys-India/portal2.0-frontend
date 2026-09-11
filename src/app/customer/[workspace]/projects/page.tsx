@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 
-import { DataTable } from "@/components/admin/data-table";
+import {
+  DataTable,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import { ExportProjectsCsv } from "@/components/portal/export-csv";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { StatusBadge } from "@/components/portal/status-badge";
@@ -18,16 +22,16 @@ export default async function ProjectsPage({
   params: Promise<{ workspace: string }>;
   searchParams: Promise<{
     page?: string;
+    size?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
   }>;
 }) {
-  const [{ workspace }, { page: raw, sort, dir, f }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
-  const page = Math.max(1, Number(raw) || 1);
+  const [{ workspace }, { page: raw, size: rawSize, sort, dir, f }] =
+    await Promise.all([params, searchParams]);
+  const page = parsePage(raw);
+  const size = parsePageSize(rawSize);
   const [projects, services] = await Promise.all([
     customerApi.projects(workspace),
     customerApi.availableServices(workspace),
@@ -37,6 +41,7 @@ export default async function ProjectsPage({
     <DataTable<Project>
       title="Projects"
       page={page}
+      size={size}
       sort={sort}
       dir={dir}
       filters={parseFilters(f)}
@@ -48,7 +53,6 @@ export default async function ProjectsPage({
         </>
       }
       rows={projects}
-      basePath={`/customer/${workspace}/projects`}
       rowHref={(row) => `/customer/${workspace}/projects/${row.id}`}
       empty="No projects yet. Create one to get started."
       columns={[

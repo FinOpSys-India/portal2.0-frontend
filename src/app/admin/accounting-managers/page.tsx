@@ -1,8 +1,18 @@
 import type { Metadata } from "next";
 
-import { ChipsCell, DataTable } from "@/components/admin/data-table";
+import {
+  ChipsCell,
+  DataTable,
+  parsePage,
+  parsePageSize,
+} from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
-import { listWindow, adminApi, type AccountingManager } from "@/lib/admin";
+import {
+  listWindow,
+  adminApi,
+  FILTER_SCAN,
+  type AccountingManager,
+} from "@/lib/admin";
 import { InviteManager } from "./invite-manager";
 import { parseFilters } from "@/lib/table-filter";
 
@@ -13,21 +23,25 @@ export default async function AccountingManagersPage({
 }: {
   searchParams: Promise<{
     page?: string;
+    size?: string;
     sort?: string;
     dir?: string;
     f?: string | string[];
   }>;
 }) {
-  const { page: raw, sort, dir, f } = await searchParams;
-  const page = Math.max(1, Number(raw) || 1);
+  const { page: raw, size: rawSize, sort, dir, f } = await searchParams;
+  const page = parsePage(raw);
+  const size = parsePageSize(rawSize);
 
   const filters = parseFilters(f);
   // Filtering happens in the table, so it needs more than one page to filter.
-  const scan = listWindow(page, filters.length > 0);
-  const { rows, total } = await adminApi.accountingManagers(
-    scan.page,
-    scan.limit,
-  );
+  const scan = listWindow(page, filters.length > 0, size);
+  // Every company, not only those already assigned to a manager on this page —
+  // the point of the checklist is to find who has one you are looking for.
+  const [{ rows, total }, companies] = await Promise.all([
+    adminApi.accountingManagers(scan.page, scan.limit),
+    adminApi.companies(1, FILTER_SCAN),
+  ]);
 
   // No detail view: 1.0 has none, and there is nothing here a detail
   // page would show that the row does not.
@@ -35,13 +49,13 @@ export default async function AccountingManagersPage({
     <DataTable<AccountingManager>
       title="Accounting Managers"
       page={page}
+      size={size}
       sort={sort}
       dir={dir}
       filters={filters}
       total={total}
       action={<InviteManager />}
       rows={rows}
-      basePath="/admin/accounting-managers"
       empty="No accounting managers yet."
       columns={[
         {
@@ -52,6 +66,9 @@ export default async function AccountingManagersPage({
         {
           header: "Assigned Companies",
           sortValue: (row) => row.companies.join(", "),
+          filter: "list",
+          filterValues: (row) => row.companies,
+          filterOptions: companies.rows.map((company) => company.name),
           cell: (row) => <ChipsCell items={row.companies} />,
         },
         {
