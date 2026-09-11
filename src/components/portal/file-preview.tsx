@@ -42,6 +42,77 @@ const VIEWERS: Record<string, { as: "pdf" | "image" | "text"; type: string }> = 
 };
 
 /**
+ * Extension chip. Colour is by family, not by extension: a reader scanning the
+ * column wants "document / image / video", and seven unrelated hues would be
+ * noise dressed as information.
+ */
+const FAMILY: Record<string, string> = {
+  pdf: "bg-[#fee2e2] text-[#b91c1c]",
+  doc: "bg-[#dbeafe] text-[#1d4ed8]",
+  docx: "bg-[#dbeafe] text-[#1d4ed8]",
+  xls: "bg-[#dcfce7] text-[#15803d]",
+  xlsx: "bg-[#dcfce7] text-[#15803d]",
+  csv: "bg-[#dcfce7] text-[#15803d]",
+  png: "bg-[#ede9fe] text-[#6d28d9]",
+  jpg: "bg-[#ede9fe] text-[#6d28d9]",
+  jpeg: "bg-[#ede9fe] text-[#6d28d9]",
+};
+
+export function FileChip({ name }: { name: string }) {
+  const kind = fileKind(name);
+
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex size-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold",
+        FAMILY[kind.toLowerCase()] ?? "bg-muted text-muted-foreground",
+      )}
+    >
+      {kind.slice(0, 4)}
+    </span>
+  );
+}
+
+/**
+ * Where a file's bytes are.
+ *
+ * A plain URL on the document lists — `/api/projects/:id/documents/:id/download`
+ * is authorized by the session and good for as long as it lasts. A FUNCTION in
+ * chat, where the bytes sit in a private bucket and the link is signed for about
+ * a minute: one minted when the thread rendered would be dead before a reader
+ * scrolled to it, so it is minted when somebody actually asks.
+ */
+export type PreviewSource = string | (() => Promise<string>);
+
+/** The URL as of now — minting a fresh one when the source is a resolver. */
+const resolve = (href: PreviewSource) =>
+  typeof href === "string" ? href : href();
+
+/**
+ * Hand the file to the browser.
+ *
+ * A synthesised anchor rather than one in the markup, because a signed URL
+ * cannot be put in an `href` ahead of the click without expiring there. Both
+ * kinds still save rather than navigate: the same-origin route honours
+ * `download`, and the bucket's signed link carries its own
+ * `Content-Disposition: attachment` (chatService signs it with `download:`).
+ */
+export async function saveFile(name: string, href: PreviewSource) {
+  try {
+    const a = document.createElement("a");
+    a.href = await resolve(href);
+    a.download = name;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch {
+    toast.error(`${name} could not be downloaded.`);
+  }
+}
+
+/**
  * A file name that opens the file.
  *
  * The name IS the control, on every list that shows one: a row already reads as
@@ -57,7 +128,7 @@ export function FilePreview({
 }: {
   name: string;
   /** `documentPath(row)` — null when the row has no readable URL. */
-  href: string | null;
+  href: PreviewSource | null;
   /** Shown beside the title, so the dialog says what is loading. */
   size?: number;
   className?: string;
@@ -85,14 +156,14 @@ export function FilePreview({
  * name in a list, the eye in the actions column. One dialog either way, so the
  * two entry points cannot drift.
  */
-function PreviewDialog({
+export function PreviewDialog({
   name,
   href,
   size,
   children,
 }: {
   name: string;
-  href: string;
+  href: PreviewSource;
   size?: number;
   children: React.ReactNode;
 }) {
@@ -111,11 +182,13 @@ function PreviewDialog({
 
         <PreviewBody name={name} href={href} />
 
-        <Button asChild variant="outline" className="justify-self-start">
-          <a href={href} download={name}>
-            <Download aria-hidden />
-            Download
-          </a>
+        <Button
+          variant="outline"
+          className="justify-self-start"
+          onClick={() => saveFile(name, href)}
+        >
+          <Download aria-hidden />
+          Download
         </Button>
       </DialogContent>
     </Dialog>
@@ -218,11 +291,21 @@ export function DocumentActions({
  * showing it. Reading it here and re-typing it as a blob is what turns the same
  * authorized URL into something a viewer can render.
  */
-function PreviewBody({ name, href }: { name: string; href: string }) {
+function PreviewBody({ name, href }: { name: string; href: PreviewSource }) {
   const viewer = VIEWERS[fileKind(name).toLowerCase()];
   const [url, setUrl] = React.useState<string | null>(null);
   const [text, setText] = React.useState<string | null>(null);
   const [failure, setFailure] = React.useState<string | null>(null);
+
+  /*
+   * A REF, NOT A DEPENDENCY. Chat's source closes over the attachment, so a
+   * caller that re-renders — and a thread re-renders on every arriving message
+   * — would hand this effect a new function each pass and refetch the open file
+   * on a loop. Never reassigned: Radix mounts this when the dialog opens and
+   * unmounts it on close, so the value captured here is the one that was asked
+   * for.
+   */
+  const source = React.useRef(href);
 
   React.useEffect(() => {
     if (!viewer) return;
@@ -232,7 +315,7 @@ function PreviewBody({ name, href }: { name: string; href: string }) {
 
     (async () => {
       try {
-        const res = await fetch(href);
+        const res = await fetch(await resolve(source.current));
         if (!res.ok) throw new Error(`Request failed (HTTP ${res.status}).`);
 
         const blob = new Blob([await res.arrayBuffer()], { type: viewer.type });
@@ -256,7 +339,7 @@ function PreviewBody({ name, href }: { name: string; href: string }) {
       live = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [href, viewer]);
+  }, [viewer]);
 
   const frame = "h-[60vh] w-full rounded-lg border border-border bg-muted";
 

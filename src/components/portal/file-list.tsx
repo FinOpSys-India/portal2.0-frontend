@@ -1,9 +1,12 @@
 import { PersonCell } from "@/components/admin/initials-avatar";
 import type { Column } from "@/components/admin/data-table";
-import { DocumentActions, FilePreview } from "@/components/portal/file-preview";
-import { fileKind, formatFileSize } from "@/lib/manager";
+import {
+  DocumentActions,
+  FileChip,
+  FilePreview,
+} from "@/components/portal/file-preview";
+import { formatFileSize } from "@/lib/manager";
 import { documentPath } from "@/lib/portal";
-import { cn } from "@/lib/utils";
 
 /** What the columns below read. Every portal's file rows satisfy it. */
 export interface FileRow {
@@ -123,39 +126,6 @@ export const documentColumns = (viewer: string): Column<DocumentRow>[] => {
     ...rest,
   ];
 };
-
-/**
- * Extension chip. Colour is by family, not by extension: a reader scanning the
- * column wants "document / image / video", and seven unrelated hues would be
- * noise dressed as information.
- */
-const FAMILY: Record<string, string> = {
-  pdf: "bg-[#fee2e2] text-[#b91c1c]",
-  doc: "bg-[#dbeafe] text-[#1d4ed8]",
-  docx: "bg-[#dbeafe] text-[#1d4ed8]",
-  xls: "bg-[#dcfce7] text-[#15803d]",
-  xlsx: "bg-[#dcfce7] text-[#15803d]",
-  csv: "bg-[#dcfce7] text-[#15803d]",
-  png: "bg-[#ede9fe] text-[#6d28d9]",
-  jpg: "bg-[#ede9fe] text-[#6d28d9]",
-  jpeg: "bg-[#ede9fe] text-[#6d28d9]",
-};
-
-export function FileChip({ name }: { name: string }) {
-  const kind = fileKind(name);
-
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "flex size-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold",
-        FAMILY[kind.toLowerCase()] ?? "bg-muted text-muted-foreground",
-      )}
-    >
-      {kind.slice(0, 4)}
-    </span>
-  );
-}
 
 /**
  * What the file list is currently showing.

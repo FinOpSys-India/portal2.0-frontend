@@ -1,9 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { Paperclip, SendHorizontal, Smile, SmilePlus, Trash2 } from "lucide-react";
+import {
+  Download,
+  Paperclip,
+  SendHorizontal,
+  Smile,
+  SmilePlus,
+  Trash2,
+} from "lucide-react";
 
 import { InitialsAvatar } from "@/components/admin/initials-avatar";
+import {
+  FileChip,
+  PreviewDialog,
+  saveFile,
+} from "@/components/portal/file-preview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -742,12 +754,17 @@ function EmojiPicker({
 }
 
 /**
- * An attachment, downloaded on click.
+ * An attachment, as a file card inside the bubble.
  *
- * A button rather than an anchor, because there is no URL to put in an `href`
- * until one is asked for: the bytes are in a private bucket and the link is
- * signed for about a minute. One minted when the thread rendered would be dead
- * before a reader scrolled to it.
+ * A CARD RATHER THAN A LINE OF TEXT. It used to render as an underlined file
+ * name that opened a new tab, which read as a link in the middle of a sentence
+ * and left the reader in a downloads folder to find out what they had been
+ * sent. The same extension chip the document lists use, the size under the
+ * name, and the name itself opening the same preview dialog — so a file looks
+ * and behaves the same whether it arrived in chat or in All Documents.
+ *
+ * `useCallback` on the source, not an inline arrow: the dialog mints the URL
+ * when it opens, and this thread re-renders on every arriving message.
  */
 function AttachmentLink({
   file,
@@ -758,18 +775,17 @@ function AttachmentLink({
   mine: boolean;
   onReact: (emoji: string) => void;
 }) {
-  const [opening, setOpening] = React.useState(false);
+  /*
+   * There is no URL to put in an `href` until one is asked for: the bytes are
+   * in a private bucket and the link is signed for about a minute. One minted
+   * when the thread rendered would be dead before a reader scrolled to it.
+   */
+  const href = React.useCallback(
+    () => chatApi.downloadUrl(file.id),
+    [file.id],
+  );
 
-  async function open() {
-    if (opening) return;
-    setOpening(true);
-    try {
-      const url = await chatApi.downloadUrl(file.id);
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-    } finally {
-      setOpening(false);
-    }
-  }
+  const muted = mine ? "text-primary-foreground/70" : "text-muted-foreground";
 
   return (
     /* `group/file` and not the bare `group` the bubble already uses: nesting an
@@ -777,27 +793,50 @@ function AttachmentLink({
        file's picker would appear whenever the message was hovered. */
     <div className="group/file flex min-w-0 flex-col gap-1">
       <div className="flex min-w-0 items-center gap-1">
-        <button
-          type="button"
-          onClick={open}
-          disabled={opening}
-          className="flex min-w-0 items-center gap-2 rounded-md text-left text-sm underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 disabled:opacity-60"
-        >
-          {opening ? (
-            <Spinner className="size-4 shrink-0" />
-          ) : (
-            <Paperclip className="size-4 shrink-0" aria-hidden />
+        {/* On your own bubble the card is a wash of the bubble's own text
+            colour, so the text keeps inheriting it. A `bg-background` card
+            there would put primary-foreground text on white. */}
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-2 rounded-lg p-1.5",
+            mine ? "bg-primary-foreground/15" : "bg-background",
           )}
-          <span className="truncate font-medium">{file.name}</span>
-          <span
+        >
+          <PreviewDialog name={file.name} href={href} size={file.size}>
+            <button
+              type="button"
+              aria-label={`Preview ${file.name}`}
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+            >
+              <FileChip name={file.name} />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium underline-offset-4 group-hover/file:underline">
+                  {file.name}
+                </span>
+                <span className={cn("block text-xs tabular-nums", muted)}>
+                  {formatFileSize(file.size)}
+                </span>
+              </span>
+            </button>
+          </PreviewDialog>
+
+          {/* Beside the preview, not inside it: the common case for a file
+              somebody sent you is to keep it, and that should not cost a
+              dialog. */}
+          <button
+            type="button"
+            onClick={() => saveFile(file.name, href)}
+            aria-label={`Download ${file.name}`}
             className={cn(
-              "shrink-0 tabular-nums",
-              mine ? "text-primary-foreground/70" : "text-muted-foreground",
+              "shrink-0 rounded-md p-1.5 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
+              mine
+                ? "text-primary-foreground/70 hover:text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {formatFileSize(file.size)}
-          </span>
-        </button>
+            <Download className="size-4" aria-hidden />
+          </button>
+        </div>
 
         {/* Hidden until the file is hovered or the trigger itself is focused.
             `focus-within` is what keeps it reachable by keyboard — hover alone

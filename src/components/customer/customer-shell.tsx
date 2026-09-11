@@ -27,7 +27,7 @@ import type { Workspace } from "@/lib/customer";
 const SEGMENTS = [
   { segment: "projects", label: "Projects", icon: FolderKanban },
   { segment: "connect", label: "Connect", icon: MessageSquare },
-  { segment: "files", label: "All Documents", icon: Paperclip },
+  { segment: "files", label: "Documents", icon: Paperclip },
   { segment: "company", label: "Company", icon: Building2 },
   { segment: "team", label: "Team", icon: Users },
   // Owner-only in practice — the page says so to a teammate rather than being

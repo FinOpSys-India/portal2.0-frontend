@@ -26,6 +26,11 @@ import {
  * is a promise about where it goes, and "File" opening "All Documents" is a
  * broken one.
  *
+ * Documents is the one item shortened rather than matched: the page heads
+ * itself "All Documents", but in a column of one-word labels the "All" reads as
+ * a qualifier distinguishing it from some other documents screen there isn't
+ * one of. Same rule, applied to the sidebar's own line width.
+ *
  * No Tasks board. A manager staffs the work and reads it per project; the
  * cross-book task list was this port's own addition and is gone again — tasks
  * are the specialist's screen.
@@ -35,7 +40,7 @@ const NAV: NavItem[] = [
   { href: "/manager/specialists", label: "Specialists", icon: Wrench },
   { href: "/manager/projects", label: "Projects", icon: FolderKanban },
   { href: "/manager/connect", label: "Connect", icon: MessageSquare },
-  { href: "/manager/documents", label: "All Documents", icon: FileText },
+  { href: "/manager/documents", label: "Documents", icon: FileText },
   { href: "/manager/companies", label: "Companies", icon: Building2 },
   { href: "/manager/profile", label: "User Info", icon: UserRound },
 ];

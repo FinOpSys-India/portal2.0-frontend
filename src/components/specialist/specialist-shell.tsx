@@ -30,7 +30,7 @@ const NAV: NavItem[] = [
   { href: "/specialist/projects", label: "Projects", icon: FolderKanban },
   { href: "/specialist/tasks", label: "Tasks", icon: ClipboardList },
   { href: "/specialist/companies", label: "Companies", icon: Building2 },
-  { href: "/specialist/documents", label: "All Documents", icon: FileText },
+  { href: "/specialist/documents", label: "Documents", icon: FileText },
   { href: "/specialist/connect", label: "Connect", icon: MessageSquare },
   { href: "/specialist/profile", label: "User Info", icon: UserRound },
 ];
