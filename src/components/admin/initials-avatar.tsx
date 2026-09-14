@@ -1,3 +1,4 @@
+import { Hint } from "@/components/portal/hint";
 import type { PortalPerson } from "@/lib/portal";
 import { cn } from "@/lib/utils";
 
@@ -140,7 +141,9 @@ export function PersonCell({
  *
  * The circles are `aria-hidden`, so the names are carried by a visually
  * hidden list — otherwise a screen reader would announce a team of five as
- * nothing at all. `title` gives mouse users the same list on hover.
+ * nothing at all. A mouse gets the same names one at a time, from the circle it
+ * is actually over: the old `title` sat on the whole stack, so hovering any
+ * face read out the entire team and never said which one was which.
  */
 export function AvatarStack({
   people,
@@ -157,29 +160,40 @@ export function AvatarStack({
 
   const names = people.map((person) => person.name).join(", ");
   const shown = people.slice(0, max);
-  const overflow = people.length - shown.length;
+  const rest = people.slice(max);
 
   return (
-    <span className="flex items-center" title={names}>
+    <span className="flex items-center">
       {shown.map((person, index) => (
-        <InitialsAvatar
-          // Two people on one company really can share a name.
-          key={`${person.name}-${index}`}
-          name={person.name}
-          src={person.avatarUrl}
-          // The ring is the gap: it cuts each circle out of the one behind it,
-          // so they read as separate people rather than one blob.
-          className="-ml-2 ring-2 ring-card first:ml-0"
-        />
+        // Two people on one company really can share a name.
+        <Hint key={`${person.name}-${index}`} label={person.name}>
+          {/* The span, not the avatar, is what the tooltip hangs off: it is a
+              plain element, so it takes the ref and the pointer handlers the
+              trigger needs. The overlap lives here for the same reason — the
+              circle inside keeps only its ring. */}
+          <span className="-ml-2 inline-flex first:ml-0">
+            <InitialsAvatar
+              name={person.name}
+              src={person.avatarUrl}
+              // The ring is the gap: it cuts each circle out of the one behind
+              // it, so they read as separate people rather than one blob.
+              className="ring-2 ring-card"
+            />
+          </span>
+        </Hint>
       ))}
 
-      {overflow > 0 ? (
-        <span
-          aria-hidden
-          className="-ml-2 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground ring-2 ring-card select-none"
-        >
-          +{overflow}
-        </span>
+      {rest.length > 0 ? (
+        // The one place the whole list still belongs: +3 is the only mark on
+        // the row that stands for people it does not name.
+        <Hint label={rest.map((person) => person.name).join(", ")}>
+          <span
+            aria-hidden
+            className="-ml-2 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground ring-2 ring-card select-none"
+          >
+            +{rest.length}
+          </span>
+        </Hint>
       ) : null}
 
       <span className="sr-only">{names}</span>
