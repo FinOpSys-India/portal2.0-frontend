@@ -11,8 +11,9 @@ import { RoleBadge } from "@/components/admin/role-badge";
 import {
   companyScope,
   managerApi,
-  type ManagerCustomer,
+  scoped,
   scopeName,
+  type ManagerCustomer,
 } from "@/lib/manager";
 import { parseFilters } from "@/lib/table-filter";
 
@@ -66,7 +67,9 @@ export default async function ManagerCustomersPage({
       filters={parseFilters(f)}
       total={customers.length}
       rows={customers}
-      rowHref={(row) => `/manager/customers/${encodeURIComponent(row.email)}`}
+      rowHref={(row) =>
+        scoped(`/manager/customers/${encodeURIComponent(row.email)}`, company)
+      }
       empty="No customers on this company yet."
       columns={[
         {

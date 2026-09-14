@@ -151,6 +151,13 @@ export interface StaffingLine {
 
 /** What the Specialists Detail screen shows beside the task list. */
 export interface SpecialistDetail extends Specialist {
+  /**
+   * The company this detail was read under — see `specialist()`.
+   *
+   * Absent on the specialist's OWN profile in their portal, which reuses this
+   * shape and has no company scope to stand in.
+   */
+  companyId?: string;
   phone: string;
   /** One line, as the detail card renders it. */
   address: string;
@@ -896,13 +903,33 @@ export const managerApi = {
     email: string,
     companyId?: string,
   ): Promise<SpecialistDetail | null> {
-    const [list, rows] = await Promise.all([
-      managerApi.specialists(companyId),
-      directory("specialists", companyId),
-    ]);
-    const row = rows.find((s) => s.email === email);
-    const summary = list.find((s) => s.email === email);
-    if (!row || !summary) return null;
+    /*
+     * Looked up in the company in view first, then across the whole book.
+     *
+     * A specialist works several of a manager's accounts, and this screen used
+     * to answer 404 for anyone who was not on the roster of whatever company
+     * the URL resolved to — which, for a link that carries no `?company=`, is
+     * the FIRST company on the book rather than the one the reader was standing
+     * in. The row links now carry the scope (see `scoped`), and this is the
+     * other half: a bookmarked or pasted address still finds the person.
+     */
+    const scopedRows = await directory("specialists", companyId);
+    const row =
+      scopedRows.find((s) => s.email === email) ??
+      (companyId
+        ? (await directory("specialists")).find((s) => s.email === email)
+        : undefined);
+    if (!row) return null;
+
+    // The company they were actually found under — the one in view when the
+    // link carried it, and whichever account holds them when it did not. The
+    // page reads their tasks and projects under this, so the screen is about
+    // one company rather than a summary from one and a task list from another.
+    const company = row.scopeCompanyId;
+    const summary = (await managerApi.specialists(company)).find(
+      (s) => s.email === email,
+    );
+    if (!summary) return null;
 
     const detail = await get<{ specialist: DirectoryRow }>(
       `/specialists/${row.userId}?companyId=${encodeURIComponent(row.scopeCompanyId)}`,
@@ -912,6 +939,7 @@ export const managerApi = {
 
     return {
       ...summary,
+      companyId: company,
       phone: detail.specialist.phone ?? "",
       avatarUrl: detail.specialist.avatarUrl ?? null,
       // The detail card renders one line, not a block.

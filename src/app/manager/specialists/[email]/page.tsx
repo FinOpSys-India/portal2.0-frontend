@@ -64,9 +64,12 @@ export default async function ManagerSpecialistPage({
 
   if (!specialist) notFound();
 
+  // `specialist.companyId`, not the page's own scope: an address that arrived
+  // without `?company=` resolves to the first company on the book, and reading
+  // their tasks under THAT would pair one company's roster with another's work.
   const [tasks, projects] = await Promise.all([
-    managerApi.specialistTasks(specialist.email, company),
-    managerApi.projects(company),
+    managerApi.specialistTasks(specialist.email, specialist.companyId ?? company),
+    managerApi.projects(specialist.companyId ?? company),
   ]);
 
   const theirs = projects.filter((p) => p.specialist === specialist.name);

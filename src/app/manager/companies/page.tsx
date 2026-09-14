@@ -9,10 +9,11 @@ import {
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { AssignCompanySpecialist } from "@/components/manager/assign-company-specialist";
 import {
-  type ClientCompany,
   companyScope,
   managerApi,
+  scoped,
   scopeName,
+  type ClientCompany,
 } from "@/lib/manager";
 import { parseFilters } from "@/lib/table-filter";
 
@@ -68,7 +69,9 @@ export default async function ManagerCompaniesPage({
       filters={parseFilters(f)}
       total={companies.length}
       rows={companies}
-      rowHref={(row) => `/manager/companies/${encodeURIComponent(row.id)}`}
+      rowHref={(row) =>
+        scoped(`/manager/companies/${encodeURIComponent(row.id)}`, company)
+      }
       empty="No companies assigned to you yet."
       columns={[
         {

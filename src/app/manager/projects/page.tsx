@@ -10,10 +10,11 @@ import { ExportProjectsCsv } from "@/components/portal/export-csv";
 import { ProgressBar } from "@/components/portal/progress-bar";
 import {
   companyScope,
-  parseDeadline,
-  type ManagedProject,
   managerApi,
+  parseDeadline,
+  scoped,
   scopeName,
+  type ManagedProject,
 } from "@/lib/manager";
 
 import { NewProject } from "./new-project";
@@ -80,7 +81,7 @@ export default async function ManagerProjectsPage({
         </>
       }
       rows={projects}
-      rowHref={(row) => `/manager/projects/${row.id}`}
+      rowHref={(row) => scoped(`/manager/projects/${row.id}`, company)}
       empty="No projects for this company."
       columns={[
         {

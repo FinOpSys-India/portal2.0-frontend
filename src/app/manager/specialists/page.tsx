@@ -9,6 +9,7 @@ import { PersonCell } from "@/components/admin/initials-avatar";
 import {
   companyScope,
   managerApi,
+  scoped,
   scopeName,
   type Specialist,
 } from "@/lib/manager";
@@ -61,7 +62,9 @@ export default async function ManagerSpecialistsPage({
       filters={parseFilters(f)}
       total={specialists.length}
       rows={specialists}
-      rowHref={(row) => `/manager/specialists/${encodeURIComponent(row.email)}`}
+      rowHref={(row) =>
+        scoped(`/manager/specialists/${encodeURIComponent(row.email)}`, company)
+      }
       empty={
         company
           ? "Nobody is working a project for this company yet."

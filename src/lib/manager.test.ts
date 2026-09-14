@@ -179,7 +179,10 @@ assert.equal(
 
 /* -------------------------------------------------------- company scope -- */
 
-// scoped() is what keeps a selection alive across navigation.
+// scoped() is what keeps a selection alive across navigation — including out
+// of a list and into a row's detail page, which is where dropping it answered
+// 404: a specialist read under the company in view is not on the roster of
+// whichever company the URL falls back to.
 assert.equal(scoped("/manager/projects"), "/manager/projects");
 assert.equal(scoped("/manager/projects", ""), "/manager/projects");
 assert.equal(
