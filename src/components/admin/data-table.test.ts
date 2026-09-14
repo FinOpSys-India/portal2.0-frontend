@@ -93,14 +93,22 @@ async function main() {
   assert.equal(serverWide.first, 26);
 
   // ?size= comes off the URL too. Anything that is not a count falls back to
-  // ten, and a typed number is capped at what the API will serve.
+  // ten, a typed number is capped at what the API will serve, and ten is the
+  // floor — a one-row table under a forty-page pager reads as broken.
   assert.equal(parsePageSize(undefined), PAGE_SIZE);
   assert.equal(parsePageSize("abc"), PAGE_SIZE);
   assert.equal(parsePageSize("0"), PAGE_SIZE);
   assert.equal(parsePageSize("-5"), PAGE_SIZE);
-  assert.equal(parsePageSize("7"), 7);
+  assert.equal(parsePageSize("7"), PAGE_SIZE);
+  // Between the offered tens is still a real answer: the box takes a typed
+  // number, and the list beside it is a shortcut rather than the whole range.
+  assert.equal(parsePageSize("15"), 15);
   assert.equal(parsePageSize("25.9"), 25);
   assert.equal(parsePageSize("4000"), Math.max(...PAGE_SIZES));
+
+  // Every option the box offers is a ten, and none exceeds the cap.
+  assert.ok(PAGE_SIZES.every((size) => size % 10 === 0));
+  assert.equal(Math.min(...PAGE_SIZES), PAGE_SIZE);
 
   assert.equal(parsePage(undefined), 1);
   assert.equal(parsePage("0"), 1);

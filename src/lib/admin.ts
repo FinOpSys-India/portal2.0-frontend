@@ -130,19 +130,27 @@ export const SPECIALIST_ROLES = [
 export const PAGE_SIZE = 10;
 
 /**
- * The counts the rows-per-page box offers.
+ * The counts the rows-per-page box offers: tens, all the way up.
  *
- * A list, not a limit — any number can be typed into the box. The top of it is
- * the cap, because 100 is what `GET /customers` and friends will serve (see
- * `FILTER_SCAN`) and the client-side lists are capped there too rather than
- * rendering four hundred rows into one page.
+ * A list, not a limit — any number in range can still be typed into the box.
+ * The top of it is the cap, because 100 is what `GET /customers` and friends
+ * will serve (see `FILTER_SCAN`) and the client-side lists are capped there too
+ * rather than rendering four hundred rows into one page.
  */
-export const PAGE_SIZES = [10, 25, 50, 100];
+export const PAGE_SIZES = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
-/** `?size=`, clamped to a count the lists can actually serve. */
+/**
+ * `?size=`, clamped to a count the lists can actually serve.
+ *
+ * TEN IS THE FLOOR, not one. `?size=1` is a table showing a single row above a
+ * pager forty pages long, which is a way of reading nothing slowly; it is also
+ * what a half-typed number looks like on its way to 15.
+ */
 export function parsePageSize(raw?: string | number): number {
   const size = Math.floor(Number(raw));
-  return size > 0 ? Math.min(size, Math.max(...PAGE_SIZES)) : PAGE_SIZE;
+  return size > PAGE_SIZE
+    ? Math.min(size, Math.max(...PAGE_SIZES))
+    : PAGE_SIZE;
 }
 
 /** `?page=`, which is 1 for anything that is not a page number. */

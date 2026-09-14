@@ -126,8 +126,11 @@ export function PageSizeBox({ size }: { size: number }) {
         defaultValue={size}
         type="number"
         inputMode="numeric"
-        min={1}
+        min={PAGE_SIZE}
         max={Math.max(...PAGE_SIZES)}
+        // The arrows move a row-count, so they move in tens like the list
+        // behind them. A typed 15 is still honoured — this steers, not limits.
+        step={PAGE_SIZE}
         list={`${id}-options`}
         onBlur={(event) => commit(event.currentTarget)}
         onKeyDown={(event) => {
