@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AUTH_PANELS, AuthShell } from "@/components/auth/auth-shell";
-import { api, landingPathForRole } from "@/lib/api";
+import { api, landingPathForRole, unpaidCompany } from "@/lib/api";
+import { companyValues } from "@/lib/company";
 import { CompanyForm } from "./company-form";
 
 export const metadata: Metadata = {
@@ -13,9 +14,9 @@ export const metadata: Metadata = {
 export default async function CompanyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ email?: string }>;
+  searchParams: Promise<{ email?: string; compID?: string }>;
 }) {
-  const { email = "" } = await searchParams;
+  const { email = "", compID = "" } = await searchParams;
 
   /*
    * ONLY AN OWNER HAS THIS STEP. Sign-up is invitation-only, so a teammate
@@ -28,12 +29,37 @@ export default async function CompanyPage({
    * every route into it — a resumed session, a back button, a pasted link —
    * gets the same answer.
    */
-  const status = await api.onboardingStatus();
+  const [status, me] = await Promise.all([api.onboardingStatus(), api.me()]);
   if (!status.isOwner) redirect(landingPathForRole("CUSTOMER"));
+
+  // The address is what the duplicate-email rule compares against, so falling
+  // back to `me` matters: reached without the query param the rule had nothing
+  // to compare and quietly passed anything.
+  const accountEmail = decodeURIComponent(email) || me.email;
+
+  /*
+   * WHICH COMPANY THIS SCREEN IS ABOUT, if any.
+   *
+   * Arriving from the plan step's Back carries `compID`. Arriving from step 1
+   * after going back to correct it does not — but the company was already
+   * created on the way through, and a blank form here would create a SECOND
+   * one. `GET /onboarding` says only THAT a company exists, so the unpaid one
+   * is looked up the same way the plan step looks it up.
+   */
+  const companyId =
+    compID ||
+    (status.companyCreated
+      ? String(unpaidCompany(await api.ownedCompanies())?.companyId ?? "")
+      : "");
+  const existing = companyId ? await api.company(companyId) : null;
 
   return (
     <AuthShell panel={AUTH_PANELS.signup} step={1}>
-      <CompanyForm accountEmail={decodeURIComponent(email)} />
+      <CompanyForm
+        accountEmail={accountEmail}
+        companyId={companyId}
+        initial={existing ? companyValues(existing) : undefined}
+      />
     </AuthShell>
   );
 }

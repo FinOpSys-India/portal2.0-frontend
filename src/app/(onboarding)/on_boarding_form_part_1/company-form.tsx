@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
-import { AuthHeading, BackToLogin } from "@/components/auth/auth-shell";
+import { AuthHeading, BackLink } from "@/components/auth/auth-shell";
 import { AuthCard, SubmitButton } from "@/components/auth/fields";
 import { FormAlert } from "@/components/auth/form-alert";
 import { CompanyFields } from "@/components/portal/company-fields";
@@ -15,7 +15,20 @@ import { companyInput } from "@/lib/company";
 import { DEFAULT_COUNTRY } from "@/lib/countries";
 import { companySchema, type CompanyValues } from "@/lib/schemas";
 
-export function CompanyForm({ accountEmail }: { accountEmail: string }) {
+export function CompanyForm({
+  accountEmail,
+  companyId,
+  initial,
+}: {
+  accountEmail: string;
+  /**
+   * Set when this company already exists — the user walked back into this step.
+   * The form then EDITS it; see `onSubmit`.
+   */
+  companyId?: string;
+  /** What that company holds today, so going back does not mean retyping. */
+  initial?: CompanyValues;
+}) {
   const router = useRouter();
   const [failure, setFailure] = React.useState<string | null>(null);
 
@@ -34,7 +47,7 @@ export function CompanyForm({ accountEmail }: { accountEmail: string }) {
 
   const form = useForm<CompanyValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
+    defaultValues: initial ?? {
       name: "",
       type: "",
       addressLine1: "",
@@ -54,12 +67,22 @@ export function CompanyForm({ accountEmail }: { accountEmail: string }) {
   async function onSubmit(values: CompanyValues) {
     setFailure(null);
     try {
-      const { company } = await api.createCompany(
-        companyInput(values),
-        idempotencyKey,
-      );
+      // Create the first time through, correct it on every later one. Posting
+      // again would leave the user owning two companies, and the idempotency
+      // key cannot save them: replaying the original response is the one answer
+      // that is certainly wrong once the point was to change something.
+      let id = companyId;
+      if (id) {
+        await api.updateCompany(id, companyInput(values));
+      } else {
+        const { company } = await api.createCompany(
+          companyInput(values),
+          idempotencyKey,
+        );
+        id = String(company.id);
+      }
       router.push(
-        `/on_boarding_form_part_2?email=${encodeURIComponent(accountEmail)}&compID=${encodeURIComponent(company.id)}`,
+        `/on_boarding_form_part_2?email=${encodeURIComponent(accountEmail)}&compID=${encodeURIComponent(id)}`,
       );
     } catch (err) {
       setFailure(
@@ -70,8 +93,14 @@ export function CompanyForm({ accountEmail }: { accountEmail: string }) {
 
   return (
     <AuthCard>
+      {/* One step back, not out of the flow: step 1 reopens on what was saved
+          there, and coming forward again returns to this same company. */}
       <div className="mb-6">
-        <BackToLogin />
+        <BackLink
+          href={`/on_boarding_form_user_info/${encodeURIComponent(accountEmail)}`}
+        >
+          Back
+        </BackLink>
       </div>
 
       <AuthHeading title="Your Company">

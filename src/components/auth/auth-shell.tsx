@@ -284,13 +284,20 @@ function StepList({ current }: { current: number }) {
 }
 
 /**
- * Back-to-login chip. A real link rather than a router.push button, so
- * middle-click and open-in-new-tab behave as expected.
+ * Back chip. A real link rather than a router.push button, so middle-click and
+ * open-in-new-tab behave as expected — and so the onboarding steps go back to a
+ * known address rather than to whatever happens to be in history.
  */
-export function BackToLogin() {
+export function BackLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
   return (
     <Link
-      href="/login"
+      href={href}
       className={cn(
         "inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card pr-3.5 pl-2.5",
         "text-sm font-medium text-muted-foreground",
@@ -300,9 +307,14 @@ export function BackToLogin() {
       )}
     >
       <ChevronLeft className="size-4 shrink-0" aria-hidden />
-      Back to Login
+      {children}
     </Link>
   );
+}
+
+/** The same chip, pointed at login. Named because five screens want exactly it. */
+export function BackToLogin() {
+  return <BackLink href="/login">Back to Login</BackLink>;
 }
 
 /** Text link. Same treatment everywhere so nothing looks hand-placed. */

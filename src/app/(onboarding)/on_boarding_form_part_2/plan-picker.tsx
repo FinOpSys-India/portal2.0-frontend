@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Check } from "lucide-react";
 
-import { AuthHeading } from "@/components/auth/auth-shell";
+import { AuthHeading, BackLink } from "@/components/auth/auth-shell";
 import { SubmitButton } from "@/components/auth/fields";
 import { FormAlert } from "@/components/auth/form-alert";
 import { Button } from "@/components/ui/button";
@@ -126,6 +126,16 @@ export function PlanPicker({
 
   return (
     <form onSubmit={onSubmit} className="space-y-8">
+      {/* Carries the company, so the step it returns to EDITS this one rather
+          than opening a blank form that would create a second. */}
+      <div className="-mb-2">
+        <BackLink
+          href={`/on_boarding_form_part_1?email=${encodeURIComponent(accountEmail)}&compID=${encodeURIComponent(companyId)}`}
+        >
+          Back
+        </BackLink>
+      </div>
+
       <AuthHeading title="Your Plan">
         Pick the services you need. Change them any time.
       </AuthHeading>

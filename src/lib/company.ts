@@ -15,8 +15,8 @@
  * frontend one.
  */
 
-import type { CompanyInput } from "@/lib/api";
-import { countryCode } from "@/lib/countries";
+import type { CompanyInput, CompanyRecord } from "@/lib/api";
+import { countryCode, DEFAULT_COUNTRY } from "@/lib/countries";
 import type { CompanyValues } from "@/lib/schemas";
 
 /**
@@ -50,12 +50,43 @@ export function companyTypeValue(label: string): string {
   );
 }
 
+/**
+ * Enum -> label, for reopening a saved company in the form.
+ *
+ * OTHER has one label in this list, so the round trip is exact. A value the
+ * list does not know returns "" — the select then shows its placeholder and the
+ * schema makes the user pick, which beats silently relabelling their company.
+ */
+export function companyTypeLabel(value: string): string {
+  return COMPANY_TYPE_OPTIONS.find((t) => t.value === value)?.label ?? "";
+}
+
 export const REVENUE_BANDS = [
   "Less than $500K",
   "$500K – $2M",
   "$2M – $10M",
   "$10M+",
 ] as const;
+
+/**
+ * Which band a stored amount falls in — the inverse of `revenueFloor`, but by
+ * range rather than by equality. The column is a DECIMAL the backend may hold
+ * as "500000.00" or "500000.0000", and nothing stops a company's figure being
+ * edited elsewhere to a real number rather than a band floor.
+ */
+export function revenueBand(amount: string | null | undefined): string {
+  // Blank means the column was never set, which is not the same as zero — and
+  // `Number("")` is 0, so it would otherwise read as the lowest band and put a
+  // revenue in the form that nobody chose.
+  if (!amount?.trim()) return "";
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return "";
+  return (
+    [...REVENUE_BANDS]
+      .reverse()
+      .find((band) => value >= Number(revenueFloor(band))) ?? REVENUE_BANDS[0]
+  );
+}
 
 /** Bottom of each revenue band, as the decimal string the column stores. */
 function revenueFloor(band: string): string {
@@ -96,5 +127,31 @@ export function companyInput(values: CompanyValues): CompanyInput {
       // it — not decoration.
       countryCode: countryCode(values.country),
     },
+  };
+}
+
+/**
+ * A saved company back in the form's own terms — the other direction from
+ * `companyInput`, and the reason a user can walk back into step 2 and find what
+ * they typed instead of an empty form.
+ *
+ * The address may be null: a company row can exist before its address does, and
+ * blanks the user can fill are better than a crash on a screen they were sent
+ * to in order to fix something.
+ */
+export function companyValues(company: CompanyRecord): CompanyValues {
+  const address = company.primaryAddress;
+  return {
+    name: company.companyName,
+    type: companyTypeLabel(company.companyType),
+    addressLine1: address?.addressLine1 ?? "",
+    city: address?.city ?? "",
+    state: address?.state ?? "",
+    zip: address?.postalCode ?? "",
+    country: address?.country || DEFAULT_COUNTRY,
+    email: company.companyEmail,
+    phone: company.companyPhone ?? "",
+    employees: company.employeeCount === null ? "" : String(company.employeeCount),
+    revenue: revenueBand(company.lastYearRevenue),
   };
 }

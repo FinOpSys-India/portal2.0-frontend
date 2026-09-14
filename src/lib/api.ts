@@ -17,7 +17,7 @@
  *   - ONE ENDPOINT SERVES VERIFY AND RESEND, selected by `action`.
  */
 
-import { clearAccessToken, get, post, put, storeAccessToken } from "@/lib/http";
+import { clearAccessToken, get, patch, post, put, storeAccessToken } from "@/lib/http";
 import { PAYROLL } from "@/lib/plans";
 
 /** Top-level role codes as the backend spells them. */
@@ -62,6 +62,14 @@ export interface User {
   email: string;
   role: Role;
   specificRole: string | null;
+  /**
+   * Both sent by `userDto.toMe` and both null until onboarding collects them.
+   * They are what lets step 1 be reopened with what was typed into it rather
+   * than blank — a "go back and fix it" that cleared the field would be worse
+   * than no back button at all.
+   */
+  phone: string | null;
+  jobTitle: string | null;
 }
 
 export interface Session {
@@ -143,6 +151,31 @@ export interface CompanyInput {
 export interface CompanyCreated {
   company: { id: number; companyName: string };
   primaryAddress: unknown;
+}
+
+/**
+ * `GET /companies/:id`, narrowed to the fields the company form has to refill.
+ *
+ * Not `BackendCompany` from lib/portal: that type is shaped for the portal's
+ * company screens — people, services, billing — and carries none of the type,
+ * phone, headcount or revenue this form collects, even though the same response
+ * sends them. Two readers of one payload, each naming what it uses.
+ */
+export interface CompanyRecord {
+  id: number;
+  companyName: string;
+  companyType: string;
+  companyEmail: string;
+  companyPhone: string | null;
+  employeeCount: number | null;
+  lastYearRevenue: string | null;
+  primaryAddress: {
+    addressLine1: string;
+    city: string;
+    state: string | null;
+    postalCode: string | null;
+    country: string;
+  } | null;
 }
 
 /**
@@ -366,6 +399,27 @@ export const api = {
     return post("/onboarding/company", input, {
       "Idempotency-Key": idempotencyKey,
     });
+  },
+
+  /** One company, for the step that reopens it. `data: { company }`. */
+  async company(id: string | number): Promise<CompanyRecord> {
+    const data = await get<{ company: CompanyRecord }>(
+      `/companies/${encodeURIComponent(String(id))}`,
+    );
+    return data.company;
+  },
+
+  /**
+   * Step 2, reopened. `POST /onboarding/company` CREATES, so a second submit
+   * from a form the user walked back into would leave them owning two
+   * companies — and the idempotency key cannot help, since replaying the first
+   * response is precisely the wrong answer when the point was to change it.
+   *
+   * `PATCH /companies/:id` takes the same field names as the create body and
+   * is open to the owner, so the whole form goes up unchanged.
+   */
+  updateCompany(id: string | number, input: CompanyInput): Promise<void> {
+    return patch(`/companies/${encodeURIComponent(String(id))}`, input);
   },
 
   /** Step 3. Prices are looked up server-side from the option ids, never sent. */

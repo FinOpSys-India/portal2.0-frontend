@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Briefcase, Globe, Mail, Phone, User } from "lucide-react";
 import { useForm } from "react-hook-form";
 
-import { AuthHeading } from "@/components/auth/auth-shell";
+import { AuthHeading, BackToLogin } from "@/components/auth/auth-shell";
 import {
   AuthCard,
   PhoneField,
@@ -21,20 +21,48 @@ import { api, type User as Me } from "@/lib/api";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import { userInfoSchema, type UserInfoValues } from "@/lib/schemas";
 
+/**
+ * Where the phone's country is remembered between visits to this step.
+ *
+ * `PUT /onboarding/profile` stores the number and nothing about which country
+ * it belongs to, so on the way back in there is no way to derive it — and
+ * defaulting to the US would meet a saved German number with "Too many digits".
+ * Session storage is the right size for that: it is a property of this sitting,
+ * not of the account, and it costs the backend nothing.
+ *
+ * ponytail: if the country ever has to survive a new tab, it needs a column.
+ */
+const PHONE_COUNTRY_KEY = "onboarding.phoneCountry";
+
 export function UserInfoForm({ email, me }: { email: string; me: Me }) {
   const router = useRouter();
   const [failure, setFailure] = React.useState<string | null>(null);
 
   const form = useForm<UserInfoValues>({
     resolver: zodResolver(userInfoSchema),
-    defaultValues: { phone: "", phoneCountry: DEFAULT_COUNTRY, jobTitle: "" },
+    // Whatever the profile already holds — this step is reachable backwards
+    // from the company step, and a "go back and fix it" that arrived blank
+    // would lose the two answers it exists to let you correct.
+    defaultValues: {
+      phone: me.phone ?? "",
+      phoneCountry: DEFAULT_COUNTRY,
+      jobTitle: me.jobTitle ?? "",
+    },
     mode: "onSubmit",
     reValidateMode: "onChange",
   });
 
+  // After mount, never during render: reading storage while rendering gives the
+  // server and the client two different trees.
+  React.useEffect(() => {
+    const saved = sessionStorage.getItem(PHONE_COUNTRY_KEY);
+    if (saved) form.setValue("phoneCountry", saved);
+  }, [form]);
+
   async function onSubmit(values: UserInfoValues) {
     setFailure(null);
     try {
+      sessionStorage.setItem(PHONE_COUNTRY_KEY, values.phoneCountry);
       // The name is echoed back unchanged: `PUT /onboarding/profile` requires
       // all four fields and rejects unknown ones, so it is a full replacement
       // rather than a patch.
@@ -56,6 +84,12 @@ export function UserInfoForm({ email, me }: { email: string; me: Me }) {
 
   return (
     <AuthCard>
+      {/* The first step, so there is no step to go back to — this is the way
+          out of the flow, which the company step used to carry. */}
+      <div className="mb-6">
+        <BackToLogin />
+      </div>
+
       <AuthHeading title="Your Details">
         We filled in what your invite already told us. Two things left.
       </AuthHeading>

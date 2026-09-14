@@ -24,6 +24,10 @@ export default async function PlanPage({
 }) {
   const { email = "", compID = "" } = await searchParams;
 
+  // Back from here reopens the company step, which is addressed by account
+  // email — so it cannot be left to whatever the URL happened to carry.
+  const accountEmail = decodeURIComponent(email) || (await api.me()).email;
+
   // Arriving from the company step carries `compID`. Arriving from a resumed
   // session does not — `GET /onboarding` reports that a company exists without
   // naming it — and checkout is addressed by company, so it is looked up. The
@@ -48,7 +52,7 @@ export default async function PlanPage({
   return (
     <AuthShell panel={AUTH_PANELS.signup} step={2} width="wide">
       <PlanPicker
-        accountEmail={decodeURIComponent(email)}
+        accountEmail={accountEmail}
         companyId={decodeURIComponent(companyId)}
         catalog={catalog}
       />
