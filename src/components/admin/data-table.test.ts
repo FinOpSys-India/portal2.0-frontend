@@ -9,14 +9,17 @@
 import assert from "node:assert/strict";
 
 import {
+  csvValue,
   filterFields,
   filterRows,
   pageWindow,
   sortRows,
+  toCsv,
   type Column,
   type SortableColumn,
 } from "./data-table";
 import { parseFilters } from "../../lib/table-filter";
+import { parseDeadline } from "../../lib/manager";
 import {
   PAGE_SIZE,
   PAGE_SIZES,
@@ -221,6 +224,63 @@ async function main() {
   // Rows are not reordered or mutated on the way through.
   assert.equal(projects[0].name, "Payroll Q3");
 
+  /* ------------------------------------------- ISO deadlines, real parser -- */
+
+  // The rows above carry 1.0's M/DD/YY and a hand-rolled parser, which is how
+  // this stayed green while the screens were broken: the BACKEND sends ISO, and
+  // every Deadline column parses it with `parseDeadline`. That returned Invalid
+  // Date, so `getTime()` was NaN, and `matchesRange` throws NaN out — a range
+  // filter over a table plainly containing matches answered with an empty list.
+  //
+  // These five rows are the customer Projects list as it actually renders.
+  type Live = { name: string; deadline: string };
+  const live: Live[] = [
+    { name: "september bookkepping", deadline: "2026-09-08" },
+    { name: "testing", deadline: "2026-09-15" },
+    { name: "Project via AM", deadline: "2026-09-24" },
+    { name: "Project 5", deadline: "2026-10-08" },
+    { name: "Project 3", deadline: "2026-10-10" },
+  ];
+  const liveColumns: Column<Live>[] = [
+    { header: "Project Name", cell: (r) => r.name },
+    {
+      header: "Deadline",
+      filter: "date",
+      sortValue: (r) => parseDeadline(r.deadline).getTime(),
+      cell: (r) => r.deadline,
+    },
+  ];
+  const due = (query: string) =>
+    filterRows(live, liveColumns, parseFilters(query)).map((p) => p.name);
+
+  assert.deepEqual(
+    due("Deadline:between:2026-09-14|2026-09-25"),
+    ["testing", "Project via AM"],
+    "a range keeps the rows inside it",
+  );
+
+  // Both ends inclusive: a reader who typed the 15th means the whole 15th, and
+  // the 24th likewise — `between` is not a strict interval.
+  assert.deepEqual(due("Deadline:between:2026-09-15|2026-09-24"), [
+    "testing",
+    "Project via AM",
+  ]);
+
+  assert.deepEqual(due("Deadline:before:2026-09-15"), ["september bookkepping"]);
+  assert.deepEqual(due("Deadline:after:2026-10-08"), ["Project 5", "Project 3"]);
+  assert.deepEqual(due("Deadline:lte:2026-09-08"), ["september bookkepping"]);
+
+  // A range with nothing in it is still empty — the fix must not pass everything.
+  assert.deepEqual(due("Deadline:between:2026-09-16|2026-09-23"), []);
+
+  // No deadline matches no range, and does not read as the epoch.
+  const undated = filterRows(
+    [{ name: "Undated", deadline: "" }],
+    liveColumns,
+    parseFilters("Deadline:before:2030-01-01"),
+  );
+  assert.deepEqual(undated, []);
+
   /* --------------------------------------------------- multi-value cols -- */
 
   type Person = { name: string; companies: string[] };
@@ -310,3 +370,81 @@ async function main() {
 }
 
 main();
+
+
+/* ------------------------------------------------------------------ CSV -- */
+
+/*
+ * The export is built from the COLUMNS AS RENDERED, so it matches the screen it
+ * came from. Two things about that are silent when wrong: a value containing a
+ * comma splits into two columns, and a value starting with `=` is a formula
+ * when the accountant opens the file.
+ */
+type Row = { name: string; service: string; progress: number };
+
+const csvColumns: Column<Row>[] = [
+  { header: "Project Name", cell: (r) => r.name },
+  { header: "Service Type", cell: (r) => r.service },
+  // A client component renders nothing on this side, which is why these columns
+  // carry `sortValue` — and why the CSV falls back to it.
+  { header: "Progress", cell: () => null, sortValue: (r) => r.progress },
+];
+
+/* The plain case: a header row, then one line per row, CRLF between them. */
+assert.equal(
+  toCsv(csvColumns, [{ name: "Ledger", service: "Bookkeeping", progress: 72 }]),
+  "Project Name,Service Type,Progress\r\nLedger,Bookkeeping,72",
+);
+
+/* A cell that renders nothing falls back to `sortValue` rather than exporting
+   an empty column — the progress bar is the whole reason that rule exists. */
+assert.equal(
+  csvValue(csvColumns[2], { name: "x", service: "y", progress: 0 }),
+  "0",
+);
+
+/* A comma would otherwise split one value across two columns. */
+assert.equal(
+  toCsv([csvColumns[0]], [{ name: "Q3, final", service: "", progress: 0 }]),
+  'Project Name\r\n"Q3, final"',
+);
+
+/* Quotes double, per RFC 4180, and the field is wrapped. */
+assert.equal(
+  toCsv([csvColumns[0]], [{ name: 'the "good" one', service: "", progress: 0 }]),
+  'Project Name\r\n"the ""good"" one"',
+);
+
+/* A newline inside a value stays inside one field. */
+assert.equal(
+  toCsv([csvColumns[0]], [{ name: "two\nlines", service: "", progress: 0 }]),
+  'Project Name\r\n"two\nlines"',
+);
+
+/*
+ * THE CASE WORTH THE FILE: formula injection. Project names come from
+ * customers and this file is opened in Excel by staff, so a leading `=` is a
+ * script someone else wrote running on an accountant's machine. The apostrophe
+ * is the standard defusal — Excel eats it and shows the literal text.
+ */
+assert.equal(
+  toCsv([csvColumns[0]], [{ name: '=HYPERLINK("http://x","c")', service: "", progress: 0 }]),
+  `Project Name\r\n"'=HYPERLINK(""http://x"",""c"")"`,
+);
+for (const lead of ["=", "+", "-", "@"]) {
+  const out = toCsv([csvColumns[0]], [{ name: `${lead}cmd`, service: "", progress: 0 }]);
+  assert.ok(
+    out.endsWith(`'${lead}cmd`),
+    `a leading ${lead} must be defused, got ${out}`,
+  );
+}
+
+/* An ordinary value is left alone — no stray quotes around every field. */
+assert.equal(
+  toCsv([csvColumns[0]], [{ name: "Ledger", service: "", progress: 0 }]),
+  "Project Name\r\nLedger",
+);
+
+/* No rows: the header still goes, so the file opens as a table rather than as
+   an empty document that looks like a failed export. */
+assert.equal(toCsv(csvColumns, []), "Project Name,Service Type,Progress");

@@ -715,23 +715,44 @@ export async function downloadFile(
     );
   }
 
-  const blob = await res.blob();
+  saveBlob(
+    await res.blob(),
+    filenameFromDisposition(res.headers.get("content-disposition")) ??
+      fallbackName,
+  );
+}
+
+/**
+ * Hand a blob to the browser to save.
+ *
+ * The anchor dance is the whole of it, and both awkward steps are load-bearing:
+ * a DETACHED anchor is ignored by Firefox, and revoking the URL immediately
+ * cancels the save in Safari, which is still reading from it when the click
+ * returns.
+ */
+export function saveBlob(blob: Blob, filename: string): void {
   const href = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = href;
-  anchor.download =
-    filenameFromDisposition(res.headers.get("content-disposition")) ??
-    fallbackName;
+  anchor.download = filename;
 
-  // Appended before clicking: a detached anchor is ignored by Firefox, which is
-  // the browser this would silently fail in.
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
 
-  // Released on the next tick rather than immediately — revoking while the
-  // browser is still reading the blob cancels the save in Safari.
   setTimeout(() => URL.revokeObjectURL(href), 10_000);
+}
+
+/**
+ * Save a CSV this app generated, rather than one the server sent.
+ *
+ * THE BOM IS NOT DECORATION. Excel reads a UTF-8 CSV as the local 8-bit
+ * codepage unless the file opens with one, so "Zürich" arrives as "ZÃ¼rich" on
+ * a Windows machine — which is most of the people opening these. Three bytes
+ * fix it, and every other reader skips them.
+ */
+export function saveCsv(csv: string, filename: string): void {
+  saveBlob(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }), filename);
 }
 
 /* ------------------------------------------------------------ pagination -- */

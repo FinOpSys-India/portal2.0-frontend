@@ -46,12 +46,10 @@ export default async function ProjectsPage({
       dir={dir}
       filters={parseFilters(f)}
       total={projects.length}
-      action={
-        <>
-          <ExportProjectsCsv companyId={workspace} />
-          <NewProject workspaceId={workspace} services={services} />
-        </>
-      }
+      exportCsv={(filtered) => (
+        <ExportProjectsCsv companyId={workspace} filtered={filtered} />
+      )}
+      action={<NewProject workspaceId={workspace} services={services} />}
       rows={projects}
       rowHref={(row) => `/customer/${workspace}/projects/${row.id}`}
       empty="No projects yet. Create one to get started."

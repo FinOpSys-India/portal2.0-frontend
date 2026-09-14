@@ -56,29 +56,32 @@ export default async function ManagerProjectsPage({
   //
   // Columns are 1.0's, in 1.0's order. Status is deliberately absent: it
   // is not a column there, it lives on the project detail.
+  const scope = await scopeName(company);
+
   return (
     <DataTable<ManagedProject>
       // Not "All Projects". The portal reads one company at a time, so the
       // table below has never been all of anything — it is this company's.
       title="Projects"
-      scope={await scopeName(company)}
+      scope={scope}
       page={page}
       size={size}
       sort={sort}
       dir={dir}
       filters={parseFilters(f)}
       total={projects.length}
+      exportCsv={(filtered) => (
+        <ExportProjectsCsv
+          companyId={company}
+          companyName={scope}
+          filtered={filtered}
+        />
+      )}
       action={
-        <>
-          <ExportProjectsCsv
-            companyId={company}
-            companyName={await scopeName(company)}
-          />
-          <NewProject
-            companies={companies.map(({ id, name }) => ({ id, name }))}
-            defaultCompanyId={company}
-          />
-        </>
+        <NewProject
+          companies={companies.map(({ id, name }) => ({ id, name }))}
+          defaultCompanyId={company}
+        />
       }
       rows={projects}
       rowHref={(row) => scoped(`/manager/projects/${row.id}`, company)}

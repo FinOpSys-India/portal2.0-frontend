@@ -40,16 +40,46 @@ export function safeFilename(name: string, fallback: string): string {
  * `companyId` is required by the endpoint and by the rule the whole app turns
  * on: a project list is always one account's, never a book-wide read.
  */
+export function companyProjectsExportPath(companyId: string): string {
+  return `/projects/export?companyId=${encodeURIComponent(companyId)}`;
+}
+
+/**
+ * What a projects export is called when the server does not name it.
+ *
+ * Shared by the backend export and the filtered one built in the browser, so a
+ * reader who takes both does not get two files named differently for the same
+ * list. `scope` distinguishes them instead.
+ */
+export function projectsExportFilename(
+  companyName?: string,
+  scope?: string,
+): string {
+  const base = companyName ? `${companyName} projects` : "projects";
+  return safeFilename(scope ? `${base} (${scope})` : base, "projects") + ".csv";
+}
+
 export function exportCompanyProjects(
   companyId: string,
   companyName?: string,
 ): Promise<void> {
   return downloadFile(
-    `/projects/export?companyId=${encodeURIComponent(companyId)}`,
-    safeFilename(
-      companyName ? `${companyName} projects` : "projects",
-      "projects",
-    ) + ".csv",
+    companyProjectsExportPath(companyId),
+    projectsExportFilename(companyName),
+  );
+}
+
+export function projectExportPath(projectId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}/export`;
+}
+
+export function projectExportFilename(
+  projectId: string,
+  projectName?: string,
+): string {
+  return (
+    safeFilename(projectName ?? `project-${projectId}`, `project-${projectId}`) +
+    ".csv"
   );
 }
 
@@ -59,8 +89,7 @@ export function exportProject(
   projectName?: string,
 ): Promise<void> {
   return downloadFile(
-    `/projects/${encodeURIComponent(projectId)}/export`,
-    safeFilename(projectName ?? `project-${projectId}`, `project-${projectId}`) +
-      ".csv",
+    projectExportPath(projectId),
+    projectExportFilename(projectId, projectName),
   );
 }

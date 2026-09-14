@@ -1,3 +1,4 @@
+import type { FilteredCsv } from "@/components/portal/export-csv";
 // Intentionally a Server Component: the pages pass `cell` render functions in
 // their column definitions, and functions cannot cross the server/client
 // boundary. Nothing here needs hooks, so it stays on the server and only the
@@ -102,6 +103,67 @@ export function cellText(node: React.ReactNode): string {
     return cellText((node.props as { children?: React.ReactNode }).children);
   }
   return "";
+}
+
+/** What a filtered export is called: the list, and how much of it this is. */
+function exportFilename(title: string | undefined, count: number): string {
+  const base = (title ?? "rows").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  return `${base}-filtered-${count}.csv`;
+}
+
+/**
+ * One cell's value for a CSV, which is not always the text it renders.
+ *
+ * `cellText` first, because the export should say what the screen says. It
+ * comes back EMPTY for a client component — the children are rendered on the
+ * far side of the boundary — and those columns already carry `sortValue` for
+ * exactly that reason, so it is the fallback here too: a progress bar exports
+ * as `72` rather than as nothing.
+ */
+export function csvValue<T>(column: Column<T>, row: T): string {
+  const text = cellText(column.cell(row)).trim();
+  if (text) return text;
+  return typeof column.sortValue === "function"
+    ? String(column.sortValue(row))
+    : "";
+}
+
+/**
+ * A field, quoted when it has to be and defused when it could execute.
+ *
+ * TWO SEPARATE PROBLEMS, and only the first is about CSV. Quoting handles
+ * commas, quotes and newlines inside a value — a project called `Q3, final`
+ * would otherwise become two columns.
+ *
+ * The second is FORMULA INJECTION, and it is why the leading-character check is
+ * here. Excel and Sheets treat a cell beginning `=`, `+`, `-` or `@` as a
+ * formula, so a project someone named `=HYPERLINK("http://evil","click")` runs
+ * when an accountant opens the export. These names come from customers and this
+ * file is opened by staff, which is exactly the path that matters. A leading
+ * apostrophe is the standard defusal: Excel eats it and shows the literal text.
+ */
+function csvField(value: string): string {
+  const defused = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return /[",\r\n]/.test(defused) ? `"${defused.replace(/"/g, '""')}"` : defused;
+}
+
+/**
+ * The rows a table is showing, as a CSV.
+ *
+ * COLUMNS AS RENDERED, header row included, so the file matches the screen it
+ * came from — same columns, same order, same formatting of a deadline. That is
+ * the whole point of exporting a FILTERED list: the alternative, re-querying
+ * the backend, cannot know what the reader narrowed to.
+ *
+ * CRLF and not "\n": RFC 4180 says so, and Excel on Windows is the reader this
+ * is actually for.
+ */
+export function toCsv<T>(columns: Column<T>[], rows: T[]): string {
+  const header = columns.map((c) => csvField(c.header)).join(",");
+  const body = rows.map((row) =>
+    columns.map((column) => csvField(csvValue(column, row))).join(","),
+  );
+  return [header, ...body].join("\r\n");
 }
 
 /**
@@ -343,6 +405,7 @@ export function DataTable<T>({
   title,
   scope,
   action,
+  exportCsv,
   empty,
   sort,
   dir,
@@ -379,16 +442,46 @@ export function DataTable<T>({
   scope?: string;
   /** The list's own button — New Project, Invite Customer, Upload File. */
   action?: React.ReactNode;
+  /**
+   * Renders a CSV export beside the filter button.
+   *
+   * IT TAKES A CALLBACK AND LIVES HERE, not on the page, because only this
+   * component knows what the filters left. `?f=` is applied below over the rows
+   * the page handed down, so a page-level export could offer "everything" and
+   * nothing else — the narrowed set exists only after `filterRows` has run.
+   *
+   * The narrowed CSV is serialized ON THE SERVER, where this renders, and
+   * crosses to the button as a string. Cheaper than shipping the filter engine
+   * to the browser to redo work already done here.
+   *
+   * ponytail: serialized on every render of a filtered list, whether or not
+   * anyone exports. Fine at the hundred rows these pages load; make it a route
+   * that re-filters on demand if a list ever gets big.
+   */
+  exportCsv?: (filtered?: FilteredCsv) => React.ReactNode;
   empty: string;
 }) {
   const matching = filterRows(rows, columns, filters);
+
+  /**
+   * How many rows the reader is being shown out of, which is NOT `total` once a
+   * filter is on.
+   *
+   * `total` is the list's own size — the backend's count for the paged admin
+   * lists, `rows.length` everywhere else. With a filter applied the honest
+   * denominator is what survived it, and it has to be the SAME number the pager
+   * windows on: reading it from `total` in the footer while `first` and `last`
+   * came from the filtered count is what printed "Showing 0–0 of 5" over an
+   * empty table.
+   */
+  const count = filters.length > 0 ? matching.length : total;
 
   // Filtered and sorted before the window is taken, so both span every row the
   // table was handed rather than rearranging the ten on screen. The pager has
   // to count what survived the filters, or it offers pages that are now empty.
   const { shown, current, pages, first, last } = pageWindow(
     sortRows(matching, columns, sort, dir),
-    filters.length > 0 ? matching.length : total,
+    count,
     page,
     size,
   );
@@ -400,6 +493,21 @@ export function DataTable<T>({
   // ponytail: goes away when the API takes the filters — `GET /customers` and
   // friends accept `search`, `status` and `role` and nothing else today.
   const truncated = filters.length > 0 && total > rows.length ? total : 0;
+
+  /*
+   * A narrowed export, but only when the filters actually removed something. A
+   * `?f=` that excludes nothing still narrows nothing, and offering "these 40
+   * rows" beside "everything" when they are the same 40 is a choice with no
+   * difference in it.
+   */
+  const narrowed =
+    filters.length > 0 && matching.length !== rows.length
+      ? {
+          csv: toCsv(columns, matching),
+          filename: exportFilename(title, matching.length),
+          count: matching.length,
+        }
+      : undefined;
 
   const fields = filterFields(columns, rows);
   // Filter beside the page's own button, never wrapped around it: they are the
@@ -415,12 +523,13 @@ export function DataTable<T>({
       <FilterButton
         fields={fields}
         filters={filters}
-        count={filters.length > 0 ? matching.length : total}
+        count={count}
         // The page's own noun, so the panel's footer reads "16 customers"
         // rather than a bare number. Nested tables have no heading of their
         // own and say "rows".
         noun={title?.toLowerCase() ?? "rows"}
       />
+      {exportCsv?.(narrowed)}
       {action}
     </div>
   );
@@ -507,7 +616,7 @@ export function DataTable<T>({
       {total > 0 ? (
         <div className="flex items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            Showing {first}–{last} of {total}
+            Showing {first}–{last} of {count}
           </p>
 
           <div className="flex items-center gap-4">

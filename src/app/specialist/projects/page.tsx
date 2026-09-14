@@ -47,22 +47,25 @@ export default async function SpecialistProjectsPage({
   const company = await companyScope(picked);
   const projects = await specialistApi.projects(company);
 
+  const scope = await scopeName(company);
+
   return (
     <DataTable<ManagedProject>
       title="Projects"
-      scope={await scopeName(company)}
+      scope={scope}
       page={page}
       size={size}
       sort={sort}
       dir={dir}
       filters={parseFilters(f)}
       total={projects.length}
-      action={
+      exportCsv={(filtered) => (
         <ExportProjectsCsv
           companyId={company}
-          companyName={await scopeName(company)}
+          companyName={scope}
+          filtered={filtered}
         />
-      }
+      )}
       rows={projects}
       rowHref={(row) => scoped(`/specialist/projects/${row.id}`, company)}
       empty={

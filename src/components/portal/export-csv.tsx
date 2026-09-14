@@ -1,100 +1,166 @@
 "use client";
 
 import * as React from "react";
-import { Download } from "lucide-react";
+import { ChevronDown, Download } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
-import { exportCompanyProjects, exportProject } from "@/lib/export";
+import {
+  companyProjectsExportPath,
+  projectExportFilename,
+  projectExportPath,
+  projectsExportFilename,
+} from "@/lib/export";
+import { downloadFile, saveCsv } from "@/lib/http";
+
+/** The narrowed rows, serialized by the table that knows what `?f=` removed. */
+export type FilteredCsv = { csv: string; filename: string; count: number };
 
 /**
- * The CSV export button, on a list or on one record.
+ * The CSV export control.
  *
- * The two wrappers at the bottom are what pages actually render, and they exist
- * because of the boundary: every projects page is a SERVER component, and a
- * function is not serializable across it — passing `run` from there would fail
- * at the point React tries to send it. So the ids cross instead, and the call
- * is built on this side.
+ * ONE BUTTON OR TWO CHOICES, decided by whether the list is narrowed. With no
+ * filters applied there is only one thing "export" can mean, and a menu holding
+ * a single item is a click in the way. Once a filter is on, the two meanings
+ * genuinely differ and the reader has to pick.
  *
- * PENDING STATE IS NOT DECORATION. An export is a server-side query answered as
- * a file, so nothing on the page changes when it succeeds — the only feedback a
- * browser gives is the download itself, which on a slow report arrives seconds
- * after the click. Without the spinner and the disable, the button reads as
- * dead and gets pressed repeatedly, each press starting another query.
+ * THE TWO COME FROM DIFFERENT PLACES, and that is not an implementation detail
+ * the labels can hide:
  *
- * Failures go to a toast rather than an inline alert: this button sits in a
- * table header and beside a page title, where there is no form to put a message
- * under, and the messages that matter here (a 402 from the paywall, an endpoint
- * that is not deployed) are sentences rather than field errors.
+ *   `all`      re-queries the backend, which holds rows this page never loaded
+ *              and is the authority on what the account contains.
+ *   `filtered` is built from the rows ON SCREEN, because that is the only thing
+ *              that can honour the filters. `?f=` is applied by the table over
+ *              the rows it was handed — the export endpoint has never heard of
+ *              it, so "give me the filtered ones" is not a request that can be
+ *              made of the server.
+ *
+ * So a filtered export carries the columns as shown, and an unfiltered one
+ * carries whatever the backend puts in its file. The menu names each by what it
+ * contains rather than calling both "Export", because they are not the same
+ * file with fewer rows.
  */
-function ExportCsv({
-  run,
-  label = "Export CSV",
-  disabled = false,
+function ExportMenu({
+  all,
+  filtered,
 }: {
-  run: () => Promise<void>;
-  /** Overridden where the surrounding buttons are already verbose. */
-  label?: string;
-  /** For a scope that cannot be exported — no company picked, an empty list. */
-  disabled?: boolean;
+  all?: { path: string; filename: string };
+  filtered?: FilteredCsv;
 }) {
   const [pending, setPending] = React.useState(false);
 
-  async function download() {
+  async function run(action: () => void | Promise<void>) {
     if (pending) return;
     setPending(true);
     try {
-      await run();
+      await action();
       // Said explicitly because the browser's own signal is easy to miss: the
       // download lands in a shelf or a corner of the toolbar, and on a file
       // that saves instantly there is otherwise no sign the click did anything.
       toast.success("Export downloaded.");
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Could not export that.",
-      );
+      toast.error(err instanceof Error ? err.message : "Could not export that.");
     } finally {
       setPending(false);
     }
   }
 
+  const icon = pending ? <Spinner className="size-4" /> : <Download aria-hidden />;
+
+  // Nothing to offer — a list with no backend export and nothing on screen.
+  // A button that cannot produce a file is worse than no button.
+  if (!all && !filtered) return null;
+
+  if (!all || !filtered) {
+    const single = filtered;
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        disabled={pending}
+        onClick={() =>
+          run(() =>
+            single ? saveCsv(single.csv, single.filename) : downloadFile(all!.path, all!.filename),
+          )
+        }
+      >
+        {icon}
+        Export CSV
+      </Button>
+    );
+  }
+
   return (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={download}
-      disabled={pending || disabled}
-    >
-      {pending ? <Spinner className="size-4" /> : <Download aria-hidden />}
-      {label}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" disabled={pending}>
+          {icon}
+          Export CSV
+          <ChevronDown aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {/* Filtered FIRST, and named with its count. It is what the reader is
+            looking at, so it is the one they almost always mean, and the count
+            is what makes the two tellable apart at a glance. */}
+        <DropdownMenuItem
+          onSelect={() => run(() => saveCsv(filtered.csv, filtered.filename))}
+        >
+          {`These ${filtered.count} ${filtered.count === 1 ? "row" : "rows"}`}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => run(() => downloadFile(all.path, all.filename))}
+        >
+          Everything, ignoring filters
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 /**
  * Every project on one company.
  *
- * Disabled with no company, which is a real state rather than a defensive one:
- * the manager's list opens unscoped until a company is picked, and the endpoint
- * requires `companyId` — the request would be a 400 the moment it left.
+ * This wrapper exists because of the boundary: every projects page is a SERVER
+ * component, and a function is not serializable across it — so the id crosses
+ * and the call is built on this side.
+ *
+ * With no company there is no backend export to offer: the manager's list opens
+ * unscoped until one is picked, and the endpoint requires `companyId`. The
+ * filtered export still works, because it needs nothing but the rows.
  */
 export function ExportProjectsCsv({
   companyId,
   companyName,
+  filtered,
 }: {
   companyId?: string;
   companyName?: string;
+  filtered?: FilteredCsv;
 }) {
   return (
-    <ExportCsv
-      disabled={!companyId}
-      run={() => exportCompanyProjects(companyId!, companyName)}
+    <ExportMenu
+      all={
+        companyId
+          ? {
+              path: companyProjectsExportPath(companyId),
+              filename: projectsExportFilename(companyName),
+            }
+          : undefined
+      }
+      filtered={filtered}
     />
   );
 }
 
-/** One project and its tasks. */
+/** One project and its tasks. No filters — a detail page is a single record. */
 export function ExportProjectCsv({
   projectId,
   projectName,
@@ -103,6 +169,11 @@ export function ExportProjectCsv({
   projectName?: string;
 }) {
   return (
-    <ExportCsv run={() => exportProject(projectId, projectName)} />
+    <ExportMenu
+      all={{
+        path: projectExportPath(projectId),
+        filename: projectExportFilename(projectId, projectName),
+      }}
+    />
   );
 }
