@@ -61,8 +61,18 @@ export default async function AccountingManagersPage({
         {
           header: "Name",
           sortValue: (row) => row.name,
-          cell: (row) => <PersonCell name={row.name} />,
+          cell: (row) => <PersonCell name={row.name} avatarUrl={row.avatarUrl} />,
         },
+        {
+          header: "Email",
+          cell: (row) => (
+            <span className="text-muted-foreground">{row.email}</span>
+          ),
+        },
+        // LAST, and after Email. Who someone is and how to reach them are one
+        // fact each and sit together; the companies are a set that wraps to as
+        // many lines as it needs, and a wrapping cell between two short ones
+        // pushed Email to the far edge of the screen.
         {
           header: "Assigned Companies",
           sortValue: (row) => row.companies.join(", "),
@@ -70,12 +80,6 @@ export default async function AccountingManagersPage({
           filterValues: (row) => row.companies,
           filterOptions: companies.rows.map((company) => company.name),
           cell: (row) => <ChipsCell items={row.companies} />,
-        },
-        {
-          header: "Email",
-          cell: (row) => (
-            <span className="text-muted-foreground">{row.email}</span>
-          ),
         },
       ]}
     />

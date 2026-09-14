@@ -561,7 +561,17 @@ export function ChipsCell({ items }: { items: string[] }) {
   }
 
   return (
-    <span className="flex flex-wrap items-center gap-1">
+    /*
+     * A WIDTH, because without one this never wraps. `TableCell` sets
+     * `whitespace-nowrap` and the table lays out on content, so a manager on
+     * nine companies made one column as wide as all nine chips and pushed every
+     * column after it off to the right. Capped here, the flex wraps to a second
+     * line and the row grows instead of the table.
+     *
+     * `whitespace-normal` undoes the cell's nowrap for the chip labels
+     * themselves, so a long company name breaks rather than widening the cap.
+     */
+    <span className="flex max-w-[38rem] flex-wrap items-center gap-1 whitespace-normal">
       {items.map((item) => (
         <span
           key={item}

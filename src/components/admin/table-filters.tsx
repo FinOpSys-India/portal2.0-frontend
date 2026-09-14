@@ -241,7 +241,11 @@ export function FilterButton({
           </button>
         </div>
 
-        <div className="flex min-h-72">
+        {/* 25.2rem, which is 18rem — the `min-h-72` this replaced — plus 40%.
+            Written as the arithmetic rather than rounded to the nearest step on
+            the scale, so the next change to it starts from a number that says
+            where it came from. */}
+        <div className="flex min-h-[25.2rem]">
           {/* The rail: every filterable column, so the choice is visible
               rather than behind a menu. */}
           <ul className="w-48 shrink-0 space-y-1 border-r border-border bg-muted/40 p-3">
@@ -557,7 +561,11 @@ function EnumPane({
       ) : shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">No values match.</p>
       ) : (
-        <ul className="-mx-2 max-h-56 space-y-1 overflow-y-auto px-2">
+        <ul className="-mx-2 max-h-[19.6rem] space-y-1 overflow-y-auto px-2">
+          {/* 19.6rem is 14rem plus the same 40% the panel grew by. Left at the
+              old height it would have scrolled the same six options inside a
+              taller box, and the extra room would have been dead space under
+              the list rather than more of it. */}
           {byInitial(shown, searchable).map(([letter, group]) => (
             <li key={letter}>
               {letter ? (
