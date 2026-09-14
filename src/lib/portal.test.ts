@@ -12,12 +12,13 @@ import {
   billingDate,
   personName,
   taskStatusCode,
-  teamNames,
+  teamPeople,
   toAddressFields,
   toAddressPayload,
   documentPath,
   personAvatarUrl,
   personId,
+  toPortalPerson,
   toChatMessage,
   toClientCompany,
   toManagerDocument,
@@ -258,7 +259,12 @@ const company: BackendCompany = {
   ],
   billing: { currentPeriodEnd: "2026-09-06T00:00:00.000Z" },
   teamMembers: {
-    owner: { firstName: "Priya", lastName: "Nair" },
+    // Priya has uploaded a picture; the other two have not, and draw initials.
+    owner: {
+      firstName: "Priya",
+      lastName: "Nair",
+      avatarUrl: "https://cdn/priya.png",
+    },
     accountingManager: { firstName: "Alex", lastName: "Morgan" },
     specialists: [{ firstName: "Nadia", lastName: "Haddad" }],
   },
@@ -267,7 +273,14 @@ const company: BackendCompany = {
 const account = toClientCompany(company);
 assert.equal(account.id, "18");
 assert.deepEqual(account.activeServices, ["Bookkeeping", "Payroll"]);
-assert.deepEqual(account.teamMembers, ["Priya Nair", "Alex Morgan", "Nadia Haddad"]);
+// Name AND picture per person: the stacks these feed draw a face when there is
+// one and initials when there is not, which they cannot do from a name alone.
+assert.deepEqual(account.teamMembers, [
+  { name: "Priya Nair", avatarUrl: "https://cdn/priya.png" },
+  { name: "Alex Morgan", avatarUrl: null },
+  { name: "Nadia Haddad", avatarUrl: null },
+]);
+assert.equal(account.ownerAvatarUrl, null);
 // Specialists alone — the Action cell names who is staffed, and the owner and
 // the manager are not that.
 assert.deepEqual(account.specialists, ["Nadia Haddad"]);
@@ -280,11 +293,15 @@ assert.ok(billingDate(company)?.includes("2026"));
 // The manager's own view names the same block `members` rather than
 // `teamMembers`. Both must produce the same roster.
 assert.deepEqual(
-  teamNames({ ...company, teamMembers: undefined, members: company.teamMembers }),
+  teamPeople({
+    ...company,
+    teamMembers: undefined,
+    members: company.teamMembers,
+  }).map((p) => p.name),
   ["Priya Nair", "Alex Morgan", "Nadia Haddad"],
 );
 // A company with nobody staffed is an empty list, never a crash.
-assert.deepEqual(teamNames({ ...company, teamMembers: undefined }), []);
+assert.deepEqual(teamPeople({ ...company, teamMembers: undefined }), []);
 
 /* -------------------------------------------------------------- addresses -- */
 
@@ -419,6 +436,22 @@ assert.equal(
 );
 assert.equal(personAvatarUrl({ userId: 12, firstName: "Ada", lastName: "Byron" }), null);
 assert.equal(personAvatarUrl(null), null);
+
+// The pair every avatar in the portal is drawn from. A person with no picture
+// still has a name, which is what the initials are made of.
+assert.deepEqual(toPortalPerson({ id: 12, firstName: "Ada", lastName: "Byron" }), {
+  name: "Ada Byron",
+  avatarUrl: null,
+});
+assert.deepEqual(
+  toPortalPerson({
+    id: 12,
+    firstName: "Ada",
+    lastName: "Byron",
+    avatarUrl: "https://cdn/a.png",
+  }),
+  { name: "Ada Byron", avatarUrl: "https://cdn/a.png" },
+);
 assert.equal(
   toManagerDocument(
     {

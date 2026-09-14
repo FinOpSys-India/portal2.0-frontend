@@ -27,6 +27,7 @@ import {
 import { get, getOrNull, patch } from "@/lib/http";
 import { fullName } from "@/lib/directory";
 import {
+  personAvatarUrl,
   personName,
   taskStatusCode,
   toAddressFields,
@@ -285,12 +286,13 @@ export const specialistApi = {
    */
   async thread(companyId?: string): Promise<ManagerThread> {
     const [id] = await scopeIds(companyId);
-    if (!id) return { id: null, contact: "", unread: 0 };
+    if (!id) return { id: null, contact: "", contactAvatarUrl: null, unread: 0 };
 
     const conversation = await openConversation(id);
     return {
       id: String(conversation.id),
       contact: personName(conversation.counterpart),
+      contactAvatarUrl: personAvatarUrl(conversation.counterpart),
       unread: conversation.unreadCount ?? 0,
     };
   },

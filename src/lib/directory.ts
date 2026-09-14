@@ -18,6 +18,16 @@ export interface DirectoryUser {
   specificRole: string | null;
   jobTitle: string | null;
   status: string;
+  /**
+   * Their picture, once `companyDto.toDirectoryUser` sends one.
+   *
+   * OPTIONAL BECAUSE THE BACKEND DOES NOT SEND IT YET — it selects no avatar on
+   * the directory rows, only on the detail reads and on everyone embedded in a
+   * project, a company team or a chat contact. Read here regardless, so every
+   * people list shows faces the day that one line lands rather than needing
+   * this plumbing again.
+   */
+  avatarUrl?: string | null;
 }
 
 /** A company as it appears nested inside a directory row. */

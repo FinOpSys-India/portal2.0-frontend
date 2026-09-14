@@ -97,6 +97,7 @@ export function ChatInbox({
         <ChatThread
           key={open.conversationId}
           contact={open.name}
+          contactAvatarUrl={open.avatarUrl}
           badge={
             <Badge variant="secondary" className="capitalize">
               {open.roleLabel || party}
@@ -164,7 +165,7 @@ function ContactList({
                 contact.userId === openUserId && "bg-muted",
               )}
             >
-              <InitialsAvatar name={contact.name} />
+              <InitialsAvatar name={contact.name} src={contact.avatarUrl} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">
                   {contact.name}

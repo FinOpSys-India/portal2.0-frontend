@@ -18,6 +18,7 @@ export default async function CustomerChatPage({
     <ManagerChat
       workspace={workspace}
       contact={thread.contact}
+      contactAvatarUrl={thread.contactAvatarUrl}
       conversationId={thread.id}
     />
   );

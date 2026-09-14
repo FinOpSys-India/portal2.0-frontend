@@ -75,7 +75,7 @@ export default async function CompanyPage({
           header: "Team Members",
           filter: "number",
           sortValue: (row) => row.teamMembers.length,
-          cell: (row) => <AvatarStack names={row.teamMembers} />,
+          cell: (row) => <AvatarStack people={row.teamMembers} />,
         },
       ]}
     />

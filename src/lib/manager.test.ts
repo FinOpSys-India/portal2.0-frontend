@@ -47,6 +47,7 @@ function project(over: Partial<ManagedProject>): ManagedProject {
     name: "Test",
     company: "A Company",
     companyId: "c1",
+    specialistAvatarUrl: null,
     service: "Payroll",
     deadline: "8/05/26",
     status: "Not started",

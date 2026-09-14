@@ -15,7 +15,7 @@ import {
   put,
 } from "@/lib/http";
 import { fullName, roleIds, type DirectoryUser } from "@/lib/directory";
-import { usDate } from "@/lib/portal";
+import { usDate, type PortalPerson } from "@/lib/portal";
 
 export type CustomerRole = "Owner" | "Teammate";
 
@@ -24,11 +24,18 @@ export interface Customer {
   role: CustomerRole;
   email: string;
   companies: string[];
+  /** Their picture, when the row carries one. Null draws their initials. */
+  avatarUrl: string | null;
 }
 
 export interface CustomerDetail extends Customer {
   position: string;
   phone: string;
+  /**
+   * Their picture. `companyDto.toCustomerDetail` carries it — the directory row
+   * behind the list does not, which is why the table still draws initials.
+   */
+  avatarUrl: string | null;
   addressLine1: string;
   city: string;
   state: string;
@@ -40,22 +47,26 @@ export interface Specialist {
   name: string;
   speciality: string;
   email: string;
+  avatarUrl: string | null;
 }
 
 export interface AccountingManager {
   name: string;
   email: string;
   companies: string[];
+  avatarUrl: string | null;
 }
 
 export interface Company {
   id: string;
   name: string;
   owner: string;
+  /** The owner's picture, when they have one. */
+  ownerAvatarUrl: string | null;
   activeServices: string[];
   /** Absent until a subscription starts. */
   billingDate: string | null;
-  teamMembers: string[];
+  teamMembers: PortalPerson[];
   accountingManager: string | null;
 }
 
@@ -207,7 +218,7 @@ interface AccountRow {
   id: number;
   companyName: string;
   companyEmail: string;
-  owner: { firstName: string; lastName: string } | null;
+  owner: Person | null;
   accountingManager: { firstName: string; lastName: string } | null;
   primaryAddress: BackendAddress | null;
   // `planName` is the tier the company is on. There is no price here — see
@@ -224,6 +235,8 @@ interface AccountRow {
 interface Person {
   firstName: string;
   lastName: string;
+  /** `projectDto.toPerson` builds one for everyone on a company's team. */
+  avatarUrl?: string | null;
 }
 
 /** See lib/portal.ts — the field is `addressLine1`, not the column name. */
@@ -262,12 +275,18 @@ const person = (p: Person | null): string => (p ? fullName(p) : "");
  * Anything else still throws — a 500 must not be quietly rendered as "this
  * person has no phone number".
  */
-async function customerProfile(
-  row: CustomerRow,
-): Promise<{ phone: string | null; address: BackendAddress | null } | null> {
+async function customerProfile(row: CustomerRow): Promise<{
+  phone: string | null;
+  avatarUrl?: string | null;
+  address: BackendAddress | null;
+} | null> {
   try {
     const data = await get<{
-      customer: { phone: string | null; address: BackendAddress | null };
+      customer: {
+        phone: string | null;
+        avatarUrl?: string | null;
+        address: BackendAddress | null;
+      };
     }>(`/customers/${row.userId}`);
     return data.customer;
   } catch (err) {
@@ -285,6 +304,7 @@ function toCustomer(row: CustomerRow): Customer {
     // Teammate and has since 1.0.
     role: row.specificRole === "OWNER" ? "Owner" : "Teammate",
     email: row.email,
+    avatarUrl: row.avatarUrl ?? null,
     companies: (row.companies ?? []).map((c) => c.companyName),
   };
 }
@@ -294,12 +314,14 @@ function toSpecialist(row: SpecialistRow): Specialist {
     name: fullName(row),
     speciality: row.serviceSpeciality ?? "",
     email: row.email,
+    avatarUrl: row.avatarUrl ?? null,
   };
 }
 
 function toManager(row: ManagerRow): AccountingManager {
   return {
     name: fullName(row),
+    avatarUrl: row.avatarUrl ?? null,
     email: row.email,
     companies: (row.companies ?? []).map((c) => c.companyName),
   };
@@ -314,6 +336,7 @@ function toCompany(row: AccountRow): Company {
     id: String(row.id),
     name: row.companyName,
     owner: person(row.owner),
+    ownerAvatarUrl: row.owner?.avatarUrl ?? null,
     activeServices: (row.activeServices ?? []).map((s) => s.specializationName),
     // `currentPeriodEnd` is when the next invoice is raised, which is what the
     // "Billing Date" column has always meant. Null before the first checkout.
@@ -326,7 +349,7 @@ function toCompany(row: AccountRow): Company {
       ...(team?.specialists ?? []),
     ]
       .filter((p): p is Person => Boolean(p))
-      .map(person),
+      .map((p) => ({ name: person(p), avatarUrl: p.avatarUrl ?? null })),
     accountingManager: row.accountingManager
       ? person(row.accountingManager)
       : null,
@@ -386,6 +409,7 @@ export const adminApi = {
       // The customer's own phone (onboarding step 1) and address (their profile
       // page). Blank if the deployed backend predates the ADMIN gate.
       phone: profile?.phone ?? "",
+      avatarUrl: profile?.avatarUrl ?? null,
       ...address(profile?.address ?? null),
     };
   },

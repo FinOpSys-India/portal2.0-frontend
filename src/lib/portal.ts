@@ -77,6 +77,23 @@ export const personAvatarUrl = (
   p: BackendPerson | null | undefined,
 ): string | null => p?.avatarUrl ?? null;
 
+/**
+ * A person as the screens render one: their name, and their picture when they
+ * have uploaded one.
+ *
+ * The pair travels together because every avatar in this portal is drawn from
+ * both — `InitialsAvatar` falls back to initials on a null URL — and a row that
+ * carried only the name could never show a face however many the API returned.
+ */
+export interface PortalPerson {
+  name: string;
+  avatarUrl: string | null;
+}
+
+export const toPortalPerson = (
+  p: BackendPerson | null | undefined,
+): PortalPerson => ({ name: personName(p), avatarUrl: personAvatarUrl(p) });
+
 /* --------------------------------------------------------------- statuses -- */
 
 /**
@@ -142,6 +159,7 @@ export function toManagedProject(p: BackendProject): ManagedProject {
     // Null means the service line is unstaffed — not that the field was
     // forgotten, which is why the column renders a placeholder rather than "".
     specialist: p.specialist ? personName(p.specialist) : null,
+    specialistAvatarUrl: personAvatarUrl(p.specialist),
     createdBy: personName(p.createdBy),
     progress: p.progressBar ?? 0,
     createdOn: p.createdAt,
@@ -463,11 +481,18 @@ export function billingDate(company: BackendCompany): string | null {
   return end ? usDate(end) : null;
 }
 
-export function teamNames(company: BackendCompany): string[] {
+/**
+ * The company's people, pictures included.
+ *
+ * `toTeam` builds every one of them through `projectDto.toPerson`, which
+ * carries `avatarUrl` — so the stacks these feed show faces for anyone who has
+ * uploaded one, and initials for everyone else.
+ */
+export function teamPeople(company: BackendCompany): PortalPerson[] {
   const team = company.teamMembers ?? company.members;
   return [team?.owner, team?.accountingManager, ...(team?.specialists ?? [])]
     .filter((p): p is BackendPerson => Boolean(p))
-    .map(personName);
+    .map(toPortalPerson);
 }
 
 /** Just the staffed specialists — the Action cell names them once they exist. */
@@ -481,9 +506,10 @@ export function toClientCompany(c: BackendCompany): ClientCompany {
     id: String(c.id),
     name: c.companyName,
     owner: personName(c.owner),
+    ownerAvatarUrl: personAvatarUrl(c.owner),
     activeServices: (c.activeServices ?? []).map((s) => s.specializationName),
     billingDate: billingDate(c),
-    teamMembers: teamNames(c),
+    teamMembers: teamPeople(c),
     specialists: specialistNames(c),
   };
 }

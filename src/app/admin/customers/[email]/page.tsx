@@ -27,7 +27,11 @@ export default async function CustomerDetailPage({
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <InitialsAvatar name={customer.name} className="size-11 text-sm" />
+          <InitialsAvatar
+            name={customer.name}
+            src={customer.avatarUrl}
+            className="size-11 text-sm"
+          />
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
               {customer.name}

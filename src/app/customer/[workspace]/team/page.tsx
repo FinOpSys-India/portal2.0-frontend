@@ -47,7 +47,7 @@ export default async function TeamPage({
         {
           header: "Name",
           sortValue: (row) => row.name,
-          cell: (row) => <PersonCell name={row.name} />,
+          cell: (row) => <PersonCell name={row.name} avatarUrl={row.avatarUrl} />,
         },
         { header: "Job Title", cell: (row) => row.jobTitle },
         {

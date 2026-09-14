@@ -16,6 +16,7 @@
 
 import { del, get, post, put } from "@/lib/http";
 import {
+  personAvatarUrl,
   personName,
   toChatMessage,
   type BackendConversation,
@@ -43,6 +44,8 @@ import {
 export interface ChatContact {
   userId: number;
   name: string;
+  /** Their picture, when they have one. Null draws their initials. */
+  avatarUrl: string | null;
   email: string | null;
   /** "Owner" / "Team" for a customer; the service lines covered for a specialist. */
   roleLabel: string;
@@ -67,6 +70,8 @@ interface BackendContact {
   userId?: number;
   firstName: string;
   lastName: string;
+  /** `projectDto.toPerson` builds one for every contact row. */
+  avatarUrl?: string | null;
   email: string | null;
   roleLabel: string | null;
   specializations: { specializationName: string | null }[];
@@ -80,6 +85,7 @@ export function toContact(c: BackendContact): ChatContact {
   return {
     userId: c.userId ?? c.id,
     name: personName(c),
+    avatarUrl: personAvatarUrl(c),
     email: c.email,
     roleLabel:
       c.roleLabel ??

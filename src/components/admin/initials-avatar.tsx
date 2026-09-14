@@ -1,3 +1,4 @@
+import type { PortalPerson } from "@/lib/portal";
 import { cn } from "@/lib/utils";
 
 /**
@@ -142,26 +143,30 @@ export function PersonCell({
  * nothing at all. `title` gives mouse users the same list on hover.
  */
 export function AvatarStack({
-  names,
+  people,
   max = 4,
 }: {
-  names: string[];
+  /** Name and picture per person — a null URL draws their initials. */
+  people: PortalPerson[];
   /** How many circles before the rest collapse into +N. */
   max?: number;
 }) {
-  if (names.length === 0) {
+  if (people.length === 0) {
     return <span className="text-muted-foreground">—</span>;
   }
 
-  const shown = names.slice(0, max);
-  const overflow = names.length - shown.length;
+  const names = people.map((person) => person.name).join(", ");
+  const shown = people.slice(0, max);
+  const overflow = people.length - shown.length;
 
   return (
-    <span className="flex items-center" title={names.join(", ")}>
-      {shown.map((name) => (
+    <span className="flex items-center" title={names}>
+      {shown.map((person, index) => (
         <InitialsAvatar
-          key={name}
-          name={name}
+          // Two people on one company really can share a name.
+          key={`${person.name}-${index}`}
+          name={person.name}
+          src={person.avatarUrl}
           // The ring is the gap: it cuts each circle out of the one behind it,
           // so they read as separate people rather than one blob.
           className="-ml-2 ring-2 ring-card first:ml-0"
@@ -177,7 +182,7 @@ export function AvatarStack({
         </span>
       ) : null}
 
-      <span className="sr-only">{names.join(", ")}</span>
+      <span className="sr-only">{names}</span>
     </span>
   );
 }

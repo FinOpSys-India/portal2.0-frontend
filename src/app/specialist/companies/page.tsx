@@ -77,7 +77,7 @@ export default async function SpecialistCompaniesPage({
         {
           header: "Company Owner",
           sortValue: (row) => row.owner,
-          cell: (row) => <PersonCell name={row.owner} />,
+          cell: (row) => <PersonCell name={row.owner} avatarUrl={row.ownerAvatarUrl} />,
         },
         {
           // The design's fifth column. One manager routes all of this
@@ -110,7 +110,7 @@ export default async function SpecialistCompaniesPage({
           header: "Team Members",
           filter: "number",
           sortValue: (row) => row.teamMembers.length,
-          cell: (row) => <AvatarStack names={row.teamMembers} />,
+          cell: (row) => <AvatarStack people={row.teamMembers} />,
         },
       ]}
     />

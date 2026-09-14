@@ -19,10 +19,12 @@ import { customerApi } from "@/lib/customer";
 export function ManagerChat({
   workspace,
   contact,
+  contactAvatarUrl,
   conversationId,
 }: {
   workspace: string;
   contact: string;
+  contactAvatarUrl: string | null;
   /** Threaded through so opening the pane clears the unread badge. */
   conversationId: string | null;
 }) {
@@ -34,6 +36,7 @@ export function ManagerChat({
 
       <ChatThread
         contact={contact}
+        contactAvatarUrl={contactAvatarUrl}
         badge={<Badge variant="secondary">Accounting Manager</Badge>}
         conversationId={conversationId}
         load={() => customerApi.messages(workspace)}

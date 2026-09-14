@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 
 import { AuthShell } from "@/components/auth/auth-shell";
@@ -7,6 +8,7 @@ import { AuthCard } from "@/components/auth/fields";
 import { AuthHeading } from "@/components/auth/auth-shell";
 import { InitialsAvatar } from "@/components/admin/initials-avatar";
 import { customerApi } from "@/lib/customer";
+import { myProfile } from "@/lib/portal";
 
 export const metadata: Metadata = { title: "Select workspace – FinOpSys" };
 
@@ -26,6 +28,18 @@ export const metadata: Metadata = { title: "Select workspace – FinOpSys" };
  */
 export default async function WorkspaceSelectPage() {
   const workspaces = await customerApi.workspaces();
+
+  /*
+   * An owner with no company has nothing to pick, and this is where a customer
+   * lands from `/`, from the logo, and from the back-button bounce off /login —
+   * so an empty picker would be a card with a heading and no way forward. They
+   * are mid-signup, and the company step is what they were on: the profile read
+   * happens only on this path, since the step is addressed by email.
+   */
+  if (workspaces.length === 0) {
+    const { email } = await myProfile();
+    redirect(`/on_boarding_form_part_1?email=${encodeURIComponent(email)}`);
+  }
 
   return (
     <AuthShell>

@@ -65,7 +65,7 @@ export default async function CompaniesPage({
         {
           header: "Company Owner",
           sortValue: (row) => row.owner,
-          cell: (row) => <PersonCell name={row.owner} />,
+          cell: (row) => <PersonCell name={row.owner} avatarUrl={row.ownerAvatarUrl} />,
         },
         {
           header: "Active Services",
@@ -90,7 +90,7 @@ export default async function CompaniesPage({
           // Faces carry no text to sort — how many there are is the one thing
           // the column says that can be ordered.
           sortValue: (row) => row.teamMembers.length,
-          cell: (row) => <AvatarStack names={row.teamMembers} />,
+          cell: (row) => <AvatarStack people={row.teamMembers} />,
         },
         {
           header: "Accounting Manager",

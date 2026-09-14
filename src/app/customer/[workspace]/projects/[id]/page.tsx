@@ -101,7 +101,7 @@ export default async function CustomerProjectPage({
               {
                 header: "Uploaded By",
                 sortValue: (row) => row.owner,
-                cell: (row) => <PersonCell name={row.owner} />,
+                cell: (row) => <PersonCell name={row.owner} avatarUrl={row.ownerAvatarUrl} />,
               },
               {
                 header: "Upload Date",

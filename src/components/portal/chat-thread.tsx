@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils";
  */
 export function ChatThread({
   contact,
+  contactAvatarUrl,
   badge,
   meta,
   load,
@@ -63,6 +64,8 @@ export function ChatThread({
 }: {
   /** The counterparty. Drives the avatar and the composer's label. */
   contact: string;
+  /** Their picture, when they have one. Null draws their initials. */
+  contactAvatarUrl?: string | null;
   /** Optional chip beside the name, e.g. their role. */
   badge?: React.ReactNode;
   /** Optional right-aligned detail, e.g. the company. */
@@ -350,7 +353,7 @@ export function ChatThread({
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
       <div className="flex items-center gap-3 border-b border-border p-4">
-        <InitialsAvatar name={contact} />
+        <InitialsAvatar name={contact} src={contactAvatarUrl} />
         <span className="font-semibold">{contact}</span>
         {badge}
         {meta ? (

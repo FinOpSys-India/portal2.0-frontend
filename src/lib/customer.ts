@@ -30,10 +30,11 @@ import {
   personAvatarUrl,
   personId,
   personName,
-  teamNames,
+  teamPeople,
   toProjectStatus,
   usDate,
   type BackendCompany,
+  type PortalPerson,
   type BackendDocument,
   type BackendProject,
 } from "@/lib/portal";
@@ -52,6 +53,8 @@ export interface Project {
   deadline: string;
   status: ProjectStatus;
   specialist: string | null;
+  /** Their picture, when they have one. */
+  specialistAvatarUrl: string | null;
 }
 
 export interface CustomerFile {
@@ -75,11 +78,13 @@ export interface CustomerCompany {
   name: string;
   activeServices: string[];
   subscriptionDate: string | null;
-  teamMembers: string[];
+  teamMembers: PortalPerson[];
 }
 
 export interface TeamMember {
   name: string;
+  /** Their picture, when the row carries one. Null draws their initials. */
+  avatarUrl: string | null;
   jobTitle: string;
   email: string;
 }
@@ -251,7 +256,7 @@ export const customerApi = {
       name: c.companyName,
       activeServices: (c.activeServices ?? []).map((s) => s.specializationName),
       subscriptionDate: billingDate(c),
-      teamMembers: teamNames(c),
+      teamMembers: teamPeople(c),
     }));
   },
 
@@ -262,11 +267,18 @@ export const customerApi = {
         lastName: string;
         jobTitle: string | null;
         email: string;
+        /**
+         * Not sent yet — `companyDto.toTeammateRow` selects no avatar, the same
+         * gap the directory rows have. Read here so the faces appear the day it
+         * does.
+         */
+        avatarUrl?: string | null;
       }[];
     }>(`/teammates?companyId=${encodeURIComponent(workspaceId)}`);
 
     return data.teammates.map((t) => ({
       name: fullName(t),
+      avatarUrl: t.avatarUrl ?? null,
       jobTitle: t.jobTitle ?? "",
       email: t.email,
     }));
@@ -327,6 +339,7 @@ export const customerApi = {
     return {
       id: String(conversation.id),
       contact: personName(conversation.counterpart),
+      contactAvatarUrl: personAvatarUrl(conversation.counterpart),
       unread: conversation.unreadCount ?? 0,
     };
   },
@@ -367,5 +380,6 @@ function toProject(p: BackendProject): Project {
     deadline: p.deadlineDate ?? "",
     status: toProjectStatus(p.status),
     specialist: p.specialist ? personName(p.specialist) : null,
+    specialistAvatarUrl: personAvatarUrl(p.specialist),
   };
 }

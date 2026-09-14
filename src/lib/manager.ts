@@ -6,6 +6,7 @@
  * am-01…am-15. Where 1.0 and this port differ the deviation is commented.
  */
 
+import type { PortalPerson } from "@/lib/portal";
 import { cache } from "react";
 
 import type { CompanyPlan, CustomerRole } from "@/lib/admin";
@@ -53,10 +54,12 @@ export interface ClientCompany {
   id: string;
   name: string;
   owner: string;
+  /** The owner's picture, when they have one. */
+  ownerAvatarUrl: string | null;
   activeServices: string[];
   /** M/DD/YY. Absent until a subscription starts — 1.0 renders the cell blank. */
   billingDate: string | null;
-  teamMembers: string[];
+  teamMembers: PortalPerson[];
   /** Staffed specialists, if any. The company list already carries them, so the
    * Action cell can name who holds the lines without a second round trip. */
   specialists: string[];
@@ -80,6 +83,8 @@ export interface ManagerCustomer {
   name: string;
   role: CustomerRole;
   email: string;
+  /** Their picture, when the row carries one. Null draws their initials. */
+  avatarUrl: string | null;
   /** A customer can belong to more than one company. */
   companies: string[];
   companyIds: string[];
@@ -101,6 +106,8 @@ export interface ManagedProject {
   deadline: string;
   status: ProjectStatus;
   specialist: string | null;
+  /** Their picture, when they have one. Null is initials, not a missing field. */
+  specialistAvatarUrl: string | null;
   createdBy: string;
   /** 0–100. 1.0 renders a bar plus the number. */
   progress: number;
@@ -119,6 +126,8 @@ export interface ProjectTask {
 export interface Specialist {
   name: string;
   email: string;
+  /** Their picture, when the row carries one. Null draws their initials. */
+  avatarUrl: string | null;
   speciality: string;
   /** Projects currently assigned. Drives the workload column. */
   activeProjects: number;
@@ -145,12 +154,6 @@ export interface SpecialistDetail extends Specialist {
   phone: string;
   /** One line, as the detail card renders it. */
   address: string;
-  /**
-   * Only ever populated for the SIGNED-IN specialist reading their own profile:
-   * `avatarUrl` is on `userDto.toMe`, and the directory row a manager reads
-   * someone else off does not carry it.
-   */
-  avatarUrl?: string | null;
 }
 
 /**
@@ -193,6 +196,8 @@ export interface ManagerThread {
   id: string | null;
   /** The accounting manager's name. */
   contact: string;
+  /** Their picture, when they have one — the thread header draws it. */
+  contactAvatarUrl: string | null;
   unread: number;
 }
 
@@ -663,6 +668,12 @@ interface DirectoryRow {
   specificRoleName?: string | null;
   serviceSpeciality?: string | null;
   phone?: string | null;
+  /**
+   * `companyDto.toSpecialistDetail` and `toCustomerDetail` build one; the
+   * DIRECTORY rows they spread do not (`toDirectoryUser` selects no avatar), so
+   * this is present on a detail read and absent on a list row.
+   */
+  avatarUrl?: string | null;
   address?: Parameters<typeof toAddressFields>[0];
   companies?: { companyId: number; companyName: string }[];
 }
@@ -697,6 +708,7 @@ function toManagerCustomer(row: DirectoryRow): ManagerCustomer {
     name: fullName(row),
     role: row.specificRole === "OWNER" ? "Owner" : "Teammate",
     email: row.email,
+    avatarUrl: row.avatarUrl ?? null,
     companies: (row.companies ?? []).map((c) => c.companyName),
     companyIds: (row.companies ?? []).map((c) => String(c.companyId)),
     position: row.jobTitle ?? row.specificRoleName ?? "",
@@ -869,6 +881,7 @@ export const managerApi = {
     return rows.map((row) => ({
       name: fullName(row),
       email: row.email,
+      avatarUrl: row.avatarUrl ?? null,
       speciality: row.serviceSpeciality ?? "",
       activeProjects: load.get(fullName(row)) ?? 0,
     }));
@@ -900,6 +913,7 @@ export const managerApi = {
     return {
       ...summary,
       phone: detail.specialist.phone ?? "",
+      avatarUrl: detail.specialist.avatarUrl ?? null,
       // The detail card renders one line, not a block.
       address: [address.addressLine1, address.city, address.state, address.zip]
         .filter(Boolean)

@@ -91,7 +91,7 @@ export default async function ManagerCompanyPage({
 
           <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border pt-4">
             <span className="text-sm text-muted-foreground">Team Members</span>
-            <AvatarStack names={company.teamMembers} max={6} />
+            <AvatarStack people={company.teamMembers} max={6} />
           </div>
         </section>
       </div>

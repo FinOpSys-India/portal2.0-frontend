@@ -80,14 +80,16 @@ export function OtpForm({
             challengeId,
             values.code,
           );
-          router.push(
+          router.replace(
             `/forgot_password/new?token=${encodeURIComponent(resetToken)}`,
           );
           return;
         }
 
         const session = await api.verifyOtp(challengeId, values.code);
-        router.push(await landingPathFor(session));
+        // Replace: the code is single-use, so this screen can never be
+        // returned to, and the portal is where Back should bottom out.
+        router.replace(await landingPathFor(session));
       } catch (err) {
         setFailure(err instanceof Error ? err.message : "Verification failed.");
         form.reset({ code: "" });

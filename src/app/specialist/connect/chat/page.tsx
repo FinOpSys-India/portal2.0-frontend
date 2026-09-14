@@ -23,6 +23,7 @@ export default async function SpecialistChatPage({
   return (
     <ManagerChat
       contact={thread.contact}
+      contactAvatarUrl={thread.contactAvatarUrl}
       conversationId={thread.id}
       companyId={company}
     />

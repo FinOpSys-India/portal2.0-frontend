@@ -131,7 +131,11 @@ export default async function ManagerSpecialistPage({
 
         <div className="flex flex-col gap-6">
           <section className="flex items-center gap-3 rounded-xl border border-border bg-card p-6">
-            <InitialsAvatar name={specialist.name} className="size-10" />
+            <InitialsAvatar
+              name={specialist.name}
+              src={specialist.avatarUrl}
+              className="size-10"
+            />
             <div className="min-w-0">
               <p className="truncate font-semibold">{specialist.name}</p>
               <p className="truncate text-sm text-muted-foreground">

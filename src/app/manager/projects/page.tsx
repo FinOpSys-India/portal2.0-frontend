@@ -107,7 +107,10 @@ export default async function ManagerProjectsPage({
           sortValue: (row) => row.specialist ?? "",
           cell: (row) =>
             row.specialist ? (
-              <PersonCell name={row.specialist} />
+              <PersonCell
+                name={row.specialist}
+                avatarUrl={row.specialistAvatarUrl}
+              />
             ) : (
               <span className="text-muted-foreground">Unassigned</span>
             ),

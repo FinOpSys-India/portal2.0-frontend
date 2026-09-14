@@ -60,7 +60,11 @@ export default async function SpecialistCompanyPage({
 
         <section className="grid gap-4 rounded-xl border border-border bg-card p-6 lg:self-start">
           <div className="flex items-center gap-3">
-            <InitialsAvatar name={company.owner} className="size-10" />
+            <InitialsAvatar
+              name={company.owner}
+              src={company.ownerAvatarUrl}
+              className="size-10"
+            />
             <div className="min-w-0">
               <p className="truncate font-semibold">{company.owner}</p>
               <p className="text-sm text-muted-foreground">Owner</p>
@@ -69,7 +73,7 @@ export default async function SpecialistCompanyPage({
 
           <div className="border-t border-border pt-4">
             <p className="mb-3 text-sm text-muted-foreground">Team Members</p>
-            <AvatarStack names={company.teamMembers} max={6} />
+            <AvatarStack people={company.teamMembers} max={6} />
           </div>
         </section>
       </div>
