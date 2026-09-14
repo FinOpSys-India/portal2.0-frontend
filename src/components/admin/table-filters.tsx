@@ -3,13 +3,23 @@
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  BadgeCheck,
+  Building2,
   CalendarDays,
+  CircleDot,
+  FileText,
   Filter as FilterIcon,
+  FolderKanban,
+  Gauge,
   Hash,
+  Layers,
   ListChecks,
+  Mail,
   RotateCcw,
   Search,
   Type,
+  User,
+  Users,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -45,7 +55,10 @@ export type FilterField = {
   counts?: Record<string, number>;
 };
 
-/** The rail's icon per column type, so a field is recognisable before reading. */
+/**
+ * The rail's icon per column type — the fallback, for a column `FIELD_ICONS`
+ * has nothing to say about.
+ */
 const ICONS: Record<FilterType, LucideIcon> = {
   text: Type,
   enum: ListChecks,
@@ -53,6 +66,40 @@ const ICONS: Record<FilterType, LucideIcon> = {
   date: CalendarDays,
   number: Hash,
 };
+
+/**
+ * The rail's icon per column SUBJECT, which is what a reader scans for.
+ *
+ * Three columns that all filter as text are three identical T's otherwise, and
+ * the rail stops being scannable exactly when it grows long enough to need to
+ * be. First match wins, so the order IS the specification: people come before
+ * companies on purpose, because "Company Owner" is a person and the column asks
+ * about them rather than about the account they own.
+ */
+const FIELD_ICONS: [RegExp, LucideIcon][] = [
+  [/owner|created by|uploaded by/, User],
+  [/specialist|manager|member|team|customer/, Users],
+  [/compan/, Building2],
+  [/email/, Mail],
+  [/role|permission/, BadgeCheck],
+  [/status/, CircleDot],
+  [/project/, FolderKanban],
+  [/document|file/, FileText],
+  [/service|plan|special/, Layers],
+  [/deadline|date/, CalendarDays],
+  [/progress/, Gauge],
+  // Last, so every "… Name" above keeps its own subject: a bare "Name" on
+  // these tables is a person's.
+  [/name/, User],
+];
+
+function iconFor(field: FilterField): LucideIcon {
+  const header = field.header.toLowerCase();
+  return (
+    FIELD_ICONS.find(([pattern]) => pattern.test(header))?.[1] ??
+    ICONS[field.type]
+  );
+}
 
 /**
  * Writes `?f=`, and nothing else.
@@ -250,7 +297,7 @@ export function FilterButton({
               rather than behind a menu. */}
           <ul className="w-48 shrink-0 space-y-1 border-r border-border bg-muted/40 p-3">
             {fields.map((field) => {
-              const Icon = ICONS[field.type];
+              const Icon = iconFor(field);
               const on = field.header === activeField.header;
 
               return (
