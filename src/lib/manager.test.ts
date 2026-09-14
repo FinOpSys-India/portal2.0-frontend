@@ -75,6 +75,23 @@ assert.ok(
   "string ordering really is wrong here — this is why we parse",
 );
 
+// ISO, which is what the BACKEND sends — `deadlineDate` leaves projectDto.js as
+// "YYYY-MM-DD". Only the 1.0 mocks speak M/DD/YY. Parsing one and not the other
+// returned Invalid Date for every real row, which made `getTime()` NaN: the
+// deadline column sorted into no order at all, and every date filter compared
+// against NaN and threw the whole table away.
+assert.deepEqual(parseDeadline("2026-09-15"), new Date(2026, 8, 15));
+assert.deepEqual(parseDeadline("2026-09-08"), new Date(2026, 8, 8));
+assert.ok(!Number.isNaN(parseDeadline("2026-09-15").getTime()));
+
+// Both formats have to order against each other — a mocked list and a live one
+// are never mixed, but the comparison is the same code either way.
+assert.ok(parseDeadline("2026-09-08") < parseDeadline("2026-09-15"));
+
+// Nothing to parse stays unparseable rather than becoming the epoch: a project
+// with no deadline must not sort as 1 January 1970 or match "before 2027".
+assert.ok(Number.isNaN(parseDeadline("").getTime()));
+
 /* ------------------------------------------------------------ unassigned -- */
 
 const rows = [

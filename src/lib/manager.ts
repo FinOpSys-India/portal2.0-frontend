@@ -1529,10 +1529,43 @@ export function toStamp(iso: string): string {
   return `${Number(month)}/${day}/${year.slice(2)}`;
 }
 
-/** Parses 1.0's M/DD/YY format. Two-digit years are 2000s. */
+/**
+ * Every date string this app sorts or filters on, in the three shapes it
+ * actually arrives in.
+ *
+ * THE SECOND SHAPE IS WHY THIS IS NOT A ONE-LINER. 1.0 wrote `8/05/26` and the
+ * mocks still do, but the backend sends ISO — `deadlineDate` leaves
+ * projectDto.js as "YYYY-MM-DD" and never as anything else. Parsing only the
+ * first shape returned Invalid Date for every live row, so `getTime()` was NaN:
+ * the Deadline column sorted into no order at all, and `matchesRange` in
+ * src/lib/table-filter.ts rejects NaN outright, which is why a deadline range
+ * that plainly contained rows answered "No rows match these filters".
+ *
+ * A DATE IS BUILT LOCAL, AN INSTANT IS NOT. `new Date("2026-09-15")` reads as
+ * UTC midnight and shows the 14th anywhere west of Greenwich — a deadline on
+ * the wrong side of its own day, and off by one against the filter bounds,
+ * which src/lib/table-filter.ts builds local for exactly this reason. A full
+ * timestamp (`lastMessageAt`, which `sortByUnreadThenRecent` orders by) carries
+ * its own zone, so it is handed to `Date` as-is.
+ *
+ * Anything unparseable stays Invalid rather than becoming the epoch: a project
+ * with no deadline must sort last and match no range, not land in 1970 and pass
+ * every "before" filter ever written.
+ */
 export function parseDeadline(value: string): Date {
-  const [month, day, year] = value.split("/").map(Number);
-  return new Date(2000 + year, month - 1, day);
+  if (value.includes("/")) {
+    const [month, day, year] = value.split("/").map(Number);
+    return month && day && Number.isFinite(year)
+      ? new Date(2000 + year, month - 1, day)
+      : new Date(NaN);
+  }
+
+  // A date only — no time, so no zone to honour. Built local.
+  const [year, month, day] = value.split("-").map(Number);
+  if (year && month && day) return new Date(year, month - 1, day);
+
+  // An instant, or junk. `Date` tells the two apart.
+  return new Date(value);
 }
 
 /**
