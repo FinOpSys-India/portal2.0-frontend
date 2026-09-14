@@ -6,6 +6,7 @@
  */
 import assert from "node:assert/strict";
 
+import { dialCode, phoneIssue } from "./phone";
 import {
   companySchema,
   inviteTeammateSchema,
@@ -14,6 +15,7 @@ import {
   otpSchema,
   profileSchema,
   signupSchema,
+  userInfoSchema,
 } from "./schemas";
 
 /** First error message for a field, or undefined if the field passed. */
@@ -94,7 +96,7 @@ const validCompany = {
   state: "TX",
   country: "United States of America",
   email: "billing@harbor.example.com",
-  phone: "5550142",
+  phone: "2133734253",
   employees: "4",
   revenue: "$500K – $2M",
 };
@@ -112,8 +114,74 @@ assert.equal(
   errorFor(schema.safeParse({ ...validCompany, email: " OWNER@example.com " }), "email"),
   "Use a different address from your personal login email.",
 );
-// Too-short phone rejected.
-assert.ok(errorFor(schema.safeParse({ ...validCompany, phone: "123" }), "phone"));
+// The phone is validated against the country beside it, not a fixed floor:
+// seven digits used to pass everywhere, and is short for a US number.
+assert.ok(errorFor(schema.safeParse({ ...validCompany, phone: "5550142" }), "phone"));
+assert.ok(errorFor(schema.safeParse({ ...validCompany, phone: "21337342530" }), "phone"));
+// The same digits under a country whose numbers are that long.
+assert.ok(
+  schema.safeParse({ ...validCompany, country: "India", phone: "9876543210" })
+    .success,
+);
+// ...and an Indian number is ten digits, not nine.
+assert.ok(
+  errorFor(
+    schema.safeParse({ ...validCompany, country: "India", phone: "987654321" }),
+    "phone",
+  ),
+);
+// A blank phone still reports as blank, in the same pass as the other blanks.
+assert.equal(
+  errorFor(schema.safeParse({ ...validCompany, phone: "" }), "phone"),
+  "Enter your company phone number.",
+);
+
+/* ------------------------------------------------------- user info (1) -- */
+
+// Step 1 carries a country for the phone alone — it is not sent anywhere, but
+// without it there is nothing to check the digit count against.
+const validUserInfo = {
+  phone: "2133734253",
+  phoneCountry: "United States of America",
+  jobTitle: "Company Owner",
+};
+assert.ok(userInfoSchema.safeParse(validUserInfo).success);
+assert.ok(errorFor(userInfoSchema.safeParse({ ...validUserInfo, phone: "5550142" }), "phone"));
+assert.ok(
+  userInfoSchema.safeParse({
+    ...validUserInfo,
+    phoneCountry: "Germany",
+    phone: "30123456",
+  }).success,
+);
+
+/* ---------------------------------------------------------------- phone -- */
+
+assert.equal(dialCode("United States of America"), "+1");
+assert.equal(dialCode("India"), "+91");
+// The list carries the backend's codes, not ISO-3166: "UK" and six withdrawn
+// codes have to be corrected before libphonenumber will recognise them.
+assert.equal(dialCode("United Kingdom"), "+44");
+assert.equal(dialCode("Russia"), "+7");
+assert.equal(dialCode("Serbia"), "+381");
+assert.equal(dialCode("France"), "+33");
+assert.equal(dialCode("Benin"), "+229");
+assert.equal(dialCode("Burkina Faso"), "+226");
+assert.equal(dialCode("Timor-Leste"), "+670");
+// A country we cannot look up must not become one you cannot type a number
+// for — it falls back to the old loose floor.
+assert.equal(dialCode("Atlantis"), "");
+assert.equal(phoneIssue("5550142", "Atlantis"), undefined);
+assert.ok(phoneIssue("123", "Atlantis"));
+// The message says which way the count is wrong, and for where.
+assert.match(phoneIssue("123", "India") ?? "", /Too few digits for India \(\+91\)/);
+assert.match(
+  phoneIssue("21337342530", "United States of America") ?? "",
+  /Too many digits for United States of America/,
+);
+// Wrong length, but within the range the country's plans span as a whole —
+// still rejected, just without claiming which direction is wrong.
+assert.match(phoneIssue("987654321", "India") ?? "", /valid phone number for India/);
 
 /* --------------------------------------------------------- new project -- */
 
@@ -165,7 +233,7 @@ assert.ok(
 /* -------------------------------------------------------------- profile -- */
 
 const validProfile = {
-  phone: "5550142",
+  phone: "2133734253",
   addressLine1: "",
   city: "",
   state: "",
@@ -176,5 +244,14 @@ const validProfile = {
 assert.ok(profileSchema.safeParse(validProfile).success);
 assert.ok(errorFor(profileSchema.safeParse({ ...validProfile, phone: "" }), "phone"));
 assert.ok(errorFor(profileSchema.safeParse({ ...validProfile, country: "" }), "country"));
+// Same link as the company form: the digit count follows the address country.
+assert.ok(errorFor(profileSchema.safeParse({ ...validProfile, phone: "5550142" }), "phone"));
+assert.ok(
+  profileSchema.safeParse({
+    ...validProfile,
+    country: "United Kingdom",
+    phone: "2071838750",
+  }).success,
+);
 
 console.log("schemas: all checks passed");

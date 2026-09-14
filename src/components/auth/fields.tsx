@@ -2,7 +2,12 @@
 
 import * as React from "react";
 import { Eye, EyeOff, type LucideIcon } from "lucide-react";
-import type { Control, FieldPath, FieldValues } from "react-hook-form";
+import {
+  useWatch,
+  type Control,
+  type FieldPath,
+  type FieldValues,
+} from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { dialCode } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
 /**
@@ -106,13 +112,22 @@ export function TextField<T extends FieldValues>({
   icon,
   required,
   numeric,
+  prefix,
   className,
+  style,
   ...props
 }: BaseProps<T> &
-  Omit<React.ComponentProps<"input">, "name"> & {
+  Omit<React.ComponentProps<"input">, "name" | "prefix"> & {
     /** Strip everything that is not a digit as the user types. */
     numeric?: boolean;
+    /**
+     * Fixed text shown inside the control, ahead of the value and not part of
+     * it — a dialling code. The input is padded past it.
+     */
+    prefix?: string;
   }) {
+  // Where the text starts without a prefix: the icon slot, or plain padding.
+  const gutter = icon ? "2.5rem" : "0.875rem";
   return (
     <FormField
       control={control}
@@ -124,6 +139,16 @@ export function TextField<T extends FieldValues>({
           </FormLabel>
           <div className="relative">
             {icon ? <LeadingIcon icon={icon} /> : null}
+            {prefix ? (
+              // Not aria-hidden: on a phone field this is the only place the
+              // dialling code appears — the value itself does not carry it.
+              <span
+                className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+                style={{ left: gutter }}
+              >
+                {prefix}
+              </span>
+            ) : null}
             <FormControl>
               <Input
                 {...field}
@@ -138,12 +163,57 @@ export function TextField<T extends FieldValues>({
                     : field.onChange
                 }
                 className={cn(CONTROL, icon && "pl-10", className)}
+                style={
+                  prefix
+                    ? {
+                        ...style,
+                        // `ch` is the width of a digit in the input's own
+                        // font, so "+1" and "+998" both clear without a
+                        // measuring pass.
+                        paddingLeft: `calc(${gutter} + ${prefix.length + 0.5}ch)`,
+                      }
+                    : style
+                }
               />
             </FormControl>
           </div>
           <FormMessage />
         </FormItem>
       )}
+    />
+  );
+}
+
+/**
+ * Phone number, prefixed with the dialling code of the country the form has
+ * already selected — "+1", "+91" — so what the field expects is visible before
+ * it is rejected. `countryName` names that field, and it is watched rather than
+ * passed in so the prefix follows a change to the country straight away.
+ *
+ * The prefix is a label, not part of the value: the stored number stays
+ * national digits, which is the shape the API holds today. The matching
+ * digit-count rule lives in the schema, the one place that sees both fields.
+ */
+export function PhoneField<T extends FieldValues>({
+  control,
+  countryName,
+  ...props
+}: React.ComponentProps<typeof TextField<T>> & {
+  /** The field holding the country name the prefix follows. */
+  countryName: FieldPath<T>;
+}) {
+  const country = useWatch({ control, name: countryName });
+  return (
+    <TextField
+      {...props}
+      control={control}
+      prefix={dialCode(typeof country === "string" ? country : "")}
+      type="tel"
+      inputMode="numeric"
+      autoComplete="tel-national"
+      numeric
+      // E.164 caps a number at 15 digits, dialling code included.
+      maxLength={15}
     />
   );
 }

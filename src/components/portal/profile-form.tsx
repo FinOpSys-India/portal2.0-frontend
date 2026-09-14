@@ -7,6 +7,7 @@ import { CheckCircle2, Globe, MapPin, Phone } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 import {
+  PhoneField,
   SelectField,
   StaticField,
   SubmitButton,
@@ -81,16 +82,18 @@ export function ProfileForm({ profile }: { profile: MyProfile }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <StaticField label="Full Name" value={profile.fullName} />
             <StaticField label="Email Address" value={profile.email} />
-            <TextField
+            {/*
+              The country lives in the address section further down — the same
+              one the phone is validated against, so changing it re-checks the
+              number rather than leaving a stale dialling code above it.
+            */}
+            <PhoneField
               control={form.control}
               name="phone"
+              countryName="country"
               label="Phone Number"
               icon={Phone}
               required
-              type="tel"
-              inputMode="numeric"
-              numeric
-              maxLength={15}
               placeholder="Enter your phone number"
             />
           </div>

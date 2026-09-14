@@ -12,7 +12,11 @@ import {
 } from "lucide-react";
 import type { Control } from "react-hook-form";
 
-import { SelectField, TextField } from "@/components/auth/fields";
+import {
+  PhoneField,
+  SelectField,
+  TextField,
+} from "@/components/auth/fields";
 import { COMPANY_TYPES, REVENUE_BANDS } from "@/lib/company";
 import { COUNTRIES } from "@/lib/countries";
 import type { CompanyValues } from "@/lib/schemas";
@@ -113,16 +117,14 @@ export function CompanyFields({
         placeholder="billing@yourcompany.com"
       />
 
-      <TextField
+      {/* Dialling code and digit count both follow the country chosen above. */}
+      <PhoneField
         control={control}
         name="phone"
+        countryName="country"
         label="Company Phone"
         icon={Phone}
         required
-        type="tel"
-        inputMode="numeric"
-        numeric
-        maxLength={15}
         placeholder="Enter your phone number"
       />
 

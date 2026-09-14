@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { AuthHeading } from "@/components/auth/auth-shell";
 import {
   AuthCard,
+  PhoneField,
   SelectField,
   StaticField,
   SubmitButton,
@@ -17,6 +18,7 @@ import {
 import { FormAlert } from "@/components/auth/form-alert";
 import { Form } from "@/components/ui/form";
 import { api, type User as Me } from "@/lib/api";
+import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import { userInfoSchema, type UserInfoValues } from "@/lib/schemas";
 
 export function UserInfoForm({ email, me }: { email: string; me: Me }) {
@@ -25,7 +27,7 @@ export function UserInfoForm({ email, me }: { email: string; me: Me }) {
 
   const form = useForm<UserInfoValues>({
     resolver: zodResolver(userInfoSchema),
-    defaultValues: { phone: "", jobTitle: "" },
+    defaultValues: { phone: "", phoneCountry: DEFAULT_COUNTRY, jobTitle: "" },
     mode: "onSubmit",
     reValidateMode: "onChange",
   });
@@ -72,28 +74,38 @@ export function UserInfoForm({ email, me }: { email: string; me: Me }) {
 
           <StaticField label="Email Address" value={me.email} icon={Mail} />
 
-          <TextField
+          {/*
+            The country 1.0 asks for here, kept for the phone alone: it picks
+            the dialling code and the number of digits the field will accept.
+            `PUT /onboarding/profile` takes firstName, lastName, phone and
+            jobTitle and rejects anything else, so it is never sent — the
+            address country is collected on the company form one screen later.
+          */}
+          <SelectField
+            control={form.control}
+            name="phoneCountry"
+            label="Country"
+            icon={Globe}
+            required
+            placeholder="Select your country"
+            options={COUNTRIES}
+          />
+
+          <PhoneField
             control={form.control}
             name="phone"
+            countryName="phoneCountry"
             label="Phone Number"
             icon={Phone}
             required
-            type="tel"
-            inputMode="numeric"
-            autoComplete="tel"
             autoFocus
-            numeric
-            // E.164 caps a subscriber number at 15 digits.
-            maxLength={15}
             placeholder="Enter your phone number"
           />
 
           {/*
-            Job title, not country. 1.0 locked the title (always "Company
-            Owner") and asked for a country here; the backend's profile
-            endpoint takes the opposite pair — it accepts a job title and has
-            nowhere to put a bare country. The full address, country included,
-            is collected on the company form on the very next screen.
+            Job title, not a second country. 1.0 locks the title (always
+            "Company Owner"); the backend's profile endpoint wants it and has
+            nowhere to put an address, so this is the field that replaces it.
           */}
           <TextField
             control={form.control}
