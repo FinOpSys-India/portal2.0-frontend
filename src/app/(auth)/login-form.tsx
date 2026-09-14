@@ -37,7 +37,10 @@ export function LoginForm() {
       const challenge = await api.login(values.email.trim(), values.password);
       // The challenge id is what step two spends; the masked address is carried
       // alongside it only so the screen can show who the code went to.
-      router.push(
+      // Replace, not push: step one is spent — the challenge it opened is
+      // what step two holds — and leaving it in history is what put the login
+      // form one Back press behind the portal.
+      router.replace(
         `/otp_page_login?challenge=${encodeURIComponent(challenge.challengeId)}` +
           `&email=${encodeURIComponent(challenge.maskedEmail)}`,
       );

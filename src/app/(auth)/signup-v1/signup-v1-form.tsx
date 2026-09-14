@@ -65,7 +65,7 @@ export function SignupV1Form({ invite }: { invite: Invite }) {
         lastName: invite.lastName,
         password,
       });
-      router.push(await landingPathFor(session));
+      router.replace(await landingPathFor(session));
     } catch {
       setPending(false);
     }

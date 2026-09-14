@@ -46,7 +46,7 @@ export function ForgotPasswordForm() {
         values.email.trim(),
       );
       setSent(true);
-      router.push(
+      router.replace(
         `/forgot_password/verify?challenge=${encodeURIComponent(challengeId)}`,
       );
     } catch (err) {

@@ -71,6 +71,30 @@ async function main() {
   // A prefix is a segment, not a substring.
   assert.equal(visit("/customer-support", tokenFor("ADMIN")), null);
 
+  /* ------------------------------------------------ back into sign-in ---- */
+
+  // The bug this exists for: signing in left /login and the OTP screen in
+  // history behind the portal, so pressing Back far enough walked out of the
+  // app and into a login form — with a challenge that had already been spent.
+  // A live session on one of those screens goes home instead.
+  assert.equal(visit("/login", tokenFor("ACCOUNTING_MANAGER")), at("/manager"));
+  assert.equal(visit("/otp_page_login", tokenFor("CUSTOMER")), at("/company_select"));
+  assert.equal(visit("/signup_2938", tokenFor("ADMIN")), at("/list_of_customers"));
+  assert.equal(visit("/login-v1", tokenFor("SPECIALIST")), at("/project"));
+
+  // Signed OUT, these are the screens to be on. Bouncing them would be a
+  // redirect to itself — and a csrfToken must not send them through the
+  // refresh hop either, since that hop's own destination is /login.
+  assert.equal(visit("/login"), null);
+  assert.equal(visit("/otp_page_login", undefined, true), null);
+  assert.equal(visit("/login", "not-a-jwt"), null);
+
+  // NOT bounced: the refresh hop is reached without an access cookie by
+  // definition, and both of these are errands a signed-in person can be on.
+  assert.equal(visit("/login/refresh", tokenFor("CUSTOMER")), null);
+  assert.equal(visit("/forgot_password", tokenFor("CUSTOMER")), null);
+  assert.equal(visit("/accept-invitation", tokenFor("CUSTOMER")), null);
+
   console.log("proxy.test.ts: all assertions passed");
 }
 

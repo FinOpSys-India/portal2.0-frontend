@@ -103,7 +103,7 @@ export function SignupForm({ invite }: { invite: Invite }) {
         lastName: values.lastName.trim(),
         password: values.password,
       });
-      router.push(await landingPathFor(session));
+      router.replace(await landingPathFor(session));
     } catch (err) {
       setFailure(
         err instanceof Error ? err.message : "Could not create your account.",

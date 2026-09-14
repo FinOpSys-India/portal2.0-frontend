@@ -1,4 +1,9 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+
+import { landingPathForRole } from "@/lib/api";
+import { ACCESS_TOKEN_COOKIE } from "@/lib/backend";
+import { roleFromToken } from "@/lib/session";
 
 /**
  * Root is the login screen.
@@ -12,7 +17,15 @@ import { redirect } from "next/navigation";
  * for signing in. Every existing link, the proxy's own guard, and the logout
  * hop already point at it; a second copy at `/` would be a second page to keep
  * in step.
+ *
+ * WITH A SESSION IT IS THE PORTAL INSTEAD. `/` is the address someone types,
+ * bookmarks, and lands on from the logo — and sending a signed-in person to the
+ * sign-in form there is the same wrong turn the back button used to take. The
+ * proxy would bounce them off /login anyway; going straight home saves the
+ * extra hop. Role only, never onboarding state: that needs a backend read, and
+ * this runs before any page has rendered.
  */
-export default function HomePage() {
-  redirect("/login");
+export default async function HomePage() {
+  const role = roleFromToken((await cookies()).get(ACCESS_TOKEN_COOKIE)?.value);
+  redirect(role ? landingPathForRole(role) : "/login");
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { landingPathForRole, type Role } from "@/lib/api";
+import { roleFromToken } from "@/lib/session";
 import { ACCESS_TOKEN_COOKIE, CSRF_COOKIE, backendUrl } from "@/lib/backend";
 
 /**
@@ -17,33 +18,30 @@ const PORTAL_ROLE: Record<string, Role> = {
 };
 
 /**
- * The `role` claim, read without verifying the signature.
+ * The screens whose whole job is to get you a session.
  *
- * That is deliberate and it is not the authorization: the backend re-checks the
- * role on every request, against the DATABASE and not just the claim (see
- * `requireRole`). This only decides which page to show, so a forged claim buys
- * an attacker a portal that then 403s on its first fetch — exactly where they
- * started. Verifying here would mean shipping the signing key to the proxy.
+ * REACHING ONE WHILE HOLDING A SESSION IS THE BACK BUTTON, not an intention.
+ * Signing in used to leave `/login` and `/otp_page_login?challenge=…` sitting in
+ * history behind the portal, so pressing Back far enough walked out of the app
+ * and into the login form — and the OTP screen there carried a challenge that
+ * had already been spent, so trying to go forward again failed. The forms now
+ * REPLACE rather than push, which keeps those entries out of history in the
+ * first place; this is the other half, for the ones that arrive anyway — a
+ * bookmark, a typed URL, a restored tab.
+ *
+ * `/login/refresh` is deliberately absent: it is reached WITHOUT an access
+ * cookie by definition, so bouncing it would break the session-refresh hop.
+ * `forgot_password` and `accept-invitation` are absent too — both are real
+ * errands someone already signed in can be on.
  */
-function roleFromToken(token: string): Role | null {
-  const payload = token.split(".")[1];
-  if (!payload) return null;
-  try {
-    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    const role = JSON.parse(json)?.role;
-    return typeof role === "string" && role in landingByRole ? (role as Role) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Roles we know a landing for — also the allowlist `roleFromToken` checks. */
-const landingByRole: Record<Role, true> = {
-  ADMIN: true,
-  ACCOUNTING_MANAGER: true,
-  SPECIALIST: true,
-  CUSTOMER: true,
-};
+const AUTH_ENTRY = new Set([
+  "/login",
+  "/login-v1",
+  "/signup_2938",
+  "/signup-v1",
+  "/otp_page_login",
+  "/otp_page_signup",
+]);
 
 /** The portal a path sits in, or null for a shared/public route. */
 function portalOwner(pathname: string): Role | null {
@@ -114,6 +112,24 @@ export function proxy(request: NextRequest) {
    * refresh cookie it can be read here. Without it this is a genuinely
    * signed-out visitor, and the hop would only fail and land on /login anyway.
    */
+  /*
+   * A live session on a sign-in screen goes home instead.
+   *
+   * Before the `accessToken` check below, because these routes are the one
+   * place where NOT having a session is the normal state — sending a
+   * signed-out visitor away from /login would be a redirect to itself.
+   *
+   * A role the claim does not name leaves the request alone, the same rule the
+   * portal gate below follows: the backend decides, and bouncing someone off
+   * the only screen that can fix their session would be the worse failure.
+   */
+  if (AUTH_ENTRY.has(pathname)) {
+    const role = roleFromToken(accessToken);
+    return role
+      ? NextResponse.redirect(new URL(landingPathForRole(role), request.url))
+      : NextResponse.next();
+  }
+
   if (!pathname.startsWith("/api")) {
     if (!accessToken) {
       const target = request.cookies.get(CSRF_COOKIE)
@@ -217,5 +233,17 @@ export const config = {
      * redirect.
      */
     "/((?!api|_next|login|signup|otp_page_|forgot_password|accept-invitation|.*\\.).+)",
+    /*
+     * The sign-in screens, named exactly — they are excluded from the
+     * alternation above so the signed-OUT guard never sees them, and listed
+     * here so the signed-IN bounce does. Exact paths, so `/login/refresh` and
+     * the `forgot_password` routes stay out of both.
+     */
+    "/login",
+    "/login-v1",
+    "/signup_2938",
+    "/signup-v1",
+    "/otp_page_login",
+    "/otp_page_signup",
   ],
 };

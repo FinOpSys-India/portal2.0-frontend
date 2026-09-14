@@ -38,7 +38,7 @@ export function LoginV1Form() {
     setPending(true);
     try {
       const challenge = await api.login(email.trim(), password);
-      router.push(
+      router.replace(
         `/otp_page_login?challenge=${encodeURIComponent(challenge.challengeId)}` +
           `&email=${encodeURIComponent(challenge.maskedEmail)}`,
       );
