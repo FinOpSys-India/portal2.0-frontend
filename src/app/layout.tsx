@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Inter } from "next/font/google";
 
 import { NetworkEcho } from "@/components/dev/network-echo";
+import { ECHO_ENABLED, collect } from "@/lib/dev-calls";
 import { Toaster } from "@/components/ui/toast";
 import "./globals.css";
 
@@ -36,11 +37,13 @@ export default function RootLayout({
         {/* One viewport for the whole app — a write confirms from wherever it
             was made, including a dialog that closes on its way out. */}
         <Toaster />
-        {/* Dev only: replays the server render's backend GETs from the browser
-            so they appear in the Network tab. Renders nothing, and its effect
-            is compiled out of a production build. */}
+        {/* Replays the server render's backend GETs from the browser so they
+            appear in the Network tab. Renders nothing. The list has to be
+            collected here, in the page's own response: a route handler is a
+            different function on Vercel and never sees what the render did.
+            Off unless the echo is enabled, and then it costs one promise. */}
         <Suspense>
-          <NetworkEcho />
+          <NetworkEcho paths={ECHO_ENABLED ? collect() : null} />
         </Suspense>
       </body>
     </html>

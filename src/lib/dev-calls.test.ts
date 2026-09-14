@@ -7,8 +7,8 @@
  * calls replayed on every page after it.
  *
  * The off case is the one with a consequence outside the panel: with the flag
- * unset, a production build must record nothing, because /dev-echo answers
- * from the same buffer and the paths it would name are not for the public.
+ * unset, a production build must record nothing, because `collect` streams the
+ * same buffer to the browser and those paths are not for the public.
  */
 import assert from "node:assert/strict";
 
@@ -70,6 +70,17 @@ async function main() {
   assert.equal(on.ECHO_ENABLED, true, "NEXT_PUBLIC_API_ECHO=1 turns it on");
   on.record("/auth/me");
   assert.deepEqual(on.drain(), ["/auth/me"]);
+
+  /* ------------------------------------------------ collect hands over --- */
+
+  // The layout renders before the page's fetches run, so `collect` is a promise
+  // that reads the buffer late. Recording AFTER the call is the whole point —
+  // if it drained eagerly the panel would be empty, which is the bug this
+  // replaced.
+  const collected = on.collect();
+  on.record("/projects?page=1");
+  assert.deepEqual(await collected, ["/projects?page=1"]);
+  assert.deepEqual(on.drain(), [], "collect leaves the buffer clear");
 
   console.log("dev calls: all checks passed");
 }

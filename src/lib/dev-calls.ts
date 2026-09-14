@@ -4,9 +4,17 @@
  *
  * Every portal page is a server component, so its data fetches happen node-to-
  * node during SSR and are invisible to DevTools by construction. This records
- * the paths; src/components/dev/network-echo.tsx re-issues each one from the
- * browser through the proxy, which is what puts a real request, status and body
- * in the Network panel.
+ * the paths; the root layout hands them to src/components/dev/network-echo.tsx
+ * IN THE SAME RESPONSE, and that client component re-issues each one from the
+ * browser through the proxy — which is what puts a real request, status and
+ * body in the Network panel.
+ *
+ * THE LIST TRAVELS WITH THE PAGE, AND IT HAS TO. This used to be a buffer that
+ * a separate route handler read back over fetch, and on Vercel that could never
+ * work: routes are built into separate functions, so the page render and the
+ * handler run in different processes with different memory. The handler always
+ * answered with an empty list, silently, and the echo replayed nothing. Locally
+ * it is all one process, which is exactly why the bug did not show there.
  *
  * OFF BY DEFAULT ON A DEPLOY. `record` is a no-op unless the echo is enabled,
  * so nothing here costs anything on a build that has not asked for it.
@@ -15,11 +23,11 @@
  * once interleave their paths and the echo replays both — harmless when one
  * person is clicking. Move to AsyncLocalStorage if that ever misleads.
  *
- * ponytail: in-process, so on a deployed build it only reaches the browser when
- * the render and the /dev-echo request land on the same serverless instance.
- * Usually they do; when they do not, that page's reads are missing from the
- * panel and a refresh fetches them. A store the instances share is the upgrade,
- * and it is not worth one for a testing aid.
+ * ponytail: `collect` waits a fixed beat rather than knowing when the render's
+ * fetches are done — there is no signal for "this tree has finished awaiting".
+ * A page slower than the delay loses its last few rows. Counting in-flight
+ * requests in src/lib/http.ts and resolving at zero is the upgrade, if that
+ * ever bites.
  */
 /**
  * Whether the echo runs at all.
@@ -56,3 +64,26 @@ export function drain(): string[] {
   calls = [];
   return out;
 }
+
+/**
+ * The paths this render collected, as a promise the layout hands to the client.
+ *
+ * WHY A PROMISE AND NOT A VALUE. The root layout renders before the page below
+ * it, so at that moment the buffer holds nothing — the fetches being recorded
+ * have not run yet. React streams a promise prop to a client component whenever
+ * it resolves, so waiting inside one is what lets the layout ship a list it
+ * could not possibly have had when it rendered.
+ *
+ * The delay is the crude part: there is no "the tree is done awaiting" signal
+ * to hang this on, so it waits a beat that comfortably outlasts a normal render
+ * and reads the buffer then. The response stays open that much longer, which is
+ * a price only a build with the echo turned on pays.
+ */
+export function collect(): Promise<string[]> {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(drain()), SETTLE_MS);
+  });
+}
+
+/** Long enough for a page's reads to land, short enough not to stall the tab. */
+const SETTLE_MS = 700;
