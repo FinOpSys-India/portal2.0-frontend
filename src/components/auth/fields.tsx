@@ -10,6 +10,7 @@ import {
 } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   FormControl,
   FormField,
@@ -18,6 +19,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -28,6 +34,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { dialCode } from "@/lib/phone";
+import { fromDateValue, toDateValue } from "@/lib/table-filter";
 import { cn } from "@/lib/utils";
 
 /**
@@ -181,6 +188,102 @@ export function TextField<T extends FieldValues>({
         </FormItem>
       )}
     />
+  );
+}
+
+/**
+ * A calendar day, picked on a popover calendar rather than typed.
+ *
+ * The value stays `YYYY-MM-DD` — what the schemas compare and the backend's
+ * `deadlineDate` accepts — and only the button reads M/D/YYYY, the one format
+ * every date in the portal renders in. A native `<input type="date">` showed
+ * dd/mm/yyyy to anyone whose OS is not set to the US.
+ *
+ * `min` is the earliest selectable day, in the same `YYYY-MM-DD`.
+ */
+export function DateField<T extends FieldValues>({
+  control,
+  name,
+  label,
+  icon,
+  required,
+  min,
+  placeholder = "Pick a date",
+}: BaseProps<T> & { min?: string; placeholder?: string }) {
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>
+            <LabelText required={required}>{label}</LabelText>
+          </FormLabel>
+          <div className="relative">
+            {icon ? <LeadingIcon icon={icon} /> : null}
+            <DatePicker
+              value={field.value}
+              onChange={field.onChange}
+              min={min}
+              placeholder={placeholder}
+              className={cn(icon && "pl-10")}
+            />
+          </div>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+/** The popover itself. Separate so it can hold the open state as a hook. */
+function DatePicker({
+  value,
+  onChange,
+  min,
+  placeholder,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  min?: string;
+  placeholder: string;
+  className?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const selected = fromDateValue(value ?? "");
+  const earliest = min ? fromDateValue(min) : undefined;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <FormControl>
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              CONTROL,
+              "w-full justify-start font-normal hover:bg-card",
+              !selected && "text-muted-foreground",
+              className,
+            )}
+          >
+            {selected ? selected.toLocaleDateString("en-US") : placeholder}
+          </Button>
+        </FormControl>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={selected}
+          defaultMonth={selected ?? earliest}
+          disabled={earliest ? { before: earliest } : undefined}
+          onSelect={(date) => {
+            onChange(toDateValue(date));
+            setOpen(false);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 

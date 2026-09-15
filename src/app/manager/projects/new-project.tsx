@@ -6,7 +6,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, CalendarDays, FolderKanban, Plus, Wrench } from "lucide-react";
 import { useForm } from "react-hook-form";
 
-import { SelectField, SubmitButton, TextField } from "@/components/auth/fields";
+import {
+  DateField,
+  SelectField,
+  SubmitButton,
+  TextField,
+} from "@/components/auth/fields";
 import { FormAlert } from "@/components/auth/form-alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -180,15 +185,14 @@ export function NewProject({
               options={services ?? []}
             />
 
-            <TextField
+            <DateField
               control={form.control}
               name="deadline"
               label="Deadline"
               icon={CalendarDays}
               required
-              type="date"
-              // Today is blocked as well as the past, matching the customer's
-              // form and 1.0's picker.
+              // 1.0 blocks today as well as the past; the first selectable day
+              // is tomorrow.
               min={tomorrow()}
             />
 

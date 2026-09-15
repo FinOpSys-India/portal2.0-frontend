@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
 import {
+  DateField,
   SelectField,
   StaticField,
   SubmitButton,
@@ -143,15 +144,11 @@ export function AddTask({
                 placeholder="Describe task"
               />
 
-              {/* Native date input rather than a picker library: it validates,
-                localises and is keyboard-accessible for free. 1.0 uses
-                pickadate.js, whose overlay breaks its own modal layout. */}
-              <TextField
+              <DateField
                 control={form.control}
                 name="deadline"
                 label="Deadline Date"
                 required
-                type="date"
               />
 
               {only ? (

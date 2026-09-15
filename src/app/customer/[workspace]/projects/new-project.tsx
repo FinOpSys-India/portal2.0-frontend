@@ -6,7 +6,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarDays, FolderKanban, Plus, Wrench } from "lucide-react";
 import { useForm } from "react-hook-form";
 
-import { SelectField, SubmitButton, TextField } from "@/components/auth/fields";
+import {
+  DateField,
+  SelectField,
+  SubmitButton,
+  TextField,
+} from "@/components/auth/fields";
 import { FormAlert } from "@/components/auth/form-alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -104,16 +109,14 @@ export function NewProject({
               options={services}
             />
 
-            <TextField
+            <DateField
               control={form.control}
               name="deadline"
               label="Deadline"
               icon={CalendarDays}
               required
-              type="date"
               // 1.0 blocks today as well as the past; the first selectable day
-              // is tomorrow. Same rule, stated in the field rather than
-              // discovered by clicking a disabled cell.
+              // is tomorrow.
               min={tomorrow()}
             />
 
