@@ -104,6 +104,12 @@ export interface InviteTeammateInput {
   firstName: string;
   lastName: string;
   jobTitle: string;
+  /**
+   * The companies this teammate joins. Workspace ids, i.e. company ids as
+   * strings — see the note on `customerApi` — and never empty: the endpoint
+   * refuses an invitation that names no company.
+   */
+  companyIds: string[];
 }
 
 /**
@@ -116,7 +122,22 @@ export interface InviteTeammateInput {
  * server has never accepted.
  */
 export const customerApi = {
-  /** The picker after sign-in: companies this person owns. */
+  /**
+   * The picker after sign-in: companies this person owns.
+   *
+   * THE ONE SEAM A TEAMMATE IS WAITING ON. `/companies/owned` filters on
+   * `ownerUserId`, so an invited teammate — who holds `company_members` rows and
+   * no ownership — gets an empty list, lands on the onboarding redirect in
+   * /company_select, and is 404'd by CustomerLayout on every
+   * `/customer/[workspace]` URL. Nothing else in the customer portal has to
+   * change: every screen already reads whatever this returns.
+   *
+   * Keep `/companies/owned` pointed at ownership regardless — the invite
+   * dialog's Company Access list is fed from here too, and
+   * `POST /invitations/teammates` refuses a company the caller does not own.
+   * When the membership endpoint lands, read the two and merge, or switch this
+   * to whichever route answers "companies I can open".
+   */
   async workspaces(): Promise<Workspace[]> {
     const data = await get<{
       companies: { companyId: number; companyName: string }[];
@@ -303,18 +324,21 @@ export const customerApi = {
   /**
    * `POST /invitations/teammates`, which is OWNER-only and takes the companies
    * the teammate joins as a list — one invitation can span several.
+   *
+   * NO `workspaceId`. The open workspace used to be the only company an invite
+   * could name, which made inviting one person onto three accounts three
+   * invitations and three sign-up emails. The companies come from the form now,
+   * which offers `workspaces()` — the ones the caller owns, the same set the
+   * server checks the list against before it writes anything.
    */
-  async inviteTeammate(
-    workspaceId: string,
-    input: InviteTeammateInput,
-  ): Promise<void> {
+  async inviteTeammate(input: InviteTeammateInput): Promise<void> {
     const ids = await roleIds("CUSTOMER", "TEAM");
     await post("/invitations/teammates", {
       email: input.email,
       firstName: input.firstName,
       lastName: input.lastName,
       jobTitle: input.jobTitle,
-      companyIds: [Number(workspaceId)],
+      companyIds: input.companyIds.map(Number),
       ...ids,
     });
   },

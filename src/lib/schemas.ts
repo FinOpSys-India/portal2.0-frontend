@@ -201,12 +201,27 @@ export const connectEmailSchema = z.object({
 
 export type ConnectEmailValues = z.infer<typeof connectEmailSchema>;
 
-/** Invite for a teammate on the customer side. */
+/**
+ * Invite for a teammate on the customer side.
+ *
+ * `companyIds` is a LIST because one invitation can name several companies —
+ * `POST /invitations/teammates` has always taken an array, and the form used to
+ * hard-code the open workspace into it, so an owner holding three accounts had
+ * to invite the same person three times. The floor of one is the server's own
+ * rule ("Select at least one company."), stated here so the dialog says it
+ * without a round trip.
+ */
 export const inviteTeammateSchema = z.object({
   email,
   firstName: z.string().min(1, "Enter a first name."),
   lastName: z.string().min(1, "Enter a last name."),
   jobTitle: z.string().min(1, "Enter a job title."),
+  // 50 is the server's own ceiling (MAX_COMPANIES_PER_INVITATION), mirrored so
+  // an over-long list is refused here rather than as an opaque 400.
+  companyIds: z
+    .array(z.string())
+    .min(1, "Select at least one company.")
+    .max(50, "Select at most 50 companies."),
 });
 
 export type InviteTeammateValues = z.infer<typeof inviteTeammateSchema>;

@@ -210,24 +210,34 @@ assert.equal(
 
 /* ------------------------------------------------------------- teammate -- */
 
+const validTeammate = {
+  email: "tom@example.com",
+  firstName: "Tom",
+  lastName: "Becker",
+  jobTitle: "Office Manager",
+  companyIds: ["7"],
+};
+
+assert.ok(inviteTeammateSchema.safeParse(validTeammate).success);
+// Several companies on one invitation — the whole point of the list.
 assert.ok(
-  inviteTeammateSchema.safeParse({
-    email: "tom@example.com",
-    firstName: "Tom",
-    lastName: "Becker",
-    jobTitle: "Office Manager",
-  }).success,
+  inviteTeammateSchema.safeParse({ ...validTeammate, companyIds: ["7", "9"] })
+    .success,
 );
 assert.ok(
   errorFor(
-    inviteTeammateSchema.safeParse({
-      email: "tom@example.com",
-      firstName: "Tom",
-      lastName: "Becker",
-      jobTitle: "",
-    }),
+    inviteTeammateSchema.safeParse({ ...validTeammate, jobTitle: "" }),
     "jobTitle",
   ),
+);
+// Every box unticked is caught here rather than by the 400 the server would
+// answer with — the dialog can say so without sending anything.
+assert.equal(
+  errorFor(
+    inviteTeammateSchema.safeParse({ ...validTeammate, companyIds: [] }),
+    "companyIds",
+  ),
+  "Select at least one company.",
 );
 
 /* -------------------------------------------------------------- profile -- */

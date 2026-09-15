@@ -29,7 +29,12 @@ export default async function TeamPage({
     await Promise.all([params, searchParams]);
   const page = parsePage(raw);
   const size = parsePageSize(rawSize);
-  const team = await customerApi.team(workspace);
+  // Both, in parallel: the roster is the table, `workspaces` is the invite
+  // dialog's company checklist — the companies this owner can put someone on.
+  const [team, companies] = await Promise.all([
+    customerApi.team(workspace),
+    customerApi.workspaces(),
+  ]);
 
   return (
     <DataTable<TeamMember>
@@ -40,7 +45,19 @@ export default async function TeamPage({
       dir={dir}
       filters={parseFilters(f)}
       total={team.length}
-      action={<InviteTeammate workspaceId={workspace} />}
+      /*
+       * No companies to offer means no invite button.
+       *
+       * `POST /invitations/teammates` is OWNER-only, and this list is the
+       * companies the caller owns. A teammate reading the roster of a company
+       * they merely belong to would otherwise get a button that opens an empty
+       * menu and ends in a 403.
+       */
+      action={
+        companies.length > 0 ? (
+          <InviteTeammate workspaceId={workspace} companies={companies} />
+        ) : undefined
+      }
       rows={team}
       empty="No teammates yet. Invite someone to share access."
       columns={[
