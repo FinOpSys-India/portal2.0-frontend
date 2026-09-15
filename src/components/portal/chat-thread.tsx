@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import { chatApi } from "@/lib/chat";
-import { subscribeToThread } from "@/lib/chat-realtime";
+import { keepTombstones, subscribeToThread } from "@/lib/chat-realtime";
 import {
   dayLabel,
   formatFileSize,
@@ -171,9 +171,16 @@ export function ChatThread({
     let live = true;
     let teardown = () => {};
 
+    /*
+     * A re-read, not a reset. The API never returns a deleted row, so handing
+     * its answer straight to `setMessages` erased every tombstone on screen —
+     * and where there is no socket this runs every 8 seconds, which is why the
+     * other side's delete showed nothing at all. `keepTombstones` holds on to
+     * the rows the page dropped from inside its own window.
+     */
     const reload = () =>
       load().then((rows) => {
-        if (live) setMessages(rows);
+        if (live) setMessages((known) => keepTombstones(rows, known));
       });
 
     subscribeToThread(conversationId, {
@@ -253,6 +260,11 @@ export function ChatThread({
    * refuses to sign a download for a deleted message's file.
    */
   async function remove(message: ChatMessage) {
+    // Worth one question: it is not undoable, and it is not private to the
+    // person clicking — the other side's bubble becomes a tombstone too. Same
+    // native prompt the document delete asks with.
+    if (!window.confirm("Delete this message? This cannot be undone.")) return;
+
     const previous = messages;
     setMessages((rows) =>
       (rows ?? []).map((m) =>

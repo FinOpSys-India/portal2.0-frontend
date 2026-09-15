@@ -104,6 +104,64 @@ export function needsReload(row: ChatMessageRow): boolean {
   return row.body === null;
 }
 
+/**
+ * Replace a thread's rows with a fresh read WITHOUT losing the tombstones.
+ *
+ * WHY THIS HAS TO EXIST. `chatRepository.listMessages` filters `deletedAt:
+ * null`, so a deleted message does not come back from the API at all — see the
+ * note on `deletedAt` in `BackendMessage`. Every re-read therefore erased the
+ * bubble that said "This message was deleted" and shifted the thread up, which
+ * is precisely the disappearing-message behaviour the tombstone exists to
+ * prevent. With no Supabase key in the bundle that re-read is an 8s poll, so
+ * the other side's delete produced no tombstone at all: the bubble was simply
+ * gone the next time the timer fired.
+ *
+ * ABSENCE INSIDE THE WINDOW IS THE DELETE. A row this tab already holds, that
+ * the new page does not, and whose `sentAt` falls between the page's oldest and
+ * newest rows, was deleted between the two reads. The two bounds are what keep
+ * the inference honest:
+ *
+ * - older than the oldest returned row — it paged out (the thread reads
+ *   `limit=50`), so it is dropped as before rather than turned into a lie.
+ * - newer than the newest returned row — it arrived after the page was
+ *   fetched, over the socket or from this tab's own send, and the poll simply
+ *   has not caught up. Marking that one deleted would tombstone a message
+ *   nobody touched.
+ *
+ * ponytail: inferred from absence, and only for a thread this tab has watched.
+ * A message deleted before the thread was opened cannot be shown at all from
+ * here — that needs `listMessages` to return deleted rows with `body` and
+ * `attachments` stripped, which is the backend half of this.
+ */
+export function keepTombstones(
+  rows: ChatMessage[],
+  known: ChatMessage[] | null,
+): ChatMessage[] {
+  if (!rows.length || !known?.length) return rows;
+
+  const fresh = new Set(rows.map((m) => m.id));
+  // Oldest first, the order the thread renders in and the loader returns.
+  const oldest = rows[0].sentAt;
+  const newest = rows[rows.length - 1].sentAt;
+
+  const gone = known
+    .filter(
+      (m) => !fresh.has(m.id) && m.sentAt >= oldest && m.sentAt <= newest,
+    )
+    // Cleared the same way the socket and the sender's own click clear it:
+    // nothing that was in the message survives in this tab's memory.
+    .map((m) => ({
+      ...m,
+      deleted: true,
+      body: "",
+      attachments: [],
+      reactions: [],
+    }));
+
+  if (!gone.length) return rows;
+  return [...rows, ...gone].sort((a, b) => a.sentAt.localeCompare(b.sentAt));
+}
+
 export interface LiveHandlers {
   /** A message that arrived complete. Append it. */
   onMessage: (message: ChatMessage) => void;

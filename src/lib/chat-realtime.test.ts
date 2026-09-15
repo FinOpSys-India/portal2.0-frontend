@@ -9,7 +9,12 @@
  */
 import assert from "node:assert/strict";
 
-import { needsReload, toLiveMessage, type ChatMessageRow } from "./chat-realtime";
+import {
+  keepTombstones,
+  needsReload,
+  toLiveMessage,
+  type ChatMessageRow,
+} from "./chat-realtime";
 import { toChatMessage } from "./portal";
 
 const ME = 47;
@@ -94,5 +99,68 @@ const times = [
   "2026-08-21T08:00:00.000Z",
 ];
 assert.deepEqual([...times].sort((a, b) => a.localeCompare(b)), times);
+
+/* ------------------------------------------------------- keeping tombstones -- */
+
+// A thread as this tab holds it, oldest first — the order the loader returns.
+const at = (n: number) => `2026-08-20T1${n}:00:00.000Z`;
+const msg = (id: string, n: number) => ({
+  id,
+  mine: false,
+  body: `m${id}`,
+  sentAt: at(n),
+  attachments: [],
+  reactions: [],
+  deleted: false,
+});
+
+const held = [msg("1", 0), msg("2", 1), msg("3", 2), msg("4", 3)];
+
+// THE BUG. The re-read cannot return a deleted row, so "2" is simply missing
+// from the page. Without this it vanished from the screen; with it the bubble
+// stays and says it was deleted.
+const afterDelete = keepTombstones([held[0], held[2], held[3]], held);
+assert.deepEqual(
+  afterDelete.map((m) => m.id),
+  ["1", "2", "3", "4"],
+  "the deleted message keeps its place",
+);
+const stone = afterDelete[1];
+assert.equal(stone.deleted, true);
+assert.equal(stone.body, "", "and keeps nothing it said");
+assert.deepEqual(stone.attachments, []);
+assert.deepEqual(stone.reactions, []);
+
+// PAGED OUT, NOT DELETED. The thread reads a fixed window, so the oldest row
+// falls off the top as new ones arrive. Absent and OLDER than the page's oldest
+// is the one case absence does not mean deletion.
+assert.deepEqual(
+  keepTombstones([held[1], held[2], held[3], msg("5", 4)], held).map((m) => m.id),
+  ["2", "3", "4", "5"],
+  "a row that paged out is dropped, not tombstoned",
+);
+
+// THE POLL RACE. A message that arrived over the socket after the page was
+// fetched is absent from it and NEWER than everything in it. Marking that one
+// deleted would tombstone a message nobody touched.
+const withLive = [...held, msg("9", 4)];
+assert.deepEqual(
+  keepTombstones(held, withLive).map((m) => m.id),
+  ["1", "2", "3", "4"],
+  "a message the page has not caught up to is left alone",
+);
+assert.ok(
+  !keepTombstones(held, withLive).some((m) => m.deleted),
+  "and is not turned into a tombstone",
+);
+
+// Nothing held, or an empty page: the read stands on its own.
+assert.deepEqual(keepTombstones(held, null), held);
+assert.deepEqual(keepTombstones([], held), []);
+
+// Already a tombstone, still absent from the page — it stays one rather than
+// flickering back into a bubble.
+const twice = keepTombstones([held[0], held[2], held[3]], afterDelete);
+assert.equal(twice[1].deleted, true, "a tombstone survives the next read too");
 
 console.log("chat realtime: all checks passed");
