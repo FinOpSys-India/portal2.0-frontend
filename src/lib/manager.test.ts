@@ -65,6 +65,7 @@ assert.deepEqual(parseDeadline("8/05/26"), new Date(2026, 7, 5));
 assert.deepEqual(parseDeadline("7/15/26"), new Date(2026, 6, 15));
 // Single-digit month and day.
 assert.deepEqual(parseDeadline("1/9/27"), new Date(2027, 0, 9));
+assert.deepEqual(parseDeadline("9/30/2026"), new Date(2026, 8, 30));
 
 // The trap: as strings, "8/05/26" < "7/15/26" is false but "1/9/27" sorts
 // before both, so text comparison gets the ordering wrong. Dates fix it.
@@ -162,7 +163,7 @@ assert.equal(
 );
 assert.equal(
   dayLabel(new Date(2026, 7, 11, 12, 0).toISOString(), now),
-  "August 11, 2026",
+  "8/11/2026",
   "older than yesterday falls back to a US-worded date, whatever the reader's locale",
 );
 assert.equal(messageTime(new Date(2026, 7, 19, 15, 42).toISOString()), "3:42 PM");

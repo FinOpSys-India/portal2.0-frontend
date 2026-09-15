@@ -101,6 +101,11 @@ assert.equal(mapped.service, "Bookkeeping");
 assert.equal(mapped.status, "In progress");
 assert.equal(mapped.specialist, "Nadia Haddad");
 assert.equal(mapped.progress, 40);
+// M/D/YYYY on screen, everywhere — a date-only deadline built local, an instant
+// through the same `usDate` as every other timestamp.
+assert.equal(mapped.deadline, "9/30/2026");
+assert.equal(mapped.createdOn, usDate(project.createdAt));
+assert.equal(usDate("2026-09-30"), "9/30/2026");
 
 // An unstaffed line stays null so the column can say so, rather than "".
 assert.equal(toManagedProject({ ...project, specialist: null }).specialist, null);
@@ -129,7 +134,7 @@ assert.deepEqual(toProjectTask(task), {
   name: "Reconcile July",
   description: "Match the bank feed against the ledger.",
   status: "To do",
-  deadline: "2026-08-15",
+  deadline: "8/15/2026",
 });
 
 // Across projects the task name alone says nothing, so the project rides along.

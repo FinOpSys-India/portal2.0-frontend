@@ -393,7 +393,7 @@ function toProject(p: BackendProject): Project {
     id: String(p.id),
     name: p.projectName,
     service: p.service?.serviceName ?? "",
-    deadline: p.deadlineDate ?? "",
+    deadline: p.deadlineDate ? usDate(p.deadlineDate) : "",
     status: toProjectStatus(p.status),
     specialist: p.specialist ? personName(p.specialist) : null,
     specialistAvatarUrl: personAvatarUrl(p.specialist),

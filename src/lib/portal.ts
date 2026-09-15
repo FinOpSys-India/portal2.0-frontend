@@ -154,7 +154,7 @@ export function toManagedProject(p: BackendProject): ManagedProject {
     companyId: String(p.companyId),
     // "Service Type" in the table. The specialization, not the plan tier.
     service: p.service?.serviceName ?? "",
-    deadline: p.deadlineDate ?? "",
+    deadline: p.deadlineDate ? usDate(p.deadlineDate) : "",
     status: toProjectStatus(p.status),
     // Null means the service line is unstaffed — not that the field was
     // forgotten, which is why the column renders a placeholder rather than "".
@@ -162,7 +162,7 @@ export function toManagedProject(p: BackendProject): ManagedProject {
     specialistAvatarUrl: personAvatarUrl(p.specialist),
     createdBy: personName(p.createdBy),
     progress: p.progressBar ?? 0,
-    createdOn: p.createdAt,
+    createdOn: usDate(p.createdAt),
   };
 }
 
@@ -187,7 +187,7 @@ export function toProjectTask(t: BackendTask): ProjectTask {
     name: t.taskName,
     description: t.description,
     status: toTaskStatus(t.status),
-    deadline: t.deadlineDate ?? "",
+    deadline: t.deadlineDate ? usDate(t.deadlineDate) : "",
   };
 }
 
@@ -471,8 +471,14 @@ export interface BackendCompany {
  * runtime put 20/08/2026 there for anyone outside the US. Both are the same
  * bug — the format is a product decision, not the browser's.
  */
-export function usDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US");
+export function usDate(value: string): string {
+  // A date-only string (`deadlineDate`, "2026-09-30") is a calendar day, not
+  // UTC midnight: built local, or it prints the previous day west of Greenwich.
+  const [year, month, day] =
+    value.length === 10 ? value.split("-").map(Number) : [];
+  const date =
+    year && month && day ? new Date(year, month - 1, day) : new Date(value);
+  return date.toLocaleDateString("en-US");
 }
 
 /** M/D/YYYY, matching the "Billing Date" column since 1.0. Blank before checkout. */

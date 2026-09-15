@@ -1504,11 +1504,7 @@ export function dayLabel(sentAt: string, now = new Date()): string {
 
   if (days === 0) return "Today";
   if (days === 1) return "Yesterday";
-  return date.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  return date.toLocaleDateString("en-US");
 }
 
 /** Clock time on a message, e.g. "3:42 PM". */
@@ -1520,26 +1516,16 @@ export function messageTime(sentAt: string): string {
 }
 
 /**
- * The reverse: an `<input type="date">` value (`2026-09-01`) into 1.0's
- * `9/01/26`. Month unpadded, day padded — that is 1.0's own format, and a row
- * written in one format inside a column of another reads as a bug.
- */
-export function toStamp(iso: string): string {
-  const [year, month, day] = iso.split("-");
-  return `${Number(month)}/${day}/${year.slice(2)}`;
-}
-
-/**
  * Every date string this app sorts or filters on, in the three shapes it
  * actually arrives in.
  *
- * THE SECOND SHAPE IS WHY THIS IS NOT A ONE-LINER. 1.0 wrote `8/05/26` and the
- * mocks still do, but the backend sends ISO — `deadlineDate` leaves
- * projectDto.js as "YYYY-MM-DD" and never as anything else. Parsing only the
- * first shape returned Invalid Date for every live row, so `getTime()` was NaN:
- * the Deadline column sorted into no order at all, and `matchesRange` in
- * src/lib/table-filter.ts rejects NaN outright, which is why a deadline range
- * that plainly contained rows answered "No rows match these filters".
+ * THE SECOND SHAPE IS WHY THIS IS NOT A ONE-LINER. A `deadline` field is
+ * `usDate` output (`9/30/2026`, or 1.0's `8/05/26` in the tests), but the
+ * backend's own `deadlineDate` leaves projectDto.js as "YYYY-MM-DD". Parsing
+ * only the first shape returned Invalid Date for every live row, so `getTime()`
+ * was NaN: the Deadline column sorted into no order at all, and `matchesRange`
+ * in src/lib/table-filter.ts rejects NaN outright, which is why a deadline
+ * range that plainly contained rows answered "No rows match these filters".
  *
  * A DATE IS BUILT LOCAL, AN INSTANT IS NOT. `new Date("2026-09-15")` reads as
  * UTC midnight and shows the 14th anywhere west of Greenwich — a deadline on
@@ -1556,7 +1542,7 @@ export function parseDeadline(value: string): Date {
   if (value.includes("/")) {
     const [month, day, year] = value.split("/").map(Number);
     return month && day && Number.isFinite(year)
-      ? new Date(2000 + year, month - 1, day)
+      ? new Date(year < 100 ? 2000 + year : year, month - 1, day)
       : new Date(NaN);
   }
 
