@@ -97,19 +97,14 @@ export default async function CompaniesPage({
           filter: "enum",
           sortValue: (row) => row.accountingManager ?? "",
           /*
-           * The one thing admin can write, and it is rendered for EVERY row
-           * now — assigned or not. Showing the control only where the cell
-           * was empty made the assignment a one-way door: a manager who left
-           * the company could not be replaced or removed from here, though
-           * both writes existed on the backend all along.
+           * Assignment is a one-way door: the control shows only where a
+           * company has no manager yet. Once one is set the cell is plain
+           * text — no change, no removal from this screen.
            */
-          cell: (row) => (
-            <AssignManager
-              companyId={row.id}
-              managers={managers}
-              current={row.accountingManager}
-            />
-          ),
+          cell: (row) =>
+            row.accountingManager ?? (
+              <AssignManager companyId={row.id} managers={managers} />
+            ),
         },
       ]}
     />

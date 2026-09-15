@@ -7,7 +7,6 @@
 
 import {
   ApiError,
-  del,
   get,
   getOrNull,
   pageQuery,
@@ -539,24 +538,6 @@ export const adminApi = {
         accountingManagerUserId: managerUserId,
       },
     );
-  },
-
-  /**
-   * Leave a company with no accounting manager.
-   *
-   * `DELETE`, and it is a separate endpoint from the assign — the backend does
-   * not read "unassign" as a PUT with a null id. Both existed all along; the
-   * table simply offered neither once a company had a manager, so the ONE write
-   * an admin has over a company was a one-way door. A manager who left the
-   * company, or was assigned to the wrong account, could not be moved.
-   *
-   * Consequences worth knowing before clicking: an unmanaged company has nobody
-   * on the other side of its chat, so `POST /chat/conversations` answers
-   * NO_ACCOUNTING_MANAGER for its customers and specialists until one is
-   * assigned again.
-   */
-  async removeManager(companyId: string): Promise<void> {
-    await del(`/companies/${encodeURIComponent(companyId)}/accounting-manager`);
   },
 };
 
