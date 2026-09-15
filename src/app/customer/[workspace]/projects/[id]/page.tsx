@@ -12,6 +12,7 @@ import { FilePreview } from "@/components/portal/file-preview";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
+import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { customerApi, type CustomerFile } from "@/lib/customer";
 import { documentPath } from "@/lib/portal";
 import { parseFilters } from "@/lib/table-filter";
@@ -20,8 +21,11 @@ export const metadata: Metadata = { title: "Project" };
 
 /**
  * Project detail. 1.0 has this screen (customer-project-detail.png) but we
- * never reached it with a populated list, so the field set is the row's data
- * plus the files attached to it — everything we can show without inventing.
+ * never reached it with a populated list, so the field set is the row's data,
+ * the tasks the AM has broken it into, and the files attached to it.
+ *
+ * The task list is read-only here: the customer cannot add a task or move its
+ * status (docs/functionality-matrix.md), they watch the AM's breakdown progress.
  */
 export default async function CustomerProjectPage({
   params,
@@ -44,7 +48,10 @@ export default async function CustomerProjectPage({
 
   if (!project) notFound();
 
-  const files = await customerApi.files(workspace, project.name);
+  const [tasks, files] = await Promise.all([
+    customerApi.tasks(project.id),
+    customerApi.files(workspace, project.name),
+  ]);
 
   return (
     <>
@@ -71,6 +78,13 @@ export default async function CustomerProjectPage({
             value={project.specialist ?? "Not yet assigned"}
           />
         </DetailSection>
+
+        <section className="rounded-xl border border-border bg-card">
+          <div className="border-b border-border p-6">
+            <h2 className="text-sm font-semibold">Task List</h2>
+          </div>
+          <ProjectTaskTable tasks={tasks} from="customer" sort={sort} dir={dir} />
+        </section>
 
         <section>
           <h2 className="mb-3 text-sm font-semibold">Attached Files</h2>

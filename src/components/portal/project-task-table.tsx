@@ -26,7 +26,8 @@ const COLUMNS: SortableColumn<ProjectTask>[] = [
  *
  * `from` decides both which portal's endpoint a status change posts to and
  * whether the status is editable at all: the specialist is the one doing the
- * work, so they get the menu; the manager routes the job and reads the badge.
+ * work, so they get the menu; the manager routes the job and the customer
+ * follows it, and both read the badge.
  *
  * The design labels this table's first column `File name` on a table that holds
  * task names (docs/specialist-portal.md). Named for what it holds.
@@ -38,7 +39,7 @@ export function ProjectTaskTable({
   dir,
 }: {
   tasks: ProjectTask[];
-  from: "manager" | "specialist";
+  from: "manager" | "specialist" | "customer";
   sort?: string;
   dir?: string;
 }) {

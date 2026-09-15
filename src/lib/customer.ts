@@ -21,6 +21,7 @@ import {
   type ChatMessage,
   type ManagerProfile,
   type ManagerThread,
+  type ProjectTask,
 } from "@/lib/manager";
 import { fullName, roleIds } from "@/lib/directory";
 import {
@@ -32,11 +33,13 @@ import {
   personName,
   teamPeople,
   toProjectStatus,
+  toProjectTask,
   usDate,
   type BackendCompany,
   type PortalPerson,
   type BackendDocument,
   type BackendProject,
+  type BackendTask,
 } from "@/lib/portal";
 
 export interface Workspace {
@@ -172,6 +175,19 @@ export const customerApi = {
     // stops one workspace's link resolving another's project.
     if (!row || String(row.companyId) !== workspaceId) return null;
     return toProject(row);
+  },
+
+  /**
+   * The project's task list, read-only. Same route the manager and specialist
+   * read; the task board is company-wide by design, so the customer sees what
+   * is outstanding on their own account.
+   */
+  async tasks(projectId: string): Promise<ProjectTask[]> {
+    // ponytail: 100 is the task list's maxLimit, one page for the whole panel.
+    const data = await get<{ tasks: BackendTask[] }>(
+      `/projects/${encodeURIComponent(projectId)}/tasks?limit=100`,
+    );
+    return data.tasks.map(toProjectTask);
   },
 
   async files(
