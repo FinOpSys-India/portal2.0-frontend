@@ -33,6 +33,7 @@ import {
   personId,
   personName,
   teamPeople,
+  teammatePeople,
   toClientCompanyDetail,
   toProjectStatus,
   toProjectTask,
@@ -42,6 +43,7 @@ import {
   type BackendDocument,
   type BackendProject,
   type BackendTask,
+  type BackendTeammate,
 } from "@/lib/portal";
 
 export interface Workspace {
@@ -319,27 +321,29 @@ export const customerApi = {
    * rendering as absence.
    */
   async company(id: string): Promise<ClientCompanyDetail | null> {
-    const data = await getOrNull<{ company: BackendCompany }>(
-      `/companies/${encodeURIComponent(id)}`,
-    );
-    return data?.company ? toClientCompanyDetail(data.company) : null;
+    // Two reads: the company row's team is owner + accounting manager +
+    // specialists, so the customer's OWN colleagues — the people they invited,
+    // `company_members` rows — were the one group missing from their own
+    // company's panel. GET /teammates is the only route that lists them.
+    const [data, teammates] = await Promise.all([
+      getOrNull<{ company: BackendCompany }>(
+        `/companies/${encodeURIComponent(id)}`,
+      ),
+      teammatePeople(id),
+    ]);
+    if (!data?.company) return null;
+
+    const company = toClientCompanyDetail(data.company);
+    return { ...company, teamMembers: [...company.teamMembers, ...teammates] };
   },
 
   async team(workspaceId: string): Promise<TeamMember[]> {
-    const data = await get<{
-      teammates: {
-        firstName: string;
-        lastName: string;
-        jobTitle: string | null;
-        email: string;
-        /**
-         * Not sent yet — `companyDto.toTeammateRow` selects no avatar, the same
-         * gap the directory rows have. Read here so the faces appear the day it
-         * does.
-         */
-        avatarUrl?: string | null;
-      }[];
-    }>(`/teammates?companyId=${encodeURIComponent(workspaceId)}`);
+    // The same roster the company detail screens stack as faces
+    // (`teammatePeople`), kept richer here: this page is a table with a job
+    // title and an email in it.
+    const data = await get<{ teammates: BackendTeammate[] }>(
+      `/teammates?companyId=${encodeURIComponent(workspaceId)}`,
+    );
 
     return data.teammates.map((t) => ({
       name: fullName(t),

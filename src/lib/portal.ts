@@ -502,6 +502,21 @@ export function billingDate(company: BackendCompany): string | null {
 }
 
 /**
+ * One row of `GET /teammates` — the customer-side roster.
+ *
+ * `avatarUrl` is optional because `companyDto.toTeammateRow` does not select
+ * one yet, the same gap the directory rows have. Read here so the faces appear
+ * the day it does, without another change.
+ */
+export interface BackendTeammate {
+  firstName: string;
+  lastName: string;
+  jobTitle: string | null;
+  email: string;
+  avatarUrl?: string | null;
+}
+
+/**
  * The company's people, pictures included.
  *
  * `toTeam` builds every one of them through `projectDto.toPerson`, which
@@ -513,6 +528,38 @@ export function teamPeople(company: BackendCompany): PortalPerson[] {
   return [team?.owner, team?.accountingManager, ...(team?.specialists ?? [])]
     .filter((p): p is BackendPerson => Boolean(p))
     .map(toPortalPerson);
+}
+
+/**
+ * The customer's OWN people on a company — the teammates its owner invited.
+ *
+ * NOT ON ANY COMPANY READ. `toTeam` (and `toCompanyMembers` behind the
+ * manager's list) builds a team out of `companies.owner_user_id`, the
+ * accounting manager and the specialist assignments — staff, plus the one
+ * customer who signed up. Everyone the owner invited afterwards is a
+ * `company_members` row, and `GET /teammates` is the only route that lists
+ * them: so a company with five colleagues on it showed three faces on every
+ * detail screen, all of them ours.
+ *
+ * Read access is the company's, not the roster's: its owner, an ADMIN, its
+ * accounting manager, or an assigned specialist (`assertReadAccess`).
+ *
+ * Swallowed on failure BY DESIGN. This is a second request for a stack of
+ * faces; a page that names the company and its plans must not 500 because the
+ * roster was slow or the caller may not read it.
+ */
+export async function teammatePeople(companyId: string): Promise<PortalPerson[]> {
+  try {
+    const data = await get<{ teammates: BackendTeammate[] }>(
+      `/teammates?companyId=${encodeURIComponent(companyId)}`,
+    );
+    return data.teammates.map((t) => ({
+      name: fullName(t),
+      avatarUrl: t.avatarUrl ?? null,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 /** Just the staffed specialists — the Action cell names them once they exist. */

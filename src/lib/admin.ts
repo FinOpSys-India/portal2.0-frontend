@@ -14,9 +14,13 @@ import {
   put,
 } from "@/lib/http";
 import { subscription, type BillingView, type Subscription } from "@/lib/billing";
-import { customerApi } from "@/lib/customer";
 import { fullName, roleIds, type DirectoryUser } from "@/lib/directory";
-import { money, usDate, type PortalPerson } from "@/lib/portal";
+import {
+  money,
+  teammatePeople,
+  usDate,
+  type PortalPerson,
+} from "@/lib/portal";
 
 export type CustomerRole = "Owner" | "Teammate";
 
@@ -566,7 +570,7 @@ export const adminApi = {
       // ponytail: the endpoint's own default page — 25 teammates, the same
       // ceiling the customer's Team page reads at. Past that the stack's +N
       // undercounts; paginate here if a company ever runs bigger.
-      customerApi.team(id).catch(() => []),
+      teammatePeople(id),
     ]);
     const row = data?.company;
     if (!row) return null;
@@ -581,10 +585,7 @@ export const adminApi = {
       ...staff,
       // Staff first, then the customer's own people: the stack reads as the
       // account team before the account.
-      teamMembers: [
-        ...staff.teamMembers,
-        ...teammates.map((t) => ({ name: t.name, avatarUrl: t.avatarUrl })),
-      ],
+      teamMembers: [...staff.teamMembers, ...teammates],
       email: row.companyEmail,
       // 1.0's EIN column. The Node schema has no such field, so it stays blank
       // rather than being filled with something that is not an EIN.

@@ -29,6 +29,7 @@ import {
   myProfile,
   personName,
   taskStatusCode,
+  teammatePeople,
   toAddressFields,
   toChatMessage,
   toClientCompany,
@@ -815,18 +816,29 @@ export const managerApi = {
    * `activeServices` with "—" for the money, which beats failing the page.
    */
   async company(id: string): Promise<ClientCompanyDetail | null> {
-    const [data, book] = await Promise.all([
+    const [data, book, teammates] = await Promise.all([
       getOrNull<{ company: BackendCompany }>(
         `/companies/${encodeURIComponent(id)}`,
       ),
       fetchCompanyRows().catch(() => [] as BackendCompany[]),
+      // A THIRD READ, because the company row's team is only OUR side of it:
+      // owner, accounting manager, assigned specialists. The colleagues the
+      // owner invited are `company_members` rows that no company read carries —
+      // so this panel showed three faces on an account of eight.
+      teammatePeople(id),
     ]);
     if (!data?.company) return null;
 
     const priced = book.find((c) => String(c.id) === id)?.servicePlans;
-    return toClientCompanyDetail(
+    const company = toClientCompanyDetail(
       priced ? { ...data.company, servicePlans: priced } : data.company,
     );
+
+    // Staff first, then the customer's own people.
+    return {
+      ...company,
+      teamMembers: [...company.teamMembers, ...teammates],
+    };
   },
 
   /** Customers of the manager's companies. Scoped by the header switcher. */

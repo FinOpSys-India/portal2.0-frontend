@@ -30,6 +30,7 @@ import {
   personAvatarUrl,
   personName,
   taskStatusCode,
+  teammatePeople,
   toAddressFields,
   toClientCompany,
   toClientCompanyDetail,
@@ -168,10 +169,19 @@ export const specialistApi = {
 
   /** `data: { company }`, not the row — read a level too high and every field renders empty. */
   async company(id: string): Promise<ClientCompanyDetail | null> {
-    const data = await getOrNull<{ company: BackendCompany }>(
-      `/companies/${encodeURIComponent(id)}`,
-    );
-    return data?.company ? toClientCompanyDetail(data.company) : null;
+    // Two reads: the company row carries our side of the team (owner,
+    // accounting manager, specialists) and never the colleagues the owner
+    // invited, who are `company_members` rows only GET /teammates lists.
+    const [data, teammates] = await Promise.all([
+      getOrNull<{ company: BackendCompany }>(
+        `/companies/${encodeURIComponent(id)}`,
+      ),
+      teammatePeople(id),
+    ]);
+    if (!data?.company) return null;
+
+    const company = toClientCompanyDetail(data.company);
+    return { ...company, teamMembers: [...company.teamMembers, ...teammates] };
   },
 
   /** Projects assigned to them, optionally narrowed to one company. */
