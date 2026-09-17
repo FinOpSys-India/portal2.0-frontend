@@ -30,10 +30,11 @@ const SEGMENTS = [
   { segment: "files", label: "Documents", icon: Paperclip },
   { segment: "company", label: "Company", icon: Building2 },
   { segment: "team", label: "Team", icon: Users },
-  // Owner-only in practice — the page says so to a teammate rather than being
-  // hidden, because a nav that changes shape per reader is how someone concludes
-  // the feature does not exist.
-  { segment: "billing", label: "Billing", icon: CreditCard },
+  // OWNER-ONLY, and hidden rather than shown-and-refused: `GET
+  // /billing/subscription` 403s a teammate (see `billingAccess.js`), so the row
+  // led every invited teammate to a page that could only tell them no. The page
+  // itself still answers on a direct URL — hiding the link is not the gate.
+  { segment: "billing", label: "Billing", icon: CreditCard, ownerOnly: true },
   { segment: "profile", label: "Profile", icon: UserRound },
 ];
 
@@ -48,12 +49,19 @@ export function CustomerShell({
   workspace,
   workspaces,
   user,
+  owner,
   notifications,
   children,
 }: {
   workspace: Workspace;
   workspaces: Workspace[];
   user: { name: string; email: string; avatarUrl?: string | null };
+  /**
+   * Does this reader OWN the company on screen — not own something somewhere.
+   * A customer can own one company and be a teammate on another, so the test is
+   * per workspace, exactly as the Team page gates its invite button.
+   */
+  owner: boolean;
   /**
    * The bell, filled by the layout. A NODE rather than a count, so the sweep
    * that fills it can sit behind its own Suspense boundary instead of holding
@@ -64,7 +72,9 @@ export function CustomerShell({
 }) {
   const router = useRouter();
 
-  const nav: NavItem[] = SEGMENTS.map((item) => ({
+  const nav: NavItem[] = SEGMENTS.filter(
+    (item) => owner || !item.ownerOnly,
+  ).map((item) => ({
     href: `/customer/${workspace.id}/${item.segment}`,
     label: item.label,
     icon: item.icon,

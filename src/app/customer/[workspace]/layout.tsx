@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { CustomerShell } from "@/components/customer/customer-shell";
 import { NotificationBell } from "@/components/portal/portal-chrome";
+import { api } from "@/lib/api";
 import { unreadThreads } from "@/lib/chat";
 import { dayLabel } from "@/lib/manager";
 import { customerApi, type Workspace } from "@/lib/customer";
@@ -50,9 +51,13 @@ export default async function CustomerLayout({
   // Only what the frame cannot be drawn without. The bell is one request per
   // workspace and hangs off its own boundary below, because a chat gate (an
   // unpaid account 402s there) must not take the whole portal frame down.
-  const [workspaces, profile] = await Promise.all([
+  // `/companies/owned` filters on `ownerUserId`, so a teammate matches nothing
+  // and loses the owner-only nav rows. It fails closed on error for the same
+  // reason the bell does: a frame that renders beats a frame that throws.
+  const [workspaces, profile, owned] = await Promise.all([
     customerApi.workspaces(),
     customerApi.profile(),
+    api.ownedCompanies().catch(() => []),
   ]);
   const workspace = workspaces.find((w) => w.id === id);
 
@@ -65,6 +70,7 @@ export default async function CustomerLayout({
       workspace={workspace}
       workspaces={workspaces}
       user={{ name: profile.fullName, email: profile.email, avatarUrl: profile.avatarUrl }}
+      owner={owned.some((c) => String(c.companyId) === id)}
       notifications={
         <Suspense fallback={<NotificationBell />}>
           <UnreadBell workspaces={workspaces} />
