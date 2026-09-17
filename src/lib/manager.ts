@@ -121,6 +121,8 @@ export interface ProjectTask {
   description: string;
   status: TaskStatus;
   deadline: string;
+  /** Someone rewrote the name or the description after it was filed. */
+  edited: boolean;
 }
 
 export interface Specialist {
@@ -1038,6 +1040,25 @@ export const managerApi = {
     });
   },
 
+  /**
+   * Rewrite a task's name and description. The deadline and the project are NOT
+   * here: re-dating a task has to be re-checked against its project's own
+   * deadline, and moving it to another project changes who is assigned to it —
+   * neither is a typo fix, which is what this dialog is for.
+   *
+   * SEPARATE FROM `/status` because that endpoint calls `rejectUnknown` on its
+   * body, so a name sent there is a 400 rather than a quiet drop.
+   */
+  async editTask(
+    taskId: string,
+    task: { name: string; description: string },
+  ): Promise<void> {
+    await patch(`/tasks/${encodeURIComponent(taskId)}`, {
+      taskName: task.name,
+      description: task.description,
+    });
+  },
+
   /*
    * No per-project assignment. A specialist is staffed onto a COMPANY's service
    * line — one speciality each, picked when admin invites them — and a project's
@@ -1600,6 +1621,31 @@ export function parseDeadline(value: string): Date {
 
   // An instant, or junk. `Date` tells the two apart.
   return new Date(value);
+}
+
+/**
+ * Past its deadline and still open.
+ *
+ * A deadline is a calendar day, so late starts the day AFTER it: a project due
+ * today is due, not overdue, and flagging it red at 00:01 on its own due date
+ * is just wrong. Completed work is never overdue however long it sat there —
+ * the flag is a call to act, and there is nothing left to do on it.
+ *
+ * No deadline (`""`) parses to Invalid Date, and every comparison against NaN
+ * is false — so an undated project is never late, which is the answer we want
+ * without a second branch to say it.
+ */
+export function isOverdue(project: {
+  deadline: string;
+  status: ProjectStatus;
+}): boolean {
+  if (project.status === "Completed") return false;
+  const now = new Date();
+  // ponytail: "today" is the server's day, since these pages render on it. A
+  // deadline on the boundary flips a few hours early or late for a reader in
+  // another zone; pass the viewer's day down if that ever matters.
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return parseDeadline(project.deadline).getTime() < today.getTime();
 }
 
 /**

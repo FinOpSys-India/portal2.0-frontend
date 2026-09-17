@@ -8,6 +8,7 @@ import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
+import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { fileKind, formatFileSize, scopeSwitch, scoped } from "@/lib/manager";
 import { documentPath } from "@/lib/portal";
 import { specialistApi } from "@/lib/specialist";
@@ -104,7 +105,15 @@ export default async function SpecialistProjectPage({
 
           <DetailSection title="Project Details">
             <DetailRow label="Created On" value={project.createdOn} />
-            <DetailRow label="Deadline" value={project.deadline} />
+            <DetailRow
+              label="Deadline"
+              value={
+                <ProjectDeadline
+                  deadline={project.deadline}
+                  status={project.status}
+                />
+              }
+            />
             <DetailRow label="Services Name" value={project.service} />
             <DetailRow label="Company Name" value={project.company} />
             <DetailRow label="Created By" value={project.createdBy} />

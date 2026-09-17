@@ -10,6 +10,7 @@ import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { FilePreview } from "@/components/portal/file-preview";
 import { StatusBadge } from "@/components/portal/status-badge";
+import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
@@ -71,7 +72,15 @@ export default async function CustomerProjectPage({
       <div className="grid gap-6">
         <DetailSection title="Details">
           <DetailRow label="Service" value={project.service} />
-          <DetailRow label="Deadline" value={project.deadline} />
+          <DetailRow
+            label="Deadline"
+            value={
+              <ProjectDeadline
+                deadline={project.deadline}
+                status={project.status}
+              />
+            }
+          />
           <DetailRow label="Status" value={project.status} />
           <DetailRow
             label="Specialist"

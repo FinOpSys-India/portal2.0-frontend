@@ -8,6 +8,8 @@ import {
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { ExportProjectsCsv } from "@/components/portal/export-csv";
 import { ProgressBar } from "@/components/portal/progress-bar";
+import { AddTask } from "@/components/portal/add-task";
+import { ProjectDeadline } from "@/components/portal/project-deadline";
 import {
   companyScope,
   managerApi,
@@ -78,10 +80,22 @@ export default async function ManagerProjectsPage({
         />
       )}
       action={
-        <NewProject
-          companies={companies.map(({ id, name }) => ({ id, name }))}
-          defaultCompanyId={company}
-        />
+        <>
+          {/* Add New Task here rather than only on a project page or a
+              specialist's: those two narrow the project list to one and to one
+              person's, and the manager plans the whole account. `POST /tasks`
+              admits the company's OWN accounting manager on ANY of its
+              projects, so the dropdown is this page's list — every project in
+              the scope the reader is already looking at. */}
+          <AddTask
+            from="manager"
+            projects={projects.map(({ id, name }) => ({ id, name }))}
+          />
+          <NewProject
+            companies={companies.map(({ id, name }) => ({ id, name }))}
+            defaultCompanyId={company}
+          />
+        </>
       }
       rows={projects}
       rowHref={(row) => scoped(`/manager/projects/${row.id}`, company)}
@@ -102,7 +116,9 @@ export default async function ManagerProjectsPage({
           filter: "date",
           // M/DD/YY: "8/03/26" sorts before "7/28/26" as text.
           sortValue: (row) => parseDeadline(row.deadline).getTime(),
-          cell: (row) => row.deadline,
+          cell: (row) => (
+            <ProjectDeadline deadline={row.deadline} status={row.status} />
+          ),
         },
         {
           // Read-only: it follows the company's staffing for this project's

@@ -16,6 +16,7 @@ import {
   messageTime,
   fileKind,
   formatFileSize,
+  isOverdue,
   parseDeadline,
   scoped,
   scopeSwitch,
@@ -93,6 +94,32 @@ assert.ok(parseDeadline("2026-09-08") < parseDeadline("2026-09-15"));
 // Nothing to parse stays unparseable rather than becoming the epoch: a project
 // with no deadline must not sort as 1 January 1970 or match "before 2027".
 assert.ok(Number.isNaN(parseDeadline("").getTime()));
+
+/* ------------------------------------------------------------- overdue -- */
+
+// Relative to the day the test runs — a hard-coded date would start failing on
+// its own deadline, which is a funny way to learn this helper still works.
+function daysAway(offset: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+}
+
+assert.ok(isOverdue(project({ deadline: daysAway(-1), status: "In progress" })));
+assert.ok(isOverdue(project({ deadline: daysAway(-90), status: "Not started" })));
+
+// Due today is DUE, not late: a deadline is a calendar day, and the whole of it
+// belongs to the project. Off by one here flags every project on its own
+// deadline morning.
+assert.ok(!isOverdue(project({ deadline: daysAway(0), status: "In progress" })));
+assert.ok(!isOverdue(project({ deadline: daysAway(1), status: "In progress" })));
+
+// Finished late is still finished — there is nothing for the flag to ask for.
+assert.ok(!isOverdue(project({ deadline: daysAway(-30), status: "Completed" })));
+
+// No deadline is not a missed one. NaN loses every comparison, which is why
+// this needs no branch of its own — assert it so nobody "fixes" that away.
+assert.ok(!isOverdue(project({ deadline: "", status: "In progress" })));
 
 /* ------------------------------------------------------------ unassigned -- */
 

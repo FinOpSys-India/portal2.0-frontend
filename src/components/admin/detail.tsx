@@ -46,8 +46,12 @@ export function DetailRow({
   value,
 }: {
   label: string;
-  value: string | null | undefined;
+  /** A node for a field that is more than text — a deadline with its flag. */
+  value: React.ReactNode;
 }) {
+  // Only a string can be blank-but-present; a node the caller built is content.
+  const empty = value == null || (typeof value === "string" && !value.trim());
+
   return (
     // A grid item's floor is its min-content width, and an email address is one
     // unbreakable word — so without `min-w-0` the column refuses to shrink and
@@ -55,10 +59,10 @@ export function DetailRow({
     <div className="flex min-w-0 items-baseline justify-between gap-4 @sm:block">
       <dt className="shrink-0 text-sm text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-right text-sm font-medium break-words @sm:mt-0.5 @sm:text-left">
-        {value?.trim() ? (
-          value
-        ) : (
+        {empty ? (
           <span className="font-normal text-muted-foreground">—</span>
+        ) : (
+          value
         )}
       </dd>
     </div>

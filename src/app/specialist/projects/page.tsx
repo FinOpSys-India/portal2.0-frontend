@@ -8,6 +8,7 @@ import {
 import { ExportProjectsCsv } from "@/components/portal/export-csv";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ProgressBar } from "@/components/portal/progress-bar";
+import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { type ManagedProject, parseDeadline, scoped } from "@/lib/manager";
 import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
 import { parseFilters } from "@/lib/table-filter";
@@ -91,7 +92,9 @@ export default async function SpecialistProjectsPage({
           header: "Deadline",
           filter: "date",
           sortValue: (row) => parseDeadline(row.deadline).getTime(),
-          cell: (row) => <span className="tabular-nums">{row.deadline}</span>,
+          cell: (row) => (
+            <ProjectDeadline deadline={row.deadline} status={row.status} />
+          ),
         },
         {
           header: "Project Progress",

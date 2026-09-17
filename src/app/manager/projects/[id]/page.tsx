@@ -5,6 +5,7 @@ import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AddTask } from "@/components/portal/add-task";
 import { FilePreview } from "@/components/portal/file-preview";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
+import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { managerApi, scopeSwitch, scoped } from "@/lib/manager";
@@ -93,7 +94,15 @@ export default async function ManagerProjectPage({
 
           <DetailSection title="Project Details">
             <DetailRow label="Created On" value={project.createdOn} />
-            <DetailRow label="Deadline" value={project.deadline} />
+            <DetailRow
+              label="Deadline"
+              value={
+                <ProjectDeadline
+                  deadline={project.deadline}
+                  status={project.status}
+                />
+              }
+            />
             <DetailRow label="Services Name" value={project.service} />
             <DetailRow
               label="Specialist"

@@ -8,6 +8,7 @@ import {
 import { ExportProjectsCsv } from "@/components/portal/export-csv";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { StatusBadge } from "@/components/portal/status-badge";
+import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { customerApi, type Project } from "@/lib/customer";
 import { parseDeadline } from "@/lib/manager";
 import { NewProject } from "./new-project";
@@ -63,7 +64,9 @@ export default async function ProjectsPage({
           header: "Deadline",
           filter: "date",
           sortValue: (row) => parseDeadline(row.deadline).getTime(),
-          cell: (row) => row.deadline,
+          cell: (row) => (
+            <ProjectDeadline deadline={row.deadline} status={row.status} />
+          ),
         },
         {
           header: "Status",
