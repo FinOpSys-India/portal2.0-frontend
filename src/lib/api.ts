@@ -481,7 +481,25 @@ export async function landingPathFor(session: Session): Promise<string> {
   if (session.role !== "CUSTOMER") return landingPathForRole(session.role);
 
   const status = await api.onboardingStatus();
-  if (status.complete) return landingPathForRole(session.role);
+
+  /*
+   * THE WIZARD IS THE OWNER'S, and `isOwner` is the whole test.
+   *
+   * Sign-up is invitation-only, so a teammate arrives holding CUSTOMER/TEAM and
+   * already belonging to the company that invited them. Both remaining steps
+   * are closed to them — `POST /onboarding/company` is owner-gated, and there
+   * is no bill on an account someone else pays for — which is the same position
+   * an accounting manager or a specialist is in, and those roles return above
+   * without ever reading this status.
+   *
+   * `complete` alone was not enough to say so. The backend folds only
+   * `profileComplete` into it for a non-owner (`buildStatus`), and the invite
+   * collects a name and a password and nothing else — so every teammate's first
+   * login read `complete: false` and was sent to collect a phone and a job
+   * title that staff roles are never asked for on the way in. They own a
+   * profile screen inside the portal; that is where those two belong.
+   */
+  if (!status.isOwner || status.complete) return landingPathForRole(session.role);
 
   if (!status.profileComplete) {
     return `/on_boarding_form_user_info/${encodeURIComponent(session.user.email)}`;

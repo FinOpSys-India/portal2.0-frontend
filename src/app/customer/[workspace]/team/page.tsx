@@ -6,6 +6,7 @@ import {
   parsePageSize,
 } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
+import { api } from "@/lib/api";
 import { customerApi, type TeamMember } from "@/lib/customer";
 import { InviteTeammate } from "./invite-teammate";
 import { parseFilters } from "@/lib/table-filter";
@@ -29,11 +30,13 @@ export default async function TeamPage({
     await Promise.all([params, searchParams]);
   const page = parsePage(raw);
   const size = parsePageSize(rawSize);
-  // Both, in parallel: the roster is the table, `workspaces` is the invite
-  // dialog's company checklist — the companies this owner can put someone on.
-  const [team, companies] = await Promise.all([
+  // All three in parallel: the roster is the table, `workspaces` is the invite
+  // dialog's company checklist — the companies this owner can put someone on —
+  // and `isOwner` is whether they may open it at all.
+  const [team, companies, { isOwner }] = await Promise.all([
     customerApi.team(workspace),
     customerApi.workspaces(),
+    api.onboardingStatus(),
   ]);
 
   return (
@@ -46,15 +49,24 @@ export default async function TeamPage({
       filters={parseFilters(f)}
       total={team.length}
       /*
-       * No companies to offer means no invite button.
+       * ONLY AN OWNER INVITES, and `isOwner` is the test rather than a side
+       * effect of the company list.
        *
-       * `POST /invitations/teammates` is OWNER-only, and this list is the
-       * companies the caller owns. A teammate reading the roster of a company
-       * they merely belong to would otherwise get a button that opens an empty
-       * menu and ends in a 403.
+       * `POST /invitations/teammates` sits behind `requireRole('OWNER')`
+       * (invitationRoutes.js), so a teammate opening this dialog fills a form
+       * that can only end in a 403. The old guard was `companies.length > 0`,
+       * which reads the same TODAY only because `workspaces()` lists companies
+       * the caller OWNS and a teammate owns none. That stops being true the day
+       * membership is counted and this picker starts listing companies someone
+       * merely belongs to — at which point the proxy silently inverts and hands
+       * every teammate the button. Asking the question the endpoint asks
+       * survives that change.
+       *
+       * The company list still has to be non-empty: an owner mid-signup has
+       * nobody to invite onto anything, and the dialog's checklist is required.
        */
       action={
-        companies.length > 0 ? (
+        isOwner && companies.length > 0 ? (
           <InviteTeammate workspaceId={workspace} companies={companies} />
         ) : undefined
       }

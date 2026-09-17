@@ -7,6 +7,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { AuthCard } from "@/components/auth/fields";
 import { AuthHeading } from "@/components/auth/auth-shell";
 import { InitialsAvatar } from "@/components/admin/initials-avatar";
+import { api } from "@/lib/api";
 import { customerApi } from "@/lib/customer";
 import { myProfile } from "@/lib/portal";
 
@@ -30,15 +31,51 @@ export default async function WorkspaceSelectPage() {
   const workspaces = await customerApi.workspaces();
 
   /*
-   * An owner with no company has nothing to pick, and this is where a customer
-   * lands from `/`, from the logo, and from the back-button bounce off /login —
-   * so an empty picker would be a card with a heading and no way forward. They
-   * are mid-signup, and the company step is what they were on: the profile read
-   * happens only on this path, since the step is addressed by email.
+   * NOTHING TO PICK MEANS TWO DIFFERENT THINGS, and only one of them is
+   * onboarding.
+   *
+   * An OWNER with no company is mid-signup — this is where a customer lands
+   * from `/`, from the logo, and from the back-button bounce off /login, so an
+   * empty picker would be a card with a heading and no way forward. The company
+   * step is what they were on.
+   *
+   * A TEAMMATE owns nothing by definition: `workspaces()` reads
+   * `/companies/owned`, which filters on `ownerUserId`, and their access comes
+   * from `company_members` instead. Sending them to the company step was a
+   * LOOP, not a dead end — that page bounces a non-owner straight back here —
+   * and it asked someone whose company already exists to create a second one.
+   *
+   * The status read costs a request and is spent only on the empty branch, so
+   * the ordinary path — a picker with rows in it — is unchanged.
    */
   if (workspaces.length === 0) {
-    const { email } = await myProfile();
-    redirect(`/on_boarding_form_part_1?email=${encodeURIComponent(email)}`);
+    const { isOwner } = await api.onboardingStatus();
+
+    if (isOwner) {
+      // The profile read happens only here, since the step is addressed by email.
+      const { email } = await myProfile();
+      redirect(`/on_boarding_form_part_1?email=${encodeURIComponent(email)}`);
+    }
+
+    /*
+     * A teammate whose invitation has not yet bought them anything to open.
+     *
+     * TODAY THAT IS EVERY TEAMMATE: `companyAccessFilter` offers owner,
+     * accounting-manager and active-specialist paths and no membership one, so
+     * no endpoint yet answers "companies I am a member of". When it does, this
+     * becomes what it says on the tin — the state of someone whose access was
+     * revoked, or whose invite named a company that has since been removed.
+     */
+    return (
+      <AuthShell>
+        <AuthCard>
+          <AuthHeading title="No Workspaces Yet">
+            Your account is not on a company yet. Ask whoever invited you to
+            give you access, then sign in again.
+          </AuthHeading>
+        </AuthCard>
+      </AuthShell>
+    );
   }
 
   return (
