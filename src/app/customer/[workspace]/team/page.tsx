@@ -30,14 +30,25 @@ export default async function TeamPage({
     await Promise.all([params, searchParams]);
   const page = parsePage(raw);
   const size = parsePageSize(rawSize);
-  // All three in parallel: the roster is the table, `workspaces` is the invite
-  // dialog's company checklist — the companies this owner can put someone on —
-  // and `isOwner` is whether they may open it at all.
-  const [team, companies, { isOwner }] = await Promise.all([
+  /*
+   * Both in parallel: the roster is the table, and the OWNED companies are the
+   * invite dialog's checklist.
+   *
+   * `ownedCompanies()`, not `workspaces()`. The picker now answers "companies I
+   * can open", which includes ones this person merely belongs to — and
+   * `POST /invitations/teammates` refuses any company the caller does not own.
+   * Feeding the checklist from the wider list would offer boxes that 403 on
+   * submit.
+   */
+  const [team, owned] = await Promise.all([
     customerApi.team(workspace),
-    customerApi.workspaces(),
-    api.onboardingStatus(),
+    api.ownedCompanies(),
   ]);
+
+  const companies = owned.map((c) => ({
+    id: String(c.companyId),
+    name: c.companyName,
+  }));
 
   return (
     <DataTable<TeamMember>
@@ -49,24 +60,23 @@ export default async function TeamPage({
       filters={parseFilters(f)}
       total={team.length}
       /*
-       * ONLY AN OWNER INVITES, and `isOwner` is the test rather than a side
-       * effect of the company list.
+       * THE BUTTON BELONGS TO THE COMPANY ON SCREEN, not to the account.
        *
-       * `POST /invitations/teammates` sits behind `requireRole('OWNER')`
-       * (invitationRoutes.js), so a teammate opening this dialog fills a form
-       * that can only end in a 403. The old guard was `companies.length > 0`,
-       * which reads the same TODAY only because `workspaces()` lists companies
-       * the caller OWNS and a teammate owns none. That stops being true the day
-       * membership is counted and this picker starts listing companies someone
-       * merely belongs to — at which point the proxy silently inverts and hands
-       * every teammate the button. Asking the question the endpoint asks
-       * survives that change.
+       * The test is ownership of THIS workspace, not ownership of something
+       * somewhere: a customer can own one company and be a teammate on another,
+       * and "Invite Teammate" sitting on a company they merely belong to would
+       * open a dialog whose only tickable boxes are OTHER companies. It also
+       * settles the role question on its own — `/companies/owned` filters on
+       * `ownerUserId`, so a teammate matches nothing here, which is exactly what
+       * `POST /invitations/teammates` (behind `requireRole('OWNER')`) enforces
+       * server-side.
        *
-       * The company list still has to be non-empty: an owner mid-signup has
-       * nobody to invite onto anything, and the dialog's checklist is required.
+       * The whole owned list still goes to the dialog: one invitation can name
+       * several companies, and an owner looking at one of theirs may well want
+       * to grant the rest in the same breath.
        */
       action={
-        isOwner && companies.length > 0 ? (
+        companies.some((c) => c.id === workspace) ? (
           <InviteTeammate workspaceId={workspace} companies={companies} />
         ) : undefined
       }

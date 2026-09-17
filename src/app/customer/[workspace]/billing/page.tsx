@@ -15,8 +15,6 @@ import { subscription, type SubscriptionLine } from "@/lib/billing";
 import { formatMoney } from "@/lib/plans";
 import { usDate } from "@/lib/portal";
 
-import { ManageBilling } from "./manage-billing";
-
 export const metadata: Metadata = { title: "Billing" };
 
 /** M/D/YYYY, the format every other date in this portal renders in. */
@@ -104,10 +102,7 @@ export default async function BillingPage({
 
   return (
     <>
-      <PageHeader
-        title="Billing"
-        action={<ManageBilling companyId={workspace} />}
-      />
+      <PageHeader title="Billing" />
 
       <div className="grid gap-6">
         <section className="rounded-xl border border-border bg-card p-6">

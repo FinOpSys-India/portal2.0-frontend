@@ -125,27 +125,34 @@ export interface InviteTeammateInput {
  */
 export const customerApi = {
   /**
-   * The picker after sign-in: companies this person owns.
+   * The picker after sign-in: every company this person can open.
    *
-   * THE ONE SEAM A TEAMMATE IS WAITING ON. `/companies/owned` filters on
-   * `ownerUserId`, so an invited teammate — who holds `company_members` rows and
-   * no ownership — gets an empty list, lands on the onboarding redirect in
-   * /company_select, and is 404'd by CustomerLayout on every
-   * `/customer/[workspace]` URL. Nothing else in the customer portal has to
-   * change: every screen already reads whatever this returns.
+   * `/companies`, NOT `/companies/owned`. The two answer different questions
+   * and the picker asks the first one: `companyAccessFilter` admits an owner,
+   * a company's accounting manager, an active specialist AND — since the
+   * membership clause landed — an invited teammate, who holds `company_members`
+   * rows and owns nothing. Pointed at `owned` this returned `[]` for every
+   * teammate, which stranded them on the empty picker and 404'd
+   * `CustomerLayout` on every `/customer/[workspace]` URL.
    *
-   * Keep `/companies/owned` pointed at ownership regardless — the invite
-   * dialog's Company Access list is fed from here too, and
-   * `POST /invitations/teammates` refuses a company the caller does not own.
-   * When the membership endpoint lands, read the two and merge, or switch this
-   * to whichever route answers "companies I can open".
+   * `/companies/owned` still means OWNERSHIP and still has callers: the invite
+   * dialog's Company Access checklist (`POST /invitations/teammates` refuses a
+   * company the caller does not own) and the onboarding plan step. Widening it
+   * to fix this screen would have handed a teammate an invite form the endpoint
+   * rejects.
+   *
+   * Only id and name are read here; the rows carry a whole company account each
+   * (services, billing, roster) and the picker draws two fields.
    */
   async workspaces(): Promise<Workspace[]> {
+    // ponytail: 100 is the server's own maxLimit and the picker does not page.
+    // Someone on more than a hundred companies loses the remainder silently —
+    // move to `?limit=&offset=` if that ever stops being absurd.
     const data = await get<{
-      companies: { companyId: number; companyName: string }[];
-    }>("/companies/owned");
+      companies: { id: number; companyName: string }[];
+    }>("/companies?limit=100");
     return data.companies.map((c) => ({
-      id: String(c.companyId),
+      id: String(c.id),
       name: c.companyName,
     }));
   },

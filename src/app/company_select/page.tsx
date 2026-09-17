@@ -39,11 +39,10 @@ export default async function WorkspaceSelectPage() {
    * empty picker would be a card with a heading and no way forward. The company
    * step is what they were on.
    *
-   * A TEAMMATE owns nothing by definition: `workspaces()` reads
-   * `/companies/owned`, which filters on `ownerUserId`, and their access comes
-   * from `company_members` instead. Sending them to the company step was a
-   * LOOP, not a dead end — that page bounces a non-owner straight back here —
-   * and it asked someone whose company already exists to create a second one.
+   * A TEAMMATE with an empty list has not been put on anything yet. There is no
+   * company step for them — sending them to it was a LOOP, not a dead end, since
+   * that page bounces a non-owner straight back here — and it asked someone
+   * whose access comes from `company_members` to create a company instead.
    *
    * The status read costs a request and is spent only on the empty branch, so
    * the ordinary path — a picker with rows in it — is unchanged.
@@ -58,13 +57,13 @@ export default async function WorkspaceSelectPage() {
     }
 
     /*
-     * A teammate whose invitation has not yet bought them anything to open.
+     * A teammate with nothing to open: their access was revoked, or the invite
+     * named a company that has since been removed.
      *
-     * TODAY THAT IS EVERY TEAMMATE: `companyAccessFilter` offers owner,
-     * accounting-manager and active-specialist paths and no membership one, so
-     * no endpoint yet answers "companies I am a member of". When it does, this
-     * becomes what it says on the tin — the state of someone whose access was
-     * revoked, or whose invite named a company that has since been removed.
+     * This used to be EVERY teammate, because `workspaces()` read
+     * `/companies/owned`. It now reads `/companies`, whose access filter counts
+     * `company_members` — so an invited teammate lands on the picker with their
+     * companies in it and never reaches this branch.
      */
     return (
       <AuthShell>

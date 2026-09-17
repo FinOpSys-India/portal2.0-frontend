@@ -18,7 +18,7 @@
  * keeps reading $249 after the list price moves.
  */
 
-import { ApiError, get, post } from "@/lib/http";
+import { ApiError, get } from "@/lib/http";
 import {
   BOOKKEEPING_TIERS,
   PAYROLL,
@@ -228,19 +228,4 @@ export async function subscription(companyId: string): Promise<BillingView> {
     if (err instanceof ApiError && err.status === 403) return { state: "forbidden" };
     throw err;
   }
-}
-
-/**
- * A short-lived link into Stripe's hosted billing portal — card changes,
- * invoices, receipts.
- *
- * The card never touches this app, which is the point: PCI scope stays with
- * Stripe. The URL is single-use and expires, so it is minted per click rather
- * than rendered into the page.
- */
-export async function portalSession(companyId: string): Promise<string> {
-  const data = await post<{ portalUrl: string }>("/billing/portal", {
-    companyId: Number(companyId),
-  });
-  return data.portalUrl;
 }

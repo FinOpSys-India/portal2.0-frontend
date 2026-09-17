@@ -436,6 +436,12 @@ export interface BackendCompany {
   id: number;
   companyName: string;
   companyEmail: string;
+  /**
+   * 1.0's EIN. NOT SENT BY ANY ROUTE TODAY — the backend has no column for it
+   * (see docs/api.md). Read as optional so the field fills itself in the day
+   * one exists, without a second pass over four detail pages.
+   */
+  enNumber?: string | null;
   owner: BackendPerson | null;
   accountingManager: BackendPerson | null;
   primaryAddress: BackendAddress | null;
@@ -654,9 +660,9 @@ export function toClientCompanyDetail(c: BackendCompany): ClientCompanyDetail {
   return {
     ...toClientCompany(c),
     email: c.companyEmail,
-    // 1.0's EIN field. The Node schema has no column for it, so it stays blank
-    // rather than being filled with something that is not an EIN.
-    enNumber: "",
+    // Blank until the backend stores one — never a stand-in value, because a
+    // number that is not an EIN printed where an EIN goes is worse than a dash.
+    enNumber: c.enNumber ?? "",
     ...toAddressFields(c.primaryAddress),
     plans: toPlans(c),
   };
