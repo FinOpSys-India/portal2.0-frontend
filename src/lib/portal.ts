@@ -562,6 +562,41 @@ export async function teammatePeople(companyId: string): Promise<PortalPerson[]>
   }
 }
 
+/**
+ * The same company rows, each team completed with the customer's own people.
+ *
+ * The Team Members column draws `teamMembers`, which every company read builds
+ * from the owner, the accounting manager and the specialist assignments — our
+ * side of the account. The colleagues the owner invited are `company_members`
+ * rows that no company read carries at all, so a five-person client showed
+ * three faces and all three were staff.
+ *
+ * Generic over the row because the three tables that draw this column carry
+ * three different company shapes; all any of them needs is an id and a team.
+ *
+ * ponytail: ONE REQUEST PER ROW. Cheap where it is used — the manager's and
+ * specialist's tables are scoped to the switcher's company, so it is one, and a
+ * customer owns a handful — and
+ * `http.ts` caps the whole portal at eight in flight, so an unscoped book of
+ * eight is one wave rather than a pile-up. A teammate COUNT on the company row
+ * (the backend already states `teamMemberCount` for the staff) is the fix if
+ * this is ever wanted on the admin's cross-company table, where the page holds
+ * a hundred rows.
+ */
+export async function withTeammates<
+  T extends { id: string; teamMembers: PortalPerson[] },
+>(companies: T[]): Promise<T[]> {
+  return Promise.all(
+    companies.map(async (company) => ({
+      ...company,
+      teamMembers: [
+        ...company.teamMembers,
+        ...(await teammatePeople(company.id)),
+      ],
+    })),
+  );
+}
+
 /** Just the staffed specialists — the Action cell names them once they exist. */
 export function specialistNames(company: BackendCompany): string[] {
   const team = company.teamMembers ?? company.members;

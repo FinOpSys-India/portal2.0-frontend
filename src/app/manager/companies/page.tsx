@@ -15,6 +15,7 @@ import {
   scopeName,
   type ClientCompany,
 } from "@/lib/manager";
+import { withTeammates } from "@/lib/portal";
 import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Companies" };
@@ -56,7 +57,10 @@ export default async function ManagerCompaniesPage({
   // company on every load.
   const all = await managerApi.companies();
 
-  const companies = company ? all.filter((c) => c.id === company) : all;
+  const scopedRows = company ? all.filter((c) => c.id === company) : all;
+  // The column's faces include the customer's own teammates, which no company
+  // read carries — one request per row, and this list is one row wide.
+  const companies = await withTeammates(scopedRows);
 
   return (
     <DataTable<ClientCompany>

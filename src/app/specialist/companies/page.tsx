@@ -8,6 +8,7 @@ import {
 } from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { type ClientCompany, scoped } from "@/lib/manager";
+import { withTeammates } from "@/lib/portal";
 import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
 import { parseFilters } from "@/lib/table-filter";
 
@@ -47,7 +48,10 @@ export default async function SpecialistCompaniesPage({
     specialistApi.manager(),
   ]);
 
-  const companies = company ? all.filter((c) => c.id === company) : all;
+  const scopedRows = company ? all.filter((c) => c.id === company) : all;
+  // Same completion as the manager's table: the company read names our side of
+  // the account, and the customer's own teammates come from GET /teammates.
+  const companies = await withTeammates(scopedRows);
 
   return (
     <DataTable<ClientCompany>

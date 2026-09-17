@@ -8,6 +8,7 @@ import {
 } from "@/components/admin/data-table";
 import { AvatarStack } from "@/components/admin/initials-avatar";
 import { customerApi, type CustomerCompany } from "@/lib/customer";
+import { withTeammates } from "@/lib/portal";
 
 import { AddCompany } from "./add-company";
 import { parseFilters } from "@/lib/table-filter";
@@ -31,10 +32,13 @@ export default async function CompanyPage({
     await Promise.all([params, searchParams]);
   const page = parsePage(raw);
   const size = parsePageSize(rawSize);
-  const [companies, profile] = await Promise.all([
+  const [owned, profile] = await Promise.all([
     customerApi.companies(),
     customerApi.profile(),
   ]);
+  // The company read names the account team — owner, accounting manager,
+  // specialists — and never the colleagues this customer invited themselves.
+  const companies = await withTeammates(owned);
 
   return (
     <DataTable<CustomerCompany>

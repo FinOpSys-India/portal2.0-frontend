@@ -8,6 +8,7 @@ import {
 } from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { listWindow, adminApi, type Company } from "@/lib/admin";
+import { withTeammates } from "@/lib/portal";
 import { AssignManager } from "./assign-manager";
 import { parseFilters } from "@/lib/table-filter";
 
@@ -38,6 +39,19 @@ export default async function CompaniesPage({
     scan.limit,
   );
 
+  /*
+   * The Team Members column is the account team plus the customer's own
+   * invited colleagues, and only the first half is on the company row.
+   *
+   * ponytail: one request per row, so ten on a normal page and up to
+   * FILTER_SCAN (100) on a filtered one, eight in flight at a time (http.ts).
+   * That is the widest fan-out in the portal — the manager's and specialist's
+   * versions of this table are scoped to one company. The fix is a teammate
+   * count on the company row: `toCompanyAccountRow` already states
+   * `teamMemberCount` for the staff, and this column would need nothing else.
+   */
+  const companies = await withTeammates(rows);
+
   // No create action: companies arrive through customer signup.
   return (
     <DataTable<Company>
@@ -48,7 +62,7 @@ export default async function CompaniesPage({
       dir={dir}
       filters={filters}
       total={total}
-      rows={rows}
+      rows={companies}
       rowHref={(row) => `/admin/companies/${encodeURIComponent(row.id)}`}
       empty="No companies yet."
       columns={[
