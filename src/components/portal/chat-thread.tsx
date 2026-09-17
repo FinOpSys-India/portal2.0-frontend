@@ -25,7 +25,11 @@ import {
 } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import { chatApi } from "@/lib/chat";
-import { keepTombstones, subscribeToThread } from "@/lib/chat-realtime";
+import {
+  keepTombstones,
+  pollWhileOffline,
+  subscribeToThread,
+} from "@/lib/chat-realtime";
 import {
   dayLabel,
   formatFileSize,
@@ -162,8 +166,13 @@ export function ChatThread({
    * publishable key in this bundle and a project secret on the backend, and a
    * deployment missing either got no live updates and no fallback — the other
    * portal's reply sat on the server until somebody reloaded, which is not a
-   * conversation. Polling covers that case, and only that case: with a real
-   * channel open the interval never starts.
+   * conversation.
+   *
+   * NEITHER IS A CHANNEL THAT OPENS AND THEN DIES, which is the same silence
+   * from one step further along: a token Realtime refuses, a missing RLS policy,
+   * a dropped connection. `onHealth` reports both, so the poll covers every way
+   * the socket stops delivering rather than only the one where it never opened
+   * — and stops again the moment it recovers.
    */
   React.useEffect(() => {
     if (!conversationId) return;
@@ -183,6 +192,10 @@ export function ChatThread({
         if (live) setMessages((known) => keepTombstones(rows, known));
       });
 
+    // The fallback, gated on the channel's health: it runs while the socket is
+    // not delivering and at no other time.
+    const poll = pollWhileOffline(reload);
+
     subscribeToThread(conversationId, {
       onMessage: merge,
       // The payload could not describe the message — an attachment-only row.
@@ -199,6 +212,11 @@ export function ChatThread({
               : m,
           ),
         ),
+      // Only while the thread is on screen — an unmounted one must not keep
+      // polling, and a status arriving after teardown must not restart it.
+      onHealth: (healthy) => {
+        if (live) poll.onHealth(healthy);
+      },
     }).then((stop) => {
       // Resolved after an unmount that already ran: stop it immediately rather
       // than leaving a socket open on a thread nobody is looking at.
@@ -207,17 +225,22 @@ export function ChatThread({
         return;
       }
       if (stop) {
-        teardown = stop;
+        teardown = () => {
+          stop();
+          poll.stop();
+        };
         return;
       }
+      // No channel at all — no keys here, or a 503 from the token endpoint.
       // ponytail: a fixed 8s re-read of the open thread, and only while it is
       // open. Configure the Supabase keys and this never runs.
-      const timer = setInterval(reload, 8_000);
-      teardown = () => clearInterval(timer);
+      poll.onHealth(false);
+      teardown = poll.stop;
     });
 
     return () => {
       live = false;
+      poll.stop();
       teardown();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

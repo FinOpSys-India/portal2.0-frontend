@@ -169,6 +169,50 @@ export interface LiveHandlers {
   onReload: () => void;
   /** A message was removed (soft-deleted) by whoever sent it. */
   onDelete: (messageId: string) => void;
+  /**
+   * Whether the channel is actually delivering. A channel that opens and then
+   * errors is the one failure this file used to hide: `subscribeToThread`
+   * resolved with a teardown either way, so the caller believed it was live and
+   * never fell back — and the thread sat dead until someone reloaded the page.
+   */
+  onHealth?: (healthy: boolean) => void;
+}
+
+/**
+ * Poll only while the socket is not delivering.
+ *
+ * Wired to `onHealth`, so the timer exists exactly when the channel does not:
+ * no Supabase keys at all, a token Realtime refuses, or a channel that opened
+ * and then dropped. Feeding both paths through one gate is what keeps a
+ * reconnect from leaving two readers of the same thread running.
+ *
+ * THE RELOAD ON RECOVERY IS NOT OPTIONAL. Realtime replays nothing it missed
+ * while the channel was down, so the rows that landed in the gap between the
+ * last poll and the re-subscribe would never arrive on their own.
+ */
+export function pollWhileOffline(
+  reload: () => void,
+  everyMs = 8_000,
+): { onHealth: (healthy: boolean) => void; stop: () => void } {
+  let timer: ReturnType<typeof setInterval> | null = null;
+
+  return {
+    onHealth(healthy) {
+      if (!healthy) {
+        // Already polling: a second CHANNEL_ERROR must not start a second timer.
+        if (!timer) timer = setInterval(reload, everyMs);
+        return;
+      }
+      if (!timer) return;
+      clearInterval(timer);
+      timer = null;
+      reload();
+    },
+    stop() {
+      if (timer) clearInterval(timer);
+      timer = null;
+    },
+  };
 }
 
 /**
@@ -244,7 +288,13 @@ export async function subscribeToThread(
         if (message.deleted_at) handlers.onDelete(String(message.id));
       },
     )
-    .subscribe();
+    /*
+     * The status callback is the fallback's trigger. CHANNEL_ERROR is what a
+     * refused token or a missing RLS policy looks like from here, TIMED_OUT and
+     * CLOSED are a dropped connection, and every one of them is silent
+     * otherwise — the socket simply stops delivering.
+     */
+    .subscribe((status) => handlers.onHealth?.(status === "SUBSCRIBED"));
 
   /*
    * The token is good for thirty minutes. Re-minted at eighty percent of that

@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import {
   keepTombstones,
   needsReload,
+  pollWhileOffline,
   toLiveMessage,
   type ChatMessageRow,
 } from "./chat-realtime";
@@ -163,4 +164,44 @@ assert.deepEqual(keepTombstones([], held), []);
 const twice = keepTombstones([held[0], held[2], held[3]], afterDelete);
 assert.equal(twice[1].deleted, true, "a tombstone survives the next read too");
 
-console.log("chat realtime: all checks passed");
+/* ------------------------------------------------------- the poll fallback -- */
+
+// Timers, so the last checks run inside an async main — this file compiles to
+// CJS, which has no top-level await.
+void (async () => {
+  // A channel that opens and then errors used to read as a working one, so the
+  // thread went quiet until the page was reloaded. The gate is what makes the
+  // poll cover that, and it has to stop again when the socket comes back — two
+  // readers of the same thread is the bug on the other side of this one.
+  const ticks: string[] = [];
+  const gate = pollWhileOffline(() => ticks.push("reload"), 5);
+
+  // Healthy from the start: nothing to do, and no timer.
+  gate.onHealth(true);
+  await new Promise((r) => setTimeout(r, 30));
+  assert.deepEqual(ticks, [], "a delivering socket is never polled behind");
+
+  // CHANNEL_ERROR. Twice, because a flapping channel reports it more than once
+  // and a second timer would double every read.
+  gate.onHealth(false);
+  gate.onHealth(false);
+  await new Promise((r) => setTimeout(r, 30));
+  const whileDown = ticks.length;
+  assert.ok(whileDown > 0, "a dead channel falls back to polling");
+
+  // SUBSCRIBED again: the timer stops, and ONE read closes the gap Realtime
+  // cannot replay.
+  gate.onHealth(true);
+  const atRecovery = ticks.length;
+  assert.equal(atRecovery, whileDown + 1, "recovery re-reads the thread once");
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(ticks.length, atRecovery, "and the poll is gone");
+
+  // Unmounted while down: nothing keeps running.
+  gate.onHealth(false);
+  gate.stop();
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(ticks.length, atRecovery, "stop() ends the poll for good");
+
+  console.log("chat realtime: all checks passed");
+})();
