@@ -13,8 +13,10 @@ import {
   post,
   put,
 } from "@/lib/http";
+import { subscription, type BillingView, type Subscription } from "@/lib/billing";
+import { customerApi } from "@/lib/customer";
 import { fullName, roleIds, type DirectoryUser } from "@/lib/directory";
-import { usDate, type PortalPerson } from "@/lib/portal";
+import { money, usDate, type PortalPerson } from "@/lib/portal";
 
 export type CustomerRole = "Owner" | "Teammate";
 
@@ -230,7 +232,11 @@ interface AccountRow {
   primaryAddress: BackendAddress | null;
   // `planName` is the tier the company is on. There is no price here — see
   // `company()` below.
-  activeServices: { specializationName: string; planName: string | null }[];
+  activeServices: {
+    specializationCode: string;
+    specializationName: string;
+    planName: string | null;
+  }[];
   billing: { currentPeriodEnd: string | null } | null;
   teamMembers: {
     owner: Person | null;
@@ -363,6 +369,56 @@ function toCompany(row: AccountRow): Company {
   };
 }
 
+/**
+ * The billing catalog's service key for a specialization code.
+ *
+ * THE TWO SIDES SPELL TAX DIFFERENTLY: `specializations.specialization_code` is
+ * TAX, while the catalog behind the subscription calls the same service `taxes`
+ * (Portal-backend/src/config/serviceCatalog.js). Lowercasing the code gets
+ * bookkeeping and payroll right and silently loses the tax line, which is why
+ * this is a map and not a `toLowerCase()`.
+ */
+const BILLING_SERVICE: Record<string, string> = {
+  BOOKKEEPING: "bookkeeping",
+  PAYROLL: "payroll",
+  TAX: "taxes",
+};
+
+/**
+ * What each service costs a month, keyed by the specialization code the company
+ * row names it with.
+ *
+ * ONE FIGURE PER SERVICE, SUMMED FROM ITS LINES. A subscription is priced per
+ * line and payroll is three of them — the base plan, the W-2 employees and the
+ * 1099 contractors — while the Current Plans table has always shown one amount
+ * for the service ("Payroll / 2-employee , 3- Contractor / $89/month",
+ * docs/admin-portal.md). Reading only the base line would under-report every
+ * payroll account by the head counts.
+ *
+ * A line the catalog cannot name (`service: null`) is left out rather than
+ * summed into someone else's row.
+ */
+export function serviceAmounts(sub: Subscription): Map<string, string> {
+  const totals = new Map<string, { minor: number; currency: string }>();
+
+  for (const line of sub.lines) {
+    if (!line.service) continue;
+    const running = totals.get(line.service) ?? {
+      minor: 0,
+      currency: line.currency || sub.currency,
+    };
+    running.minor += line.totalAmountMinor;
+    totals.set(line.service, running);
+  }
+
+  const byCode = new Map<string, string>();
+  for (const [code, service] of Object.entries(BILLING_SERVICE)) {
+    const total = totals.get(service);
+    if (total) byCode.set(code, `${money(total.minor, total.currency)}/month`);
+  }
+  return byCode;
+}
+
 const address = (a: BackendAddress | null) => ({
   addressLine1: a?.addressLine1 ?? "",
   city: a?.city ?? "",
@@ -473,6 +529,30 @@ export const adminApi = {
     };
   },
 
+  /**
+   * THREE READS, because one company is three answers here.
+   *
+   * `GET /companies/:id` is the row itself, and it carries neither of the two
+   * things this page was missing:
+   *
+   *   the AMOUNT — the row has `activeServices`, which names the plan per
+   *     service and prices nothing. The priced `servicePlans` block is built
+   *     only for the accounting manager's own book, and that route is gated
+   *     `requireRole('ACCOUNTING_MANAGER')`, so an admin cannot borrow it the
+   *     way `managerApi.company` does. `GET /billing/subscription` carries the
+   *     same money — per line, from the amount captured at purchase — and
+   *     `billingAccess.authorizeCompany` admits an ADMIN on any company.
+   *
+   *   the TEAMMATES — `teamMembers` on the row is owner + accounting manager +
+   *     assigned specialists, built from `companies.owner_user_id` and the
+   *     assignment table. The people the owner INVITED live in
+   *     `company_members` and reach no company read at all; `GET /teammates`
+   *     is the only route that lists them, and it is open to anyone who may
+   *     read the company, an admin included.
+   *
+   * Both extras are swallowed on failure: a page that names the company, its
+   * address and its plans beats no page at all because billing answered slowly.
+   */
   async company(id: string): Promise<CompanyDetail | null> {
     // `data: { company }`, not the row itself. Read a level too high and every
     // field on the page is `undefined` — a company that renders entirely blank
@@ -480,27 +560,43 @@ export const adminApi = {
     //
     // `getOrNull` because an unknown id is a 404 from the backend, and the page
     // above expects `null` so it can call `notFound()`.
-    const data = await getOrNull<{ company: AccountRow }>(
-      `/companies/${encodeURIComponent(id)}`,
-    );
+    const [data, billing, teammates] = await Promise.all([
+      getOrNull<{ company: AccountRow }>(`/companies/${encodeURIComponent(id)}`),
+      subscription(id).catch(() => ({ state: "none" }) as BillingView),
+      // ponytail: the endpoint's own default page — 25 teammates, the same
+      // ceiling the customer's Team page reads at. Past that the stack's +N
+      // undercounts; paginate here if a company ever runs bigger.
+      customerApi.team(id).catch(() => []),
+    ]);
     const row = data?.company;
     if (!row) return null;
 
+    const amounts =
+      billing.state === "active"
+        ? serviceAmounts(billing.subscription)
+        : new Map<string, string>();
+    const staff = toCompany(row);
+
     return {
-      ...toCompany(row),
+      ...staff,
+      // Staff first, then the customer's own people: the stack reads as the
+      // account team before the account.
+      teamMembers: [
+        ...staff.teamMembers,
+        ...teammates.map((t) => ({ name: t.name, avatarUrl: t.avatarUrl })),
+      ],
       email: row.companyEmail,
       // 1.0's EIN column. The Node schema has no such field, so it stays blank
       // rather than being filled with something that is not an EIN.
       enNumber: "",
       ...address(row.primaryAddress),
-      // From `activeServices`, which is what this endpoint carries. The priced
-      // `servicePlans` block belongs to the accounting manager's own view
-      // (GET /accounting-manager/companies) and is not on an admin's row, so
-      // the amount reads "—" instead of a number that was never sent.
+      // Rows from `activeServices` — the services and plan names this endpoint
+      // does carry — priced from the subscription. Still "—" for a service the
+      // subscription has no line for, which is a real state rather than a gap.
       plans: (row.activeServices ?? []).map((s) => ({
         service: s.specializationName,
         plan: s.planName ?? "—",
-        amount: "—",
+        amount: amounts.get(s.specializationCode) ?? "—",
       })),
     };
   },

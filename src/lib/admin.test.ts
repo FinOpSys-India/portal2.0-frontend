@@ -13,7 +13,8 @@
  */
 import assert from "node:assert/strict";
 
-import { SPECIALIST_ROLES } from "./admin";
+import { SPECIALIST_ROLES, serviceAmounts } from "./admin";
+import type { Subscription, SubscriptionLine } from "./billing";
 import { resolveRoleIds, type RoleCatalog } from "./directory";
 
 const CATALOG: RoleCatalog[] = [
@@ -100,5 +101,80 @@ assert.throws(
   /Unknown SPECIALIST role/,
 );
 assert.throws(() => resolveRoleIds(CATALOG, "NOT_A_ROLE"), /Unknown role/);
+
+/* ------------------------------------------------- current plan amounts -- */
+
+/**
+ * The Amount column read "—" on every company: the admin's company route
+ * carries `activeServices`, which prices nothing, and the priced view belongs
+ * to a route only an accounting manager may call. These amounts come from
+ * `GET /billing/subscription` instead, which an admin may read on any company.
+ */
+function sub(lines: Partial<SubscriptionLine>[]): Subscription {
+  return {
+    status: "ACTIVE",
+    currentPeriodStart: "2026-07-30T05:09:21.000Z",
+    currentPeriodEnd: "2026-08-30T05:09:21.000Z",
+    cancelAtPeriodEnd: false,
+    currency: "USD",
+    recurringTotalAmountMinor: 0,
+    lines: lines.map((line) => ({
+      service: null,
+      component: "plan",
+      planName: null,
+      quantity: 1,
+      unitAmountMinor: 0,
+      totalAmountMinor: 0,
+      currency: "USD",
+      ...line,
+    })),
+  };
+}
+
+// One line, one service.
+assert.equal(
+  serviceAmounts(
+    sub([{ service: "bookkeeping", planName: "Starter", totalAmountMinor: 9900 }]),
+  ).get("BOOKKEEPING"),
+  "$99/month",
+);
+
+// Payroll is THREE lines — base, W-2 employees, 1099 contractors — and the
+// column shows one figure for the service. Reading only the base plan would
+// under-report every payroll account by its head counts.
+assert.equal(
+  serviceAmounts(
+    sub([
+      { service: "payroll", component: "base", totalAmountMinor: 2900 },
+      { service: "payroll", component: "employees", quantity: 2, totalAmountMinor: 4000 },
+      { service: "payroll", component: "contractors", quantity: 2, totalAmountMinor: 2000 },
+    ]),
+  ).get("PAYROLL"),
+  "$89/month",
+);
+
+// TAX on the company row, `taxes` in the billing catalog. Lowercasing the code
+// would drop this line and leave the tax row reading "—" forever.
+assert.equal(
+  serviceAmounts(sub([{ service: "taxes", totalAmountMinor: 12500 }])).get("TAX"),
+  "$125/month",
+);
+
+// Cents survive: `money` only drops them on a whole-dollar amount.
+assert.equal(
+  serviceAmounts(sub([{ service: "taxes", totalAmountMinor: 6350 }])).get("TAX"),
+  "$63.50/month",
+);
+
+// A service with no line has no entry — the page prints "—" for it, which is
+// "not subscribed", not "price missing".
+assert.equal(
+  serviceAmounts(sub([{ service: "bookkeeping", totalAmountMinor: 9900 }])).get("PAYROLL"),
+  undefined,
+);
+
+// A line the catalog cannot name is dropped rather than summed into a
+// neighbour's row.
+assert.equal(serviceAmounts(sub([{ service: null, totalAmountMinor: 5000 }])).size, 0);
 
 console.log("admin api: all checks passed");
