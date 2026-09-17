@@ -27,6 +27,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { chatApi } from "@/lib/chat";
 import {
   keepTombstones,
+  loadTombstones,
+  mergeTombstones,
   pollWhileOffline,
   subscribeToThread,
 } from "@/lib/chat-realtime";
@@ -114,13 +116,26 @@ export function ChatThread({
     });
   }, []);
 
-  // `load` is a fresh closure on every render, so the effect keys off the
-  // contact instead — remounting on a thread switch is the caller's job, and
-  // both callers pass `key`.
+  /*
+   * `load` is a fresh closure on every render, so the effect keys off the
+   * contact instead — remounting on a thread switch is the caller's job, and
+   * both callers pass `key`.
+   *
+   * THE TOMBSTONES COME FROM SOMEWHERE ELSE. `listMessages` filters deleted
+   * rows out server-side, so the page alone cannot say that a message was ever
+   * deleted: "This message was deleted" survived only in the tab that watched
+   * it happen and was gone on the next reload. `loadTombstones` reads those ids
+   * from the database the socket already subscribes to. Fetched alongside the
+   * page rather than after it — neither needs the other, and the thread should
+   * not wait on the slower of the two twice over.
+   */
   React.useEffect(() => {
     let live = true;
-    load().then((rows) => {
-      if (live) setMessages(rows);
+    Promise.all([
+      load(),
+      conversationId ? loadTombstones(conversationId) : [],
+    ]).then(([rows, tombstones]) => {
+      if (live) setMessages(mergeTombstones(rows, tombstones));
     });
     return () => {
       live = false;

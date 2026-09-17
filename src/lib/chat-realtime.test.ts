@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 
 import {
   keepTombstones,
+  mergeTombstones,
   needsReload,
   pollWhileOffline,
   toLiveMessage,
@@ -163,6 +164,63 @@ assert.deepEqual(keepTombstones([], held), []);
 // flickering back into a bubble.
 const twice = keepTombstones([held[0], held[2], held[3]], afterDelete);
 assert.equal(twice[1].deleted, true, "a tombstone survives the next read too");
+
+/* ------------------------------------------------- tombstones, after a reload -- */
+
+// The page the API returns holds no deleted rows at all, so these come from the
+// database read. Unlike `keepTombstones` nothing here is inferred — the rows say
+// they are deleted — and that is why the upper bound is gone.
+const page = [msg("2", 2), msg("3", 3)];
+const buried = (id: string, at: number) => ({
+  ...msg(id, at),
+  deleted: true,
+  body: "",
+});
+
+// THE NEWEST MESSAGE IS THE COMMON ONE TO DELETE. Bounding by the newest live
+// row — which is what the poll's merge has to do — would drop exactly that one.
+assert.deepEqual(
+  mergeTombstones(page, [buried("4", 4)]).map((m) => m.id),
+  ["2", "3", "4"],
+  "a tombstone newer than every live row is kept",
+);
+assert.equal(
+  mergeTombstones(page, [buried("4", 4)])[2].deleted,
+  true,
+  "and it renders as a tombstone",
+);
+
+// In the middle, in its own place rather than appended.
+assert.deepEqual(
+  mergeTombstones([msg("1", 1), msg("4", 4)], [buried("2", 2)]).map((m) => m.id),
+  ["1", "2", "4"],
+  "a tombstone sorts back into the thread by its own timestamp",
+);
+
+// Older than the page: it belongs to a page this thread has not loaded
+// (`limit=50`), and hanging it under the last fifty would put it in the wrong
+// place entirely.
+assert.deepEqual(
+  mergeTombstones(page, [buried("1", 1)]).map((m) => m.id),
+  ["2", "3"],
+  "a tombstone older than the loaded page is left for that page",
+);
+
+// A thread where everything was deleted still has to show that something was
+// said — there is no oldest live row to bound against.
+assert.deepEqual(
+  mergeTombstones([], [buried("1", 1), buried("2", 2)]).map((m) => m.id),
+  ["1", "2"],
+  "an all-deleted thread draws its tombstones",
+);
+
+// The row is already on screen: the fetch must not double it.
+assert.deepEqual(
+  mergeTombstones(page, [buried("3", 3)]).map((m) => m.id),
+  ["2", "3"],
+  "a tombstone already in the page is not appended twice",
+);
+assert.deepEqual(mergeTombstones(page, []), page, "nothing deleted, nothing to do");
 
 /* ------------------------------------------------------- the poll fallback -- */
 

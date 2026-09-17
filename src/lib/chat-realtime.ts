@@ -51,6 +51,13 @@ interface RealtimeTicket {
  * `portal.toChatMessage`, and conflating the two is how the live path and the
  * loaded path drift apart.
  */
+/** The columns `loadTombstones` asks for — no `body`, by design. */
+interface TombstoneRow {
+  id: number | string;
+  sender_user_id: number;
+  created_at: string;
+}
+
 export interface ChatMessageRow {
   id: number | string;
   conversation_id: number;
@@ -216,19 +223,17 @@ export function pollWhileOffline(
 }
 
 /**
- * Watch one thread.
+ * One authenticated Supabase client, plus who the token says is asking.
  *
- * Returns the teardown when a channel was actually opened, and NULL when one
- * could not be — no Supabase key in the environment, no project secret on the
- * backend, no browser. The distinction is the caller's cue to fall back to
- * polling: swallowing it and handing back a no-op teardown made "live chat is
- * switched off" indistinguishable from "live chat is running", so the other
- * portal's message sat unseen until someone reloaded the page.
+ * NULL when live chat cannot run at all: no publishable key in this bundle, no
+ * project secret on the backend (the token endpoint answers 503), or no
+ * browser. Both readers below treat that as "this feature is off" rather than
+ * as an error.
  */
-export async function subscribeToThread(
-  conversationId: string,
-  handlers: LiveHandlers,
-): Promise<(() => void) | null> {
+async function connect(): Promise<{
+  client: SupabaseClient;
+  ticket: RealtimeTicket;
+} | null> {
   if (typeof window === "undefined") return null;
 
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -251,9 +256,113 @@ export async function subscribeToThread(
   const { createClient } = await import("@supabase/supabase-js");
   const client: SupabaseClient = createClient(projectUrl, publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${ticket.token}` } },
   });
 
   client.realtime.setAuth(ticket.token);
+
+  return { client, ticket };
+}
+
+/**
+ * A thread's deleted messages, straight from the database.
+ *
+ * WHY THIS DOES NOT COME FROM THE API. `chatRepository.listMessages` filters
+ * `deletedAt: null`, so a deleted row is not in the page the thread loads —
+ * which is why the tombstone used to live only in the tab that watched the
+ * delete happen and vanished on reload. The same RLS policy that feeds the
+ * socket also covers this read, so the browser can ask for what the API drops.
+ *
+ * `body` IS DELIBERATELY NOT SELECTED. The bubble says a message was deleted
+ * and nothing else, so there is no reason to carry its text into the tab —
+ * this returns ids and timestamps, which is all a tombstone renders from.
+ *
+ * ponytail: a second read path against the same rows, and it exists only
+ * because the API cannot currently answer this. Drop it the day `listMessages`
+ * returns deleted rows with their body and attachments stripped server-side.
+ */
+export async function loadTombstones(
+  conversationId: string,
+): Promise<ChatMessage[]> {
+  const live = await connect();
+  if (!live) return [];
+
+  const { data, error } = await live.client
+    .from("chat_messages")
+    .select("id,sender_user_id,created_at")
+    .eq("conversation_id", conversationId)
+    .not("deleted_at", "is", null)
+    .order("created_at", { ascending: true })
+    // The thread reads 50; this is headroom over that and a bound on a thread
+    // somebody has been deleting in for a year.
+    .limit(200);
+
+  // Swallowed like every other failure here: a thread that draws no tombstones
+  // is the state the app shipped in, and it is not worth an error over.
+  if (error || !data) return [];
+
+  return (data as TombstoneRow[]).map((row) => ({
+    id: String(row.id),
+    mine: row.sender_user_id === live.ticket.userId,
+    body: "",
+    sentAt: row.created_at,
+    attachments: [],
+    reactions: [],
+    deleted: true,
+  }));
+}
+
+/**
+ * Put the fetched tombstones back into a freshly loaded page.
+ *
+ * NOT `keepTombstones`, and the difference is the upper bound. That one infers
+ * a delete from a row's ABSENCE and must therefore refuse to touch anything
+ * newer than the page it was handed — a message that arrived mid-poll is absent
+ * for an innocent reason. These rows are not inferred: the database said they
+ * are deleted. The newest message in a thread is a common one to delete, so
+ * bounding them by the newest live row would drop exactly that case.
+ *
+ * The lower bound stays: a tombstone older than the oldest row on screen
+ * belongs to a page this thread has not loaded (`limit=50`), and hanging it
+ * under the last fifty messages would put it in the wrong place entirely.
+ */
+export function mergeTombstones(
+  rows: ChatMessage[],
+  tombstones: ChatMessage[],
+): ChatMessage[] {
+  if (!tombstones.length) return rows;
+
+  const have = new Set(rows.map((m) => m.id));
+  // No live rows at all: a thread whose every message was deleted still has to
+  // show that something was there.
+  const oldest = rows.length ? rows[0].sentAt : null;
+
+  const missing = tombstones.filter(
+    (t) => !have.has(t.id) && (!oldest || t.sentAt >= oldest),
+  );
+  if (!missing.length) return rows;
+
+  return [...rows, ...missing].sort((a, b) => a.sentAt.localeCompare(b.sentAt));
+}
+
+/**
+ * Watch one thread.
+ *
+ * Returns the teardown when a channel was actually opened, and NULL when one
+ * could not be — no Supabase key in the environment, no project secret on the
+ * backend, no browser. The distinction is the caller's cue to fall back to
+ * polling: swallowing it and handing back a no-op teardown made "live chat is
+ * switched off" indistinguishable from "live chat is running", so the other
+ * portal's message sat unseen until someone reloaded the page.
+ */
+export async function subscribeToThread(
+  conversationId: string,
+  handlers: LiveHandlers,
+): Promise<(() => void) | null> {
+  const live = await connect();
+  if (!live) return null;
+
+  const { client, ticket } = live;
 
   const channel: RealtimeChannel = client
     .channel(`chat:${conversationId}`)
