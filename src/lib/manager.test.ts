@@ -18,6 +18,7 @@ import {
   formatFileSize,
   parseDeadline,
   scoped,
+  scopeSwitch,
   sortByUnreadThenRecent,
   totalUnread,
   unassigned,
@@ -272,6 +273,57 @@ assert.deepEqual(twice.refused, []);
 assert.equal(
   acceptAttachments([file("a.pdf", 1)], [file("a.pdf", 2)]).files.length,
   2,
+);
+
+/*
+ * Scope against record. The redirect these drive is the one thing standing
+ * between the header switcher and one company's data under another's name, and
+ * the branch that returns null is load-bearing in the other direction: an
+ * address returned unconditionally is a redirect loop.
+ */
+const projectSwitch = (picked?: string) =>
+  scopeSwitch({
+    picked,
+    owners: ["c1"],
+    stay: "/manager/projects/p1",
+    leave: (to) => scoped("/manager/projects", to),
+  });
+
+// They agree. Nothing to do, and this is every ordinary render.
+assert.equal(projectSwitch("c1"), null);
+
+// The switcher moved off this record: its list, under the new company.
+assert.equal(projectSwitch("c2"), "/manager/projects?company=c2");
+
+// A bare link pulls the scope onto the record rather than defaulting to the
+// first company on the book.
+assert.equal(projectSwitch(undefined), "/manager/projects/p1?company=c1");
+
+// And what it returns then must itself agree, or the redirect repeats forever.
+assert.equal(projectSwitch("c1"), null);
+
+// A record on several companies is at home under any of them.
+const customerSwitch = (picked?: string) =>
+  scopeSwitch({
+    picked,
+    owners: ["c1", "c2"],
+    stay: "/manager/customers/a%40b.com",
+    leave: (to) => scoped("/manager/customers", to),
+  });
+assert.equal(customerSwitch("c2"), null);
+assert.equal(customerSwitch("c3"), "/manager/customers?company=c3");
+assert.equal(customerSwitch(undefined), "/manager/customers/a%40b.com?company=c1");
+
+// No company came back for the record at all. Sending the reader to an address
+// identical to the one they are on would loop; staying put is the only answer.
+assert.equal(
+  scopeSwitch({
+    picked: undefined,
+    owners: [undefined],
+    stay: "/manager/projects/p1",
+    leave: (to) => scoped("/manager/projects", to),
+  }),
+  null,
 );
 
 console.log("manager api: all checks passed");

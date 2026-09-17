@@ -482,6 +482,54 @@ export function scoped(path: string, companyId?: string): string {
 }
 
 /**
+ * Where a record page belongs once the header switcher has been touched.
+ *
+ * The switcher writes `?company=` and nothing else, which is the whole scope on
+ * a list — but a record page also names its subject in the path, and the two
+ * can then disagree. Switching company left the previous company's project,
+ * customer or specialist on screen under a pill naming the new one, which is
+ * the one thing the URL-carried scope exists to prevent.
+ *
+ * Both directions, because a bare link is the same disagreement the other way
+ * round:
+ *
+ * - `?company=` names a company the record does not belong to — the reader
+ *   switched, and the record is not theirs to see any more. `leave` decides
+ *   where they land, which for most pages is the list they came from and for a
+ *   page whose record IS a company is that company's own page.
+ * - No `?company=` at all — a pasted or bookmarked address. The scope follows
+ *   the record rather than defaulting to the first company on the book, so the
+ *   pill and every nav link under it agree with what is on screen.
+ *
+ * `null` when they already agree, which is the ordinary case and must not
+ * redirect — returning an address unconditionally would loop.
+ */
+export function scopeSwitch({
+  picked,
+  owners,
+  stay,
+  leave,
+}: {
+  /** `?company=` exactly as it arrived, if it did. */
+  picked?: string;
+  /**
+   * The companies the record belongs to. Usually one; a customer can be on
+   * several, and any of them is a company this record may be read under.
+   */
+  owners: (string | undefined)[];
+  /** This page's own address, for pulling the scope onto the record. */
+  stay: string;
+  /** Where to send a reader who has scoped away from this record. */
+  leave: (companyId: string) => string;
+}): string | null {
+  const known = owners.filter((id): id is string => Boolean(id));
+
+  if (picked) return known.includes(picked) ? null : leave(picked);
+  // Nothing to pull the scope onto: a record the backend gave no company for.
+  return known[0] ? scoped(stay, known[0]) : null;
+}
+
+/**
  * The company every screen reads under: the one on the URL, or the first on the
  * manager's book when the URL carries none.
  *

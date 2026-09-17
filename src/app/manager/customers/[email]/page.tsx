@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { managerApi } from "@/lib/manager";
+import { managerApi, scopeSwitch, scoped } from "@/lib/manager";
 
 export const metadata: Metadata = { title: "Customer" };
 
@@ -13,13 +13,32 @@ export const metadata: Metadata = { title: "Customer" };
  */
 export default async function ManagerCustomerPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ email: string }>;
+  searchParams: Promise<{ company?: string }>;
 }) {
-  const { email } = await params;
+  const [{ email }, { company: picked }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const customer = await managerApi.customer(decodeURIComponent(email));
 
   if (!customer) notFound();
+
+  /*
+   * A customer belongs to whichever of the manager's companies they are on —
+   * often more than one, and this page is the same record under any of them.
+   * Switching to a company they are NOT on is the reader leaving them behind,
+   * and the Customers list of the company now on the pill is where they went.
+   */
+  const elsewhere = scopeSwitch({
+    picked,
+    owners: customer.companyIds,
+    stay: `/manager/customers/${encodeURIComponent(customer.email)}`,
+    leave: (to) => scoped("/manager/customers", to),
+  });
+  if (elsewhere) redirect(elsewhere);
 
   return (
     <>

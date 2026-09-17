@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import {
@@ -7,6 +7,7 @@ import {
   InitialsAvatar,
 } from "@/components/admin/initials-avatar";
 import { PageHeader } from "@/components/portal/portal-shell";
+import { scopeSwitch, scoped } from "@/lib/manager";
 import { specialistApi } from "@/lib/specialist";
 
 export const metadata: Metadata = { title: "Company" };
@@ -24,10 +25,25 @@ export const metadata: Metadata = { title: "Company" };
  */
 export default async function SpecialistCompanyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ company?: string }>;
 }) {
-  const { id } = await params;
+  const [{ id }, { company: picked }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
+
+  // The record here IS a company: same rule as the manager's copy of this
+  // screen, and the switcher moves the page to the chosen company's own.
+  const elsewhere = scopeSwitch({
+    picked,
+    owners: [id],
+    stay: `/specialist/companies/${encodeURIComponent(id)}`,
+    leave: (to) => scoped(`/specialist/companies/${encodeURIComponent(to)}`, to),
+  });
+  if (elsewhere) redirect(elsewhere);
 
   // Null covers both "no such company" and "you do not work for it".
   const company = await specialistApi.company(id);

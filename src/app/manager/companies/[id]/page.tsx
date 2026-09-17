@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AvatarStack } from "@/components/admin/initials-avatar";
@@ -11,7 +11,7 @@ import {
 } from "@/components/admin/data-table";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import type { CompanyPlan } from "@/lib/admin";
-import { managerApi } from "@/lib/manager";
+import { managerApi, scopeSwitch, scoped } from "@/lib/manager";
 
 const PLAN_COLUMNS: SortableColumn<CompanyPlan>[] = [
   { header: "Service", sortValue: (plan) => plan.service },
@@ -40,9 +40,26 @@ export default async function ManagerCompanyPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ sort?: string; dir?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
 }) {
-  const [{ id }, { sort, dir }] = await Promise.all([params, searchParams]);
+  const [{ id }, { company: picked, sort, dir }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
+
+  /*
+   * THE RECORD ON THIS PAGE *IS* A COMPANY, so the switcher moves the page and
+   * not just the query — and it moves it to the chosen company's own detail
+   * rather than back to the list, which for a scoped list is one row anyway.
+   */
+  const elsewhere = scopeSwitch({
+    picked,
+    owners: [id],
+    stay: `/manager/companies/${encodeURIComponent(id)}`,
+    leave: (to) => scoped(`/manager/companies/${encodeURIComponent(to)}`, to),
+  });
+  if (elsewhere) redirect(elsewhere);
+
   const company = await managerApi.company(id);
 
   if (!company) notFound();

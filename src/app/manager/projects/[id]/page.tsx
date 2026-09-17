@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AddTask } from "@/components/portal/add-task";
@@ -7,7 +7,7 @@ import { FilePreview } from "@/components/portal/file-preview";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { managerApi } from "@/lib/manager";
+import { managerApi, scopeSwitch, scoped } from "@/lib/manager";
 import { documentPath } from "@/lib/portal";
 
 import { ManagerUploadFile } from "../../documents/upload-file";
@@ -31,18 +31,27 @@ export default async function ManagerProjectPage({
     searchParams,
   ]);
   const project = await managerApi.project(id);
+  if (!project) notFound();
 
   /*
-   * The scope and the record have to agree. A detail page is a single record, so
-   * the switcher does not filter it — but a URL that NAMES a company and a
-   * project belonging to a different one is describing two different accounts at
-   * once, and the tasks below would then be a project the Projects list two
+   * The scope and the record have to agree. A URL that NAMES a company and a
+   * project belonging to a different one is describing two different accounts
+   * at once, and the tasks below would then be a project the Projects list two
    * clicks away does not have.
    *
-   * Only when the URL says so. Arriving without `?company=` is a bare link, not
-   * a contradiction, and the page still answers it.
+   * That disagreement is the header switcher being used, so it is answered by
+   * moving rather than by 404: the reader asked for this other company, and
+   * its Projects list is what they asked to see. A bare link with no
+   * `?company=` is the same disagreement the other way and pulls the scope onto
+   * the project instead.
    */
-  if (!project || (company && project.companyId !== company)) notFound();
+  const elsewhere = scopeSwitch({
+    picked: company,
+    owners: [project.companyId],
+    stay: `/manager/projects/${encodeURIComponent(project.id)}`,
+    leave: (to) => scoped("/manager/projects", to),
+  });
+  if (elsewhere) redirect(elsewhere);
 
   const [documents, tasks] = await Promise.all([
     managerApi.documents(project.companyId),

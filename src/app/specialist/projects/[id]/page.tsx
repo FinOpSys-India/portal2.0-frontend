@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AddTask } from "@/components/portal/add-task";
@@ -8,7 +8,7 @@ import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
-import { fileKind, formatFileSize } from "@/lib/manager";
+import { fileKind, formatFileSize, scopeSwitch, scoped } from "@/lib/manager";
 import { documentPath } from "@/lib/portal";
 import { specialistApi } from "@/lib/specialist";
 
@@ -33,14 +33,32 @@ export default async function SpecialistProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ sort?: string; dir?: string }>;
+  searchParams: Promise<{ company?: string; sort?: string; dir?: string }>;
 }) {
-  const [{ id }, { sort, dir }] = await Promise.all([params, searchParams]);
+  const [{ id }, { company: picked, sort, dir }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
 
   // Null covers both "no such project" and "not yours" — the second must not
   // be distinguishable from the first, or the id becomes a lookup oracle.
   const project = await specialistApi.project(id);
   if (!project) notFound();
+
+  /*
+   * A specialist works several companies, so this page and the header pill can
+   * name two of them at once. Switching company is the reader asking for that
+   * company's work, and its Projects list is what they asked for; a bare link
+   * pulls the scope onto the project instead of leaving it on whichever company
+   * came back first.
+   */
+  const elsewhere = scopeSwitch({
+    picked,
+    owners: [project.companyId],
+    stay: `/specialist/projects/${encodeURIComponent(project.id)}`,
+    leave: (to) => scoped("/specialist/projects", to),
+  });
+  if (elsewhere) redirect(elsewhere);
 
   const [tasks, documents] = await Promise.all([
     specialistApi.tasks(project.id),

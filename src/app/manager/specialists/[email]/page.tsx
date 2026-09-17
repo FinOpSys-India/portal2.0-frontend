@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { InitialsAvatar } from "@/components/admin/initials-avatar";
@@ -16,6 +16,8 @@ import {
   companyScope,
   managerApi,
   parseDeadline,
+  scopeSwitch,
+  scoped,
   type SpecialistTask,
 } from "@/lib/manager";
 
@@ -63,6 +65,21 @@ export default async function ManagerSpecialistPage({
   );
 
   if (!specialist) notFound();
+
+  /*
+   * A specialist works several of the manager's accounts, and `specialist()`
+   * finds them under whichever one it can — so the pill could say one company
+   * while the tasks below belonged to another. Switching to a company they do
+   * not work is the reader leaving them behind; the Specialists list of the
+   * company now on the pill is where they went.
+   */
+  const elsewhere = scopeSwitch({
+    picked,
+    owners: [specialist.companyId],
+    stay: `/manager/specialists/${encodeURIComponent(specialist.email)}`,
+    leave: (to) => scoped("/manager/specialists", to),
+  });
+  if (elsewhere) redirect(elsewhere);
 
   // `specialist.companyId`, not the page's own scope: an address that arrived
   // without `?company=` resolves to the first company on the book, and reading
