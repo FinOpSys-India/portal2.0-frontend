@@ -780,7 +780,7 @@ export const managerApi = {
    * The signed-in manager. The session decides who, not the caller.
    *
    * The SHARED reader, address included — this used to drop the address on the
-   * floor, and the User Info page then drew five empty rows for a manager whose
+   * floor, and the Profile page then drew five empty rows for a manager whose
    * address was sitting in the record all along.
    */
   profile: myProfile,

@@ -42,7 +42,7 @@ const NAV: NavItem[] = [
   { href: "/manager/connect", label: "Connect", icon: MessageSquare },
   { href: "/manager/documents", label: "Documents", icon: FileText },
   { href: "/manager/companies", label: "Companies", icon: Building2 },
-  { href: "/manager/profile", label: "User Info", icon: UserRound },
+  { href: "/manager/profile", label: "Profile", icon: UserRound },
 ];
 
 /** Accounting manager portal frame. */

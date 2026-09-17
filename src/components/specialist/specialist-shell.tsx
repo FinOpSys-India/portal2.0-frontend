@@ -32,7 +32,7 @@ const NAV: NavItem[] = [
   { href: "/specialist/companies", label: "Companies", icon: Building2 },
   { href: "/specialist/documents", label: "Documents", icon: FileText },
   { href: "/specialist/connect", label: "Connect", icon: MessageSquare },
-  { href: "/specialist/profile", label: "User Info", icon: UserRound },
+  { href: "/specialist/profile", label: "Profile", icon: UserRound },
 ];
 
 /**

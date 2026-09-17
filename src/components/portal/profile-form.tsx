@@ -21,7 +21,7 @@ import { saveMyProfile, type MyProfile } from "@/lib/portal";
 import { profileSchema, type ProfileValues } from "@/lib/schemas";
 
 /**
- * User Info, for whoever is signed in.
+ * Profile, for whoever is signed in.
  *
  * ONE FORM FOR EVERY PORTAL. 1.0 shows the customer and the manager the same
  * two sections, and the write behind them is `PATCH /users/me` — the same row
@@ -36,7 +36,19 @@ import { profileSchema, type ProfileValues } from "@/lib/schemas";
  * endpoint, and each portal draws its card in a different place. Pages compose
  * `AvatarUpload` alongside this.
  */
-export function ProfileForm({ profile }: { profile: MyProfile }) {
+export function ProfileForm({
+  profile,
+  role,
+}: {
+  profile: MyProfile;
+  /**
+   * The job role, when the portal has one to show — the specialist's
+   * speciality. Read-only for the same reason the name is: `PATCH /users/me`
+   * takes phone and address and nothing else. Omitted where the role is the
+   * portal itself and the card beside the form already says it.
+   */
+  role?: string;
+}) {
   const router = useRouter();
   const [failure, setFailure] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
@@ -96,6 +108,7 @@ export function ProfileForm({ profile }: { profile: MyProfile }) {
               required
               placeholder="Enter your phone number"
             />
+            {role ? <StaticField label="Job Role" value={role} /> : null}
           </div>
         </section>
 

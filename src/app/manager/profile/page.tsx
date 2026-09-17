@@ -5,10 +5,10 @@ import { PageHeader } from "@/components/portal/portal-shell";
 import { ProfileForm } from "@/components/portal/profile-form";
 import { managerApi } from "@/lib/manager";
 
-export const metadata: Metadata = { title: "User Info" };
+export const metadata: Metadata = { title: "Profile" };
 
 /**
- * User Info — 1.0's two sections, plus the profile card it puts alongside.
+ * Profile — 1.0's two sections, plus the profile card it puts alongside.
  *
  * EDITABLE, and it saves. 1.0 renders these as inputs with no Save button
  * anywhere on the page (docs/am-portal.md), so an edit is silently discarded;
@@ -21,7 +21,7 @@ export default async function ManagerProfilePage() {
 
   return (
     <>
-      <PageHeader title="User Info" />
+      <PageHeader title="Profile" />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <ProfileForm profile={profile} />
