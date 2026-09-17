@@ -36,6 +36,14 @@ export function ManagerChat({
       <h1 className="font-semibold">Chat</h1>
 
       <ChatThread
+        /*
+         * A company switch is a thread switch here: one company, one accounting
+         * manager, one conversation. `ChatThread` loads once per mount and keys
+         * its own effect off the contact's name, so switching between two
+         * companies that share an accounting manager left the first one's
+         * messages on screen.
+         */
+        key={companyId}
         contact={contact}
         contactAvatarUrl={contactAvatarUrl}
         badge={<Badge variant="secondary">Accounting Manager</Badge>}

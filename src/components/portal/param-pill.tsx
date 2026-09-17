@@ -22,6 +22,7 @@ export function ParamPill({
   label,
   menuLabel,
   variant,
+  keep,
 }: {
   /** Query param this pill owns, e.g. "company". */
   param: string;
@@ -31,6 +32,16 @@ export function ParamPill({
   label: string;
   menuLabel: string;
   variant?: "default" | "outline";
+  /**
+   * The other query params that survive a change, besides this pill's own.
+   *
+   * Everything else on the URL describes the scope being LEFT — which page of
+   * it, which filters, which of its projects, which of its conversations — and
+   * carrying that over is how switching company lands on an empty table under a
+   * filter pill that says "All". Naming what travels rather than what does not
+   * means a param added later has to be thought about once.
+   */
+  keep: string[];
 }) {
   const items = [all, ...options];
 
@@ -48,6 +59,7 @@ export function ParamPill({
           label={label}
           menuLabel={menuLabel}
           variant={variant}
+          keep={keep}
         />
       }
     >
@@ -58,6 +70,7 @@ export function ParamPill({
         label={label}
         menuLabel={menuLabel}
         variant={variant}
+        keep={keep}
       />
     </Suspense>
   );
@@ -77,6 +90,7 @@ type Props = {
   label: string;
   menuLabel: string;
   variant?: "default" | "outline";
+  keep: string[];
 };
 
 function Pill({
@@ -87,20 +101,29 @@ function Pill({
   label,
   menuLabel,
   variant,
+  keep,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
 
   /**
    * Read the live query rather than the hook: pages carry other params
-   * alongside this one — Connect has channel and party, Files has both company
-   * and project — and the Suspense fallback renders before useSearchParams
-   * resolves. Replacing the whole query string would drop them.
+   * alongside this one — Connect has party, Files has both company and project
+   * — and the Suspense fallback renders before useSearchParams resolves.
+   *
+   * Rebuilt from `keep` rather than edited in place. Kept in place, a page
+   * number, a filter set or a project name picked under the old scope rode
+   * along into the new one, where it names nothing: Documents came up empty
+   * under a project pill reading "All projects", and page 3 of an eight-row
+   * table came up blank.
    */
   function hrefFor(id: string) {
-    const query = new URLSearchParams(window.location.search);
+    const live = new URLSearchParams(window.location.search);
+    const query = new URLSearchParams();
+    for (const name of keep) {
+      for (const value of live.getAll(name)) query.append(name, value);
+    }
     if (id) query.set(param, id);
-    else query.delete(param);
     const rest = query.toString();
     return rest ? `${pathname}?${rest}` : pathname;
   }

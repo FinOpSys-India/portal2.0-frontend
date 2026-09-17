@@ -36,6 +36,14 @@ export default async function ManagerChatPage({
 
   return (
     <ChatInbox
+      /*
+       * REMOUNT ON A COMPANY SWITCH. The roster arrives as a prop but lives in
+       * state from there on — rows gain a conversation id the moment one is
+       * opened — and state does not reset just because the server re-rendered
+       * with a different company's contacts. Without this the header switcher
+       * changed the pill and left the previous client's people in the list.
+       */
+      key={companyId}
       contacts={contacts}
       party={forParty}
       companyId={companyId}

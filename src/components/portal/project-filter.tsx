@@ -20,6 +20,9 @@ export function ProjectFilter({ projects }: { projects: string[] }) {
       options={projects.map((name) => ({ id: name, name }))}
       label="Project"
       menuLabel="Filter by project"
+      // The company scope outranks this filter and must survive it. The page
+      // number and the column filters describe the project being left.
+      keep={["company", "sort", "dir", "size"]}
       variant="outline"
     />
   );

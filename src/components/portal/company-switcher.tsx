@@ -23,6 +23,11 @@ export function CompanySwitcher({ companies }: { companies: PillOption[] }) {
       options={rest}
       label="Company"
       menuLabel="Scope to company"
+      // Sort is a column name and a page size is a preference, so both mean the
+      // same under any company; `party` names which Connect inbox is open, and
+      // is not a property of a company either. A page number, a filter set, a
+      // project name and a conversation id all belong to the company being left.
+      keep={["sort", "dir", "size", "party"]}
     />
   );
 }
