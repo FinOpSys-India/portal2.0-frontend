@@ -19,6 +19,7 @@ import {
   sendEmailAs,
   serviceOptions,
   type ChatMessage,
+  type ClientCompanyDetail,
   type ManagerProfile,
   type ManagerThread,
   type ProjectTask,
@@ -32,6 +33,7 @@ import {
   personId,
   personName,
   teamPeople,
+  toClientCompanyDetail,
   toProjectStatus,
   toProjectTask,
   usDate,
@@ -295,6 +297,25 @@ export const customerApi = {
       subscriptionDate: billingDate(c),
       teamMembers: teamPeople(c),
     }));
+  },
+
+  /**
+   * One company, for the row the customer clicks on the Company table.
+   *
+   * No Current Plans table on the page it feeds: `GET /companies/:id` answers
+   * with `toCompanyAccountRow`, which carries no `servicePlans` — and what this
+   * company pays already has a screen of its own at /billing, priced from the
+   * subscription rather than the catalogue.
+   *
+   * Null is "no such company" only. Reaching one that is not yours is a 403
+   * from the service's own per-company check, and that throws rather than
+   * rendering as absence.
+   */
+  async company(id: string): Promise<ClientCompanyDetail | null> {
+    const data = await getOrNull<{ company: BackendCompany }>(
+      `/companies/${encodeURIComponent(id)}`,
+    );
+    return data?.company ? toClientCompanyDetail(data.company) : null;
   },
 
   async team(workspaceId: string): Promise<TeamMember[]> {

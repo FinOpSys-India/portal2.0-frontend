@@ -15,8 +15,10 @@ import { parseFilters } from "@/lib/table-filter";
 export const metadata: Metadata = { title: "Company" };
 
 export default async function CompanyPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ workspace: string }>;
   searchParams: Promise<{
     page?: string;
     size?: string;
@@ -25,7 +27,8 @@ export default async function CompanyPage({
     f?: string | string[];
   }>;
 }) {
-  const { page: raw, size: rawSize, sort, dir, f } = await searchParams;
+  const [{ workspace }, { page: raw, size: rawSize, sort, dir, f }] =
+    await Promise.all([params, searchParams]);
   const page = parsePage(raw);
   const size = parsePageSize(rawSize);
   const [companies, profile] = await Promise.all([
@@ -44,6 +47,11 @@ export default async function CompanyPage({
       total={companies.length}
       action={<AddCompany accountEmail={profile.email} />}
       rows={companies}
+      // The frame stays on the open workspace — a company is read from
+      // wherever you stand, the switcher is what moves you.
+      rowHref={(row) =>
+        `/customer/${encodeURIComponent(workspace)}/company/${encodeURIComponent(row.id)}`
+      }
       empty="No companies yet."
       columns={[
         {
