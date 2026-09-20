@@ -73,7 +73,19 @@ export interface Company {
   billingDate: string | null;
   teamMembers: PortalPerson[];
   accountingManager: string | null;
+  status: CompanyStatus;
 }
+
+/**
+ * The account's lifecycle, as the table renders it.
+ *
+ * `Active` means the company is PAID FOR — `activateCompanyOnPayment` flips the
+ * backend's status to `ACTIVE` on the first successful payment and nothing else
+ * does. Everything short of that is `Onboarded`: the company exists because
+ * somebody walked at least part of the onboarding flow, but no payment has
+ * landed.
+ */
+export type CompanyStatus = "Active" | "Onboarded";
 
 export interface CompanyPlan {
   service: string;
@@ -242,6 +254,8 @@ interface AccountRow {
     planName: string | null;
   }[];
   billing: { currentPeriodEnd: string | null } | null;
+  /** `ONBOARDING` | `ACTIVE` | `SUSPENDED` | `ARCHIVED`, from the company row. */
+  status?: string;
   teamMembers: {
     owner: Person | null;
     accountingManager: Person | null;
@@ -370,6 +384,14 @@ function toCompany(row: AccountRow): Company {
     accountingManager: row.accountingManager
       ? person(row.accountingManager)
       : null,
+    /*
+     * Two states, not the backend's four. `ACTIVE` is the one the payment
+     * webhook sets, so it is the only one that means "paid". `SUSPENDED` (paid
+     * once, lapsed since) and `ARCHIVED` fold into `Onboarded` rather than
+     * claiming an account is live — this column answers "has money arrived",
+     * and for those two the answer today is no.
+     */
+    status: row.status === "ACTIVE" ? "Active" : "Onboarded",
   };
 }
 

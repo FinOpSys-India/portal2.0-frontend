@@ -7,12 +7,23 @@ import {
   parsePageSize,
 } from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
-import { listWindow, adminApi, type Company } from "@/lib/admin";
+import { Badge } from "@/components/ui/badge";
+import { listWindow, adminApi, type Company, type CompanyStatus } from "@/lib/admin";
 import { withTeammates } from "@/lib/portal";
 import { AssignManager } from "./assign-manager";
 import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Companies" };
+
+/**
+ * The same two chips the portal's project status uses — green for the settled
+ * state, amber for the one still in motion — so a colour means one thing across
+ * the product.
+ */
+const STATUS_STYLES: Record<CompanyStatus, string> = {
+  Active: "bg-[#dcfce7] text-[#16a34a]",
+  Onboarded: "bg-[#fef3c7] text-[#d97706]",
+};
 
 export default async function CompaniesPage({
   searchParams,
@@ -97,6 +108,19 @@ export default async function CompaniesPage({
             row.billingDate ?? (
               <span className="text-muted-foreground">—</span>
             ),
+        },
+        {
+          header: "Status",
+          filter: "enum",
+          sortValue: (row) => row.status,
+          cell: (row) => (
+            <Badge
+              variant="secondary"
+              className={`border-transparent font-medium ${STATUS_STYLES[row.status]}`}
+            >
+              {row.status}
+            </Badge>
+          ),
         },
         {
           header: "Team Members",
