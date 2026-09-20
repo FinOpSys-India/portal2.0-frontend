@@ -88,7 +88,10 @@ export function AssignCompanySpecialist({
     };
   }, [open, companyId]);
 
-  const missing = (lines ?? []).some((line) => !picked[line.code]);
+  // Only the lines nobody holds yet are up for staffing — a staffed line is a
+  // one-way door here, same as admin's accounting-manager assignment.
+  const openLines = (lines ?? []).filter((line) => line.assigned === null);
+  const missing = openLines.some((line) => !picked[line.code]);
 
   async function save() {
     setFailure(null);
@@ -146,42 +149,77 @@ export function AssignCompanySpecialist({
           </p>
         ) : (
           <div className="space-y-4">
-            {lines.map((line) => (
-              <div key={line.code} className="space-y-2">
-                <Label htmlFor={`staff-${line.code}`}>
-                  {line.name} Specialist
-                </Label>
+            {lines.map((line) => {
+              /*
+               * A STAFFED LINE IS NOT A PICKER. Assignment is a one-way door —
+               * the same rule admin's accounting-manager cell follows — so a
+               * line that already has someone renders as who holds it. The id
+               * still rides along in `picked`: `PUT` restates the WHOLE
+               * staffing or refuses the submission outright.
+               *
+               * The name comes from the line's own eligible list, the only
+               * place this endpoint spells one out; `assigned` carries a bare
+               * user id.
+               */
+              const held =
+                line.assigned === null
+                  ? null
+                  : (line.options.find((o) => o.userId === line.assigned)
+                      ?.name ?? "Assigned");
 
-                <Select
-                  value={picked[line.code]?.toString() ?? ""}
-                  onValueChange={(value) =>
-                    setPicked((prev) => ({ ...prev, [line.code]: Number(value) }))
-                  }
-                  disabled={line.options.length === 0 || saving}
-                >
-                  <SelectTrigger id={`staff-${line.code}`} className="w-full">
-                    <SelectValue
-                      placeholder={
-                        line.options.length === 0
-                          ? `No ${line.name.toLowerCase()} specialist available`
-                          : "Select your specialist"
+              return (
+                <div key={line.code} className="space-y-2">
+                  <Label htmlFor={held ? undefined : `staff-${line.code}`}>
+                    {line.name} Specialist
+                  </Label>
+
+                  {held ? (
+                    <p className="rounded-lg border bg-muted/40 px-3.5 py-2.5 text-sm">
+                      {held}
+                    </p>
+                  ) : (
+                    <Select
+                      value={picked[line.code]?.toString() ?? ""}
+                      onValueChange={(value) =>
+                        setPicked((prev) => ({
+                          ...prev,
+                          [line.code]: Number(value),
+                        }))
                       }
-                    />
-                  </SelectTrigger>
+                      disabled={line.options.length === 0 || saving}
+                    >
+                      <SelectTrigger id={`staff-${line.code}`} className="w-full">
+                        <SelectValue
+                          placeholder={
+                            line.options.length === 0
+                              ? `No ${line.name.toLowerCase()} specialist available`
+                              : "Select your specialist"
+                          }
+                        />
+                      </SelectTrigger>
 
-                  <SelectContent>
-                    {line.options.map((option) => (
-                      <SelectItem
-                        key={option.userId}
-                        value={String(option.userId)}
-                      >
-                        {option.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ))}
+                      <SelectContent>
+                        {line.options.map((option) => (
+                          <SelectItem
+                            key={option.userId}
+                            value={String(option.userId)}
+                          >
+                            {option.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              );
+            })}
+
+            {openLines.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Every active service is staffed. Assignments cannot be changed
+                here.
+              </p>
+            ) : null}
           </div>
         )}
 
@@ -197,7 +235,9 @@ export function AssignCompanySpecialist({
           </p>
         ) : null}
 
-        {lines !== null && lines.length > 0 ? (
+        {/* Nothing to save on a fully staffed company — there is no line left
+            to fill, and the ones that are filled do not change from here. */}
+        {lines !== null && openLines.length > 0 ? (
           <Button
             type="button"
             onClick={save}
