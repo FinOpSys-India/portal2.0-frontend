@@ -198,7 +198,15 @@ export const COUNTRIES = [
   "Zimbabwe",
 ] as const;
 
-export const DEFAULT_COUNTRY = COUNTRIES[0];
+/*
+ * No DEFAULT_COUNTRY. It resolved to COUNTRIES[0] — the United States, which is
+ * first because the list is ordered that way and not because it is anyone's
+ * answer. Every form that reached for it asserted a country the user had not
+ * given, and the phone rule then validated against the guess: a nine-digit
+ * number came back "Too few digits for United States of America" on an account
+ * that had never named a country. An unset country is a question, and the
+ * selects ask it.
+ */
 
 /**
  * ISO 3166-1 alpha-2 code for each country in COUNTRIES.

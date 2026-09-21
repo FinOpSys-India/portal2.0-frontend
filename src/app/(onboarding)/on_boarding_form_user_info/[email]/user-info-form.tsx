@@ -18,7 +18,7 @@ import {
 import { FormAlert } from "@/components/auth/form-alert";
 import { Form } from "@/components/ui/form";
 import { api, type User as Me } from "@/lib/api";
-import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
+import { COUNTRIES } from "@/lib/countries";
 import { userInfoSchema, type UserInfoValues } from "@/lib/schemas";
 
 /**
@@ -45,7 +45,9 @@ export function UserInfoForm({ email, me }: { email: string; me: Me }) {
     // would lose the two answers it exists to let you correct.
     defaultValues: {
       phone: me.phone ?? "",
-      phoneCountry: DEFAULT_COUNTRY,
+      // Unset, so the field asks. The schema requires it, and the phone rule
+      // stays loose until it is answered.
+      phoneCountry: "",
       jobTitle: me.jobTitle ?? "",
     },
     mode: "onSubmit",

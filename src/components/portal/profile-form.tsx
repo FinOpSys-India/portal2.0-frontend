@@ -61,7 +61,11 @@ export function ProfileForm({
       city: profile.city,
       state: profile.state,
       zip: profile.zip,
-      country: profile.country || COUNTRIES[0],
+      // No fallback. An unset country is a question, not a value to guess —
+      // guessing one and then validating their phone against it is how a
+      // nine-digit number was rejected "for United States of America" on an
+      // account that had never named a country.
+      country: profile.country,
     },
     mode: "onSubmit",
     reValidateMode: "onChange",

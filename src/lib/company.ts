@@ -16,7 +16,7 @@
  */
 
 import type { CompanyInput, CompanyRecord } from "@/lib/api";
-import { countryCode, DEFAULT_COUNTRY } from "@/lib/countries";
+import { countryCode } from "@/lib/countries";
 import type { CompanyValues } from "@/lib/schemas";
 
 /**
@@ -35,7 +35,10 @@ export const COMPANY_TYPE_OPTIONS = [
   { label: "Sole Proprietor", value: "SOLE_PROPRIETORSHIP" },
   { label: "Partnership", value: "PARTNERSHIP" },
   { label: "Limited Liability Partnership", value: "OTHER" },
-  { label: "Limited Liability Corporation", value: "LIMITED_LIABILITY_COMPANY" },
+  {
+    label: "Limited Liability Corporation",
+    value: "LIMITED_LIABILITY_COMPANY",
+  },
   { label: "S-Corp", value: "S_CORPORATION" },
   { label: "C-Corp", value: "C_CORPORATION" },
   { label: "Non-profit", value: "NON_PROFIT" },
@@ -45,9 +48,7 @@ export const COMPANY_TYPES = COMPANY_TYPE_OPTIONS.map((t) => t.label);
 
 /** Label -> enum. Returns OTHER for anything unrecognised rather than failing the post. */
 export function companyTypeValue(label: string): string {
-  return (
-    COMPANY_TYPE_OPTIONS.find((t) => t.label === label)?.value ?? "OTHER"
-  );
+  return COMPANY_TYPE_OPTIONS.find((t) => t.label === label)?.value ?? "OTHER";
 }
 
 /**
@@ -148,10 +149,13 @@ export function companyValues(company: CompanyRecord): CompanyValues {
     city: address?.city ?? "",
     state: address?.state ?? "",
     zip: address?.postalCode ?? "",
-    country: address?.country || DEFAULT_COUNTRY,
+    // Empty rather than a default: reopening a company must show what was
+    // saved, and a country nobody chose is not that.
+    country: address?.country ?? "",
     email: company.companyEmail,
     phone: company.companyPhone ?? "",
-    employees: company.employeeCount === null ? "" : String(company.employeeCount),
+    employees:
+      company.employeeCount === null ? "" : String(company.employeeCount),
     revenue: revenueBand(company.lastYearRevenue),
   };
 }

@@ -91,6 +91,10 @@ assert.equal(bandFor(""), "");
 // not a crash on the screen they were sent to in order to fix something.
 const addressless = companyValues({ ...saved, primaryAddress: null });
 assert.equal(addressless.addressLine1, "");
-assert.equal(addressless.country, "United States of America");
+// EMPTY, not a default. This used to answer "United States of America", which
+// is a value nobody entered — and the phone rule validates against whatever
+// this says, so the guess became "Too few digits for United States of America"
+// on a record that had never named a country. The select asks instead.
+assert.equal(addressless.country, "");
 
 console.log("company: all checks passed");

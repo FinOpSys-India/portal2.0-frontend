@@ -12,7 +12,6 @@ import { CompanyFields } from "@/components/portal/company-fields";
 import { Form } from "@/components/ui/form";
 import { api } from "@/lib/api";
 import { companyInput } from "@/lib/company";
-import { DEFAULT_COUNTRY } from "@/lib/countries";
 import { companySchema, type CompanyValues } from "@/lib/schemas";
 
 export function CompanyForm({
@@ -54,7 +53,7 @@ export function CompanyForm({
       city: "",
       zip: "",
       state: "",
-      country: DEFAULT_COUNTRY,
+      country: "",
       email: "",
       phone: "",
       employees: "",
