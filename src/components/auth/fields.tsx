@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { dialCode } from "@/lib/phone";
+import { dialCode, phoneMaxDigits } from "@/lib/phone";
 import { fromDateValue, toDateValue } from "@/lib/table-filter";
 import { cn } from "@/lib/utils";
 
@@ -306,17 +306,32 @@ export function PhoneField<T extends FieldValues>({
   countryName: FieldPath<T>;
 }) {
   const country = useWatch({ control, name: countryName });
+  const selected = typeof country === "string" ? country : "";
   return (
     <TextField
       {...props}
       control={control}
-      prefix={dialCode(typeof country === "string" ? country : "")}
+      prefix={dialCode(selected)}
       type="tel"
       inputMode="numeric"
       autoComplete="tel-national"
       numeric
-      // E.164 caps a number at 15 digits, dialling code included.
-      maxLength={15}
+      /*
+       * The SELECTED COUNTRY's own maximum, not a flat 15.
+       *
+       * 15 is E.164's ceiling and it counts the dialling code, which this value
+       * never carries — so a US field accepted fifteen digits for a plan that
+       * allows ten, and said so only after Submit. Capped here, a number too
+       * long for the country cannot be typed at all, and switching the country
+       * re-caps the field along with the prefix beside it.
+       *
+       * Digits ALREADY TYPED are not truncated by a later change of country —
+       * maxLength governs input, not the value — so the schema still has the
+       * last word on submit. That is the right way round: silently deleting
+       * someone's last three digits because they corrected the country would be
+       * worse than telling them.
+       */
+      maxLength={phoneMaxDigits(selected)}
     />
   );
 }

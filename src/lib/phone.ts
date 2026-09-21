@@ -53,6 +53,46 @@ export function dialCode(country: string): string {
 }
 
 /**
+ * The most national digits this country's plan allows.
+ *
+ * What the input is capped at, so a number that could never be right for the
+ * selected country cannot be typed in the first place. The flat 15 it replaced
+ * is E.164's ceiling INCLUDING the dialling code — which the value here never
+ * carries — so it let a US number run to fifteen digits when the plan allows
+ * ten, and the form only objected after Submit.
+ *
+ * Probed rather than read off the metadata: `validatePhoneNumberLength` is
+ * already imported and answers exactly this question, so the alternative is a
+ * second import of the same tables through the `Metadata` class. Descending
+ * from 17 because a few plans (Japan) run past E.164's 15, and stopping at the
+ * first length that is not TOO_LONG, which is the plan's own maximum. Memoized
+ * per region: the answer is a constant, and the field re-renders on every
+ * keystroke.
+ */
+const MAX_DIGITS = new Map<CountryCode, number>();
+
+export function phoneMaxDigits(country: string): number {
+  const region = phoneRegion(country);
+  // A country libphonenumber does not know gets E.164's ceiling, for the same
+  // reason `phoneIssue` falls back to a loose floor: unable to check must not
+  // become unable to enter.
+  if (!region) return 15;
+
+  const known = MAX_DIGITS.get(region);
+  if (known !== undefined) return known;
+
+  let max = 15;
+  for (let n = 17; n >= 3; n--) {
+    if (validatePhoneNumberLength("9".repeat(n), region) !== "TOO_LONG") {
+      max = n;
+      break;
+    }
+  }
+  MAX_DIGITS.set(region, max);
+  return max;
+}
+
+/**
  * What is wrong with this national number for this country, or undefined.
  *
  * The value is national digits — the dialling code is shown beside the input
