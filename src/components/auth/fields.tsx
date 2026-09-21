@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Eye, EyeOff, type LucideIcon } from "lucide-react";
 import {
+  useFormContext,
   useWatch,
   type Control,
   type FieldPath,
@@ -33,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { COUNTRIES } from "@/lib/countries";
 import { dialCode, phoneMaxDigits } from "@/lib/phone";
 import { fromDateValue, toDateValue } from "@/lib/table-filter";
 import { cn } from "@/lib/utils";
@@ -120,6 +122,7 @@ export function TextField<T extends FieldValues>({
   required,
   numeric,
   prefix,
+  prefixNode,
   className,
   style,
   ...props
@@ -132,6 +135,13 @@ export function TextField<T extends FieldValues>({
      * it — a dialling code. The input is padded past it.
      */
     prefix?: string;
+    /**
+     * An interactive prefix, drawn in place of `prefix` — the phone field's
+     * country picker. `prefix` is still passed alongside it and still sizes the
+     * input's padding, so the two cannot drift apart as the dialling code
+     * changes width.
+     */
+    prefixNode?: React.ReactNode;
   }) {
   // Where the text starts without a prefix: the icon slot, or plain padding.
   const gutter = icon ? "2.5rem" : "0.875rem";
@@ -146,7 +156,14 @@ export function TextField<T extends FieldValues>({
           </FormLabel>
           <div className="relative">
             {icon ? <LeadingIcon icon={icon} /> : null}
-            {prefix ? (
+            {prefixNode ? (
+              <span
+                className="absolute top-1/2 z-10 -translate-y-1/2"
+                style={{ left: gutter }}
+              >
+                {prefixNode}
+              </span>
+            ) : prefix ? (
               // Not aria-hidden: on a phone field this is the only place the
               // dialling code appears — the value itself does not carry it.
               <span
@@ -297,6 +314,68 @@ function DatePicker({
  * national digits, which is the shape the API holds today. The matching
  * digit-count rule lives in the schema, the one place that sees both fields.
  */
+/**
+ * The dialling code, as the control that sets it.
+ *
+ * ATTACHED TO THE PHONE, which is the whole point. The country governing this
+ * number is the address one, and it sits in a different section of the form —
+ * so a number rejected "for United States of America" named a control the
+ * reader had to go hunting for, on a screen that gave no hint where. The same
+ * field, edited where the error appears.
+ *
+ * A native `<select>`: it carries keyboard support, type-ahead and the
+ * platform's own picker on a phone, none of which a custom menu gets for free
+ * at this size. Transparent and overlaid, so it reads as the prefix it replaced
+ * rather than as a second control bolted on.
+ *
+ * Options read "India +91" while the closed state shows "+91" alone — a select
+ * cannot word the two differently, and the list is where the disambiguation is
+ * needed, since +1 is the United States AND Canada.
+ */
+function DialCodeSelect<T extends FieldValues>({
+  control,
+  name,
+}: {
+  control: Control<T>;
+  name: FieldPath<T>;
+}) {
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <Select
+          value={typeof field.value === "string" ? field.value : ""}
+          onValueChange={field.onChange}
+        >
+          {/*
+           * THE TRIGGER SHOWS THE CODE, THE LIST SHOWS THE COUNTRY. A native
+           * <select> cannot do that — its closed label is whatever the chosen
+           * option says — so "United States of America +1" sat across the
+           * number. This renders its own trigger, so the closed state stays the
+           * width of a dialling code while the list still disambiguates the
+           * +1 that is the United States from the +1 that is Canada.
+           */}
+          <SelectTrigger
+            aria-label="Country for this phone number"
+            className="h-7 gap-1 border-0 bg-transparent px-0 text-sm text-muted-foreground shadow-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30 [&>svg]:size-3 [&>svg]:opacity-60"
+          >
+            {dialCode(typeof field.value === "string" ? field.value : "") ||
+              "+"}
+          </SelectTrigger>
+          <SelectContent className="max-h-72">
+            {COUNTRIES.map((country) => (
+              <SelectItem key={country} value={country}>
+                {`${country} ${dialCode(country)}`.trim()}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    />
+  );
+}
+
 export function PhoneField<T extends FieldValues>({
   control,
   countryName,
@@ -307,11 +386,34 @@ export function PhoneField<T extends FieldValues>({
 }) {
   const country = useWatch({ control, name: countryName });
   const selected = typeof country === "string" ? country : "";
+
+  /*
+   * RE-CHECK THE NUMBER WHEN THE COUNTRY MOVES.
+   *
+   * The digit rule is object-level — it has to see both fields — but it reports
+   * on `phone`, and react-hook-form revalidates the field that CHANGED. So
+   * correcting the country left the old verdict on screen: the prefix read +91
+   * and the message underneath still said "for United States of America".
+   *
+   * Only once the form has been submitted, which is when messages are being
+   * shown at all; before that this would mark a field the reader has not
+   * reached yet.
+   */
+  const { trigger, formState } = useFormContext();
+  const phoneName = props.name;
+  React.useEffect(() => {
+    if (formState.isSubmitted) void trigger(phoneName);
+  }, [selected, formState.isSubmitted, trigger, phoneName]);
+
   return (
     <TextField
       {...props}
       control={control}
-      prefix={dialCode(selected)}
+      // `prefix` still sizes the padding; `prefixNode` is what is drawn.
+      // Sizes the input's padding: the code, plus room for the chevron the
+      // trigger draws beside it.
+      prefix={`${dialCode(selected) || "+"}  `}
+      prefixNode={<DialCodeSelect control={control} name={countryName} />}
       type="tel"
       inputMode="numeric"
       autoComplete="tel-national"
@@ -547,7 +649,10 @@ export function SubmitButton({
   return (
     <Button
       type="submit"
-      className={cn("relative h-11 w-full rounded-lg text-sm font-semibold", className)}
+      className={cn(
+        "relative h-11 w-full rounded-lg text-sm font-semibold",
+        className,
+      )}
       disabled={pending || props.disabled}
       aria-busy={pending || undefined}
       {...props}
