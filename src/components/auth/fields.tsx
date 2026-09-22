@@ -3,7 +3,6 @@
 import * as React from "react";
 import { Eye, EyeOff, type LucideIcon } from "lucide-react";
 import {
-  useFormContext,
   useWatch,
   type Control,
   type FieldPath,
@@ -35,7 +34,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { COUNTRIES } from "@/lib/countries";
-import { dialCode, phoneMaxDigits } from "@/lib/phone";
+import { dialCode } from "@/lib/phone";
 import { fromDateValue, toDateValue } from "@/lib/table-filter";
 import { cn } from "@/lib/utils";
 
@@ -388,22 +387,12 @@ export function PhoneField<T extends FieldValues>({
   const selected = typeof country === "string" ? country : "";
 
   /*
-   * RE-CHECK THE NUMBER WHEN THE COUNTRY MOVES.
-   *
-   * The digit rule is object-level — it has to see both fields — but it reports
-   * on `phone`, and react-hook-form revalidates the field that CHANGED. So
-   * correcting the country left the old verdict on screen: the prefix read +91
-   * and the message underneath still said "for United States of America".
-   *
-   * Only once the form has been submitted, which is when messages are being
-   * shown at all; before that this would mark a field the reader has not
-   * reached yet.
+   * No re-check when the country moves, because nothing about the number
+   * depends on it any more — the picker sets the dialling code shown beside the
+   * field and nothing else. This used to re-run the digit rule so a corrected
+   * country could not leave "for United States of America" on screen under a
+   * +91 prefix; that rule is gone (see lib/phone), and so is the effect.
    */
-  const { trigger, formState } = useFormContext();
-  const phoneName = props.name;
-  React.useEffect(() => {
-    if (formState.isSubmitted) void trigger(phoneName);
-  }, [selected, formState.isSubmitted, trigger, phoneName]);
 
   return (
     <TextField
@@ -419,21 +408,13 @@ export function PhoneField<T extends FieldValues>({
       autoComplete="tel-national"
       numeric
       /*
-       * The SELECTED COUNTRY's own maximum, not a flat 15.
+       * The BACKEND's ceiling, not a country's.
        *
-       * 15 is E.164's ceiling and it counts the dialling code, which this value
-       * never carries — so a US field accepted fifteen digits for a plan that
-       * allows ten, and said so only after Submit. Capped here, a number too
-       * long for the country cannot be typed at all, and switching the country
-       * re-caps the field along with the prefix beside it.
-       *
-       * Digits ALREADY TYPED are not truncated by a later change of country —
-       * maxLength governs input, not the value — so the schema still has the
-       * last word on submit. That is the right way round: silently deleting
-       * someone's last three digits because they corrected the country would be
-       * worse than telling them.
+       * `common.phone` refuses anything over 15 digits, so a sixteenth could
+       * only ever come back as an opaque 400 — this is the API contract, not a
+       * numbering plan. Per-country caps were tried and removed: see lib/phone.
        */
-      maxLength={phoneMaxDigits(selected)}
+      maxLength={15}
     />
   );
 }

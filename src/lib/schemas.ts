@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { phoneIssue } from "@/lib/phone";
 
 /**
  * Auth form schemas. One file so the same rule is never written twice with
@@ -52,52 +51,30 @@ export const forgotPasswordSchema = z.object({ email });
 /**
  * Phone, on every form that collects one.
  *
- * Emptiness is checked here, at field level, so a blank phone is reported in
- * the same pass as every other blank field. How many digits the number needs
- * depends on the country beside it, which a field rule cannot see — that half
- * is `linkPhoneToCountry` below.
+ * PRESENT, AND THAT IS THE WHOLE RULE. This used to be paired with a
+ * country-aware digit count (`linkPhoneToCountry`, reading libphonenumber's
+ * length tables through `phoneIssue`); it was removed because the country it
+ * checked against was the form's default far more often than the user's own,
+ * so correct numbers were refused and wrong ones waved through. The backend's
+ * `common.phone` — 7 to 15 digits — is now the only length rule, and the field
+ * itself still accepts digits only.
  */
 const phone = z.string().min(1, "Enter your phone number.");
-
-/**
- * Ties the phone field to the country field: the digit count a number needs is
- * whatever that country's numbering plan says, so the two cannot be validated
- * apart. Reported on `phone`, since that is the field the user has to change.
- *
- * Object-level, which means it only runs once the fields themselves parse — a
- * form submitted blank shows "Enter your phone number." from the field rule
- * above, and the digit-count message only once there are digits to count.
- */
-function linkPhoneToCountry<T extends z.ZodTypeAny>(
-  schema: T,
-  countryField: "country" | "phoneCountry",
-) {
-  return schema.superRefine((values, ctx) => {
-    const v = values as Record<string, string>;
-    const message = phoneIssue(v.phone, v[countryField] ?? "");
-    if (message) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: ["phone"] });
-    }
-  });
-}
 
 /**
  * Onboarding step 1. Only phone and country are enterable — name, email and
  * job title arrive with the invite and are shown read-only, exactly as in 1.0.
  */
-export const userInfoSchema = linkPhoneToCountry(
-  z.object({
-    phone,
-    // 1.0 asks for a country here and this port dropped it, because `PUT
-    // /onboarding/profile` takes firstName, lastName, phone and jobTitle and
-    // rejects anything else. It is back, for the phone alone: it picks the
-    // dialling code and the digit count, and is not sent anywhere. The
-    // address country is still the company form's job, one screen later.
-    phoneCountry: z.string().min(1, "Select a country."),
-    jobTitle: z.string().min(1, "Enter your job title."),
-  }),
-  "phoneCountry",
-);
+export const userInfoSchema = z.object({
+  phone,
+  // 1.0 asks for a country here and this port dropped it, because `PUT
+  // /onboarding/profile` takes firstName, lastName, phone and jobTitle and
+  // rejects anything else. It is back for the dialling code alone — it is not
+  // sent anywhere, and no longer decides how many digits the number may have.
+  // The address country is still the company form's job, one screen later.
+  phoneCountry: z.string().min(1, "Select a country."),
+  jobTitle: z.string().min(1, "Enter your job title."),
+});
 
 /**
  * Onboarding step 2.
@@ -107,28 +84,25 @@ export const userInfoSchema = linkPhoneToCountry(
  * which is what made it look broken. Here it says so.
  */
 export function companySchema(accountEmail: string) {
-  return linkPhoneToCountry(
-    z.object({
-      name: z.string().min(1, "Enter your company name."),
-      type: z.string().min(1, "Select your company type."),
-      addressLine1: z.string().min(1, "Enter your address."),
-      city: z.string().min(1, "Enter your city."),
-      zip: z.string().min(1, "Enter your ZIP code."),
-      state: z.string().min(1, "Enter your state."),
-      country: z.string().min(1, "Select your country."),
-      email: email.refine(
-        (v) => v.trim().toLowerCase() !== accountEmail.trim().toLowerCase(),
-        { message: "Use a different address from your personal login email." },
-      ),
-      phone: z.string().min(1, "Enter your company phone number."),
-      employees: z
-        .string()
-        .min(1, "Enter your number of employees.")
-        .refine((v) => Number(v) >= 0, { message: "Enter a valid number." }),
-      revenue: z.string().min(1, "Select your last year's revenue."),
-    }),
-    "country",
-  );
+  return z.object({
+    name: z.string().min(1, "Enter your company name."),
+    type: z.string().min(1, "Select your company type."),
+    addressLine1: z.string().min(1, "Enter your address."),
+    city: z.string().min(1, "Enter your city."),
+    zip: z.string().min(1, "Enter your ZIP code."),
+    state: z.string().min(1, "Enter your state."),
+    country: z.string().min(1, "Select your country."),
+    email: email.refine(
+      (v) => v.trim().toLowerCase() !== accountEmail.trim().toLowerCase(),
+      { message: "Use a different address from your personal login email." },
+    ),
+    phone: z.string().min(1, "Enter your company phone number."),
+    employees: z
+      .string()
+      .min(1, "Enter your number of employees.")
+      .refine((v) => Number(v) >= 0, { message: "Enter a valid number." }),
+    revenue: z.string().min(1, "Select your last year's revenue."),
+  });
 }
 
 export type CompanyValues = z.infer<ReturnType<typeof companySchema>>;
@@ -239,17 +213,14 @@ export const inviteTeammateSchema = z.object({
 export type InviteTeammateValues = z.infer<typeof inviteTeammateSchema>;
 
 /** Profile: name and email are set at signup and shown read-only. */
-export const profileSchema = linkPhoneToCountry(
-  z.object({
-    phone,
-    addressLine1: z.string(),
-    city: z.string(),
-    state: z.string(),
-    zip: z.string(),
-    country: z.string().min(1, "Select your country."),
-  }),
-  "country",
-);
+export const profileSchema = z.object({
+  phone,
+  addressLine1: z.string(),
+  city: z.string(),
+  state: z.string(),
+  zip: z.string(),
+  country: z.string().min(1, "Select your country."),
+});
 
 export type ProfileValues = z.infer<typeof profileSchema>;
 
