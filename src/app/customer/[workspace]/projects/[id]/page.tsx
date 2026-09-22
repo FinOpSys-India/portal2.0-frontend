@@ -15,7 +15,7 @@ import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { customerApi, type CustomerFile } from "@/lib/customer";
-import { documentPath } from "@/lib/portal";
+import { dateKey, documentPath } from "@/lib/portal";
 import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Project" };
@@ -128,7 +128,7 @@ export default async function CustomerProjectPage({
               },
               {
                 header: "Upload Date",
-                sortValue: (row) => Date.parse(row.uploadedAt) || 0,
+                sortValue: (row) => dateKey(row.uploadedAt),
                 cell: (row) => (
                   <span className="text-muted-foreground">
                     {row.uploadedAt}

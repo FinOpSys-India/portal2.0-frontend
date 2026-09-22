@@ -124,6 +124,22 @@ export default async function ManagerProjectsPage({
           // Read-only: it follows the company's staffing for this project's
           // service line, which is the Companies screen's Assign Specialist.
           header: "Specialist",
+          /*
+           * A CHECKLIST, not a text box.
+           *
+           * Without `filter` this fell through to the default "text", so
+           * narrowing to one person's work meant typing their name and
+           * spelling it the way the row does. A company runs a handful of
+           * specialists, which is what `enum` is for.
+           *
+           * `filterValues` rather than leaning on `sortValue`, because the
+           * empty string it returns for an unstaffed project is dropped from
+           * the options list — and "who has nothing assigned yet" is the
+           * question this column is most often opened to answer. Named the
+           * same thing the cell prints.
+           */
+          filter: "enum",
+          filterValues: (row) => [row.specialist ?? "Unassigned"],
           sortValue: (row) => row.specialist ?? "",
           cell: (row) =>
             row.specialist ? (

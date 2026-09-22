@@ -195,7 +195,16 @@ export function sortRows<T>(
 
   return [...rows].sort((a, b) => {
     const [x, y] = [value(a), value(b)];
-    if (typeof x === "number" && typeof y === "number") return sign * (x - y);
+    if (typeof x === "number" && typeof y === "number") {
+      // A DATE COLUMN WITH NO DATE IS NaN, and NaN loses every comparison — so
+      // `x - y` returns NaN, the sort reads it as 0, and blank rows sit wherever
+      // the input happened to leave them. Pushed last instead, in both
+      // directions, which is the rule the string branch below already follows.
+      if (Number.isNaN(x) || Number.isNaN(y)) {
+        return Number.isNaN(x) && Number.isNaN(y) ? 0 : Number.isNaN(x) ? 1 : -1;
+      }
+      return sign * (x - y);
+    }
     // `numeric` so "Project 10" lands after "Project 9", and blanks last in
     // both directions — an empty cell is the absence of a value, not the
     // smallest one.

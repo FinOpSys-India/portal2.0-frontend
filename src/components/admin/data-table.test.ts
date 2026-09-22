@@ -20,6 +20,7 @@ import {
 } from "./data-table";
 import { parseFilters } from "../../lib/table-filter";
 import { parseDeadline } from "../../lib/manager";
+import { dateKey } from "../../lib/portal";
 import {
   PAGE_SIZE,
   PAGE_SIZES,
@@ -268,6 +269,47 @@ async function main() {
 
   assert.deepEqual(due("Deadline:before:2026-09-15"), ["september bookkepping"]);
   assert.deepEqual(due("Deadline:after:2026-10-08"), ["Project 5", "Project 3"]);
+
+  /* ------------------------------------------------- a column with no date -- */
+
+  // A BLANK DATE IS NOT THE EPOCH. Every date column used to key on
+  // `Date.parse(x) || 0`, and zero is 1 January 1970 — earlier than any date a
+  // reader will ever type, so a company with no billing date came back inside
+  // "billing date before <anything>". `dateKey` answers NaN instead, which
+  // `matchesRange` throws out.
+  type Account = { name: string; billingDate: string | null };
+  const accounts: Account[] = [
+    { name: "Zepto", billingDate: "10/2/2026" },
+    { name: "instamart", billingDate: "10/10/2026" },
+    { name: "Unbilled", billingDate: null },
+  ];
+  const accountColumns: Column<Account>[] = [
+    { header: "Company Name", cell: (r) => r.name },
+    {
+      header: "Billing Date",
+      filter: "date",
+      sortValue: (r) => dateKey(r.billingDate),
+      cell: (r) => r.billingDate ?? "",
+    },
+  ];
+  const billed = (query: string) =>
+    filterRows(accounts, accountColumns, parseFilters(query)).map((a) => a.name);
+
+  assert.deepEqual(billed("Billing Date:before:2026-10-05"), ["Zepto"]);
+  assert.deepEqual(billed("Billing Date:lte:2026-10-02"), ["Zepto"]);
+  assert.deepEqual(billed("Billing Date:between:2026-10-01|2026-10-31"), [
+    "Zepto",
+    "instamart",
+  ]);
+  // ...and it sorts last rather than first, in both directions.
+  assert.deepEqual(
+    sortRows(accounts, accountColumns, "Billing Date", "asc").map((a) => a.name),
+    ["Zepto", "instamart", "Unbilled"],
+  );
+  assert.deepEqual(
+    sortRows(accounts, accountColumns, "Billing Date", "desc").map((a) => a.name),
+    ["instamart", "Zepto", "Unbilled"],
+  );
   assert.deepEqual(due("Deadline:lte:2026-09-08"), ["september bookkepping"]);
 
   // A range with nothing in it is still empty — the fix must not pass everything.

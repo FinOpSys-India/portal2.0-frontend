@@ -495,6 +495,22 @@ export function usDate(value: string): string {
   return date.toLocaleDateString("en-US");
 }
 
+/**
+ * A date column's sort and filter key: its timestamp, or NaN when there is no
+ * date at all.
+ *
+ * NaN RATHER THAN 0, which is what every caller used to fall back to
+ * (`Date.parse(x) || 0`). Zero is the epoch, and the epoch is a real instant
+ * earlier than any date anyone will type — so a company with no billing date
+ * passed "billing date before <anything>" and showed up in a list of rows it
+ * has no date to belong to. `matchesRange` already throws NaN out, and
+ * `sortRows` puts it last, which is where a blank cell belongs in both
+ * directions.
+ */
+export function dateKey(value: string | null | undefined): number {
+  return value ? Date.parse(value) : NaN;
+}
+
 /** M/D/YYYY, matching the "Billing Date" column since 1.0. Blank before checkout. */
 export function billingDate(company: BackendCompany): string | null {
   const end = company.billing?.currentPeriodEnd;

@@ -8,7 +8,7 @@ import {
 } from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { type ClientCompany, scoped } from "@/lib/manager";
-import { withTeammates } from "@/lib/portal";
+import { dateKey, withTeammates } from "@/lib/portal";
 import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
 import { parseFilters } from "@/lib/table-filter";
 
@@ -105,7 +105,7 @@ export default async function SpecialistCompaniesPage({
           // Blank until a subscription starts, same as 1.0.
           header: "Billing Date",
           filter: "date",
-          sortValue: (row) => Date.parse(row.billingDate ?? "") || 0,
+          sortValue: (row) => dateKey(row.billingDate),
           cell: (row) => (
             <span className="tabular-nums">{row.billingDate ?? ""}</span>
           ),

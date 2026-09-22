@@ -15,7 +15,7 @@ import {
   scopeName,
   type ClientCompany,
 } from "@/lib/manager";
-import { withTeammates } from "@/lib/portal";
+import { dateKey, withTeammates } from "@/lib/portal";
 import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Companies" };
@@ -103,7 +103,7 @@ export default async function ManagerCompaniesPage({
           // Blank until a subscription starts, same as 1.0.
           header: "Billing Date",
           filter: "date",
-          sortValue: (row) => Date.parse(row.billingDate ?? "") || 0,
+          sortValue: (row) => dateKey(row.billingDate),
           cell: (row) => (
             <span className="tabular-nums">{row.billingDate ?? ""}</span>
           ),

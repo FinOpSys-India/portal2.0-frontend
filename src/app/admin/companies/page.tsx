@@ -9,7 +9,7 @@ import {
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { Badge } from "@/components/ui/badge";
 import { listWindow, adminApi, type Company, type CompanyStatus } from "@/lib/admin";
-import { withTeammates } from "@/lib/portal";
+import { dateKey, withTeammates } from "@/lib/portal";
 import { AssignManager } from "./assign-manager";
 import { parseFilters } from "@/lib/table-filter";
 
@@ -103,7 +103,7 @@ export default async function CompaniesPage({
           header: "Billing Date",
           filter: "date",
           // M/D/YYYY on screen, which as text puts October before February.
-          sortValue: (row) => Date.parse(row.billingDate ?? "") || 0,
+          sortValue: (row) => dateKey(row.billingDate),
           cell: (row) =>
             row.billingDate ?? (
               <span className="text-muted-foreground">—</span>

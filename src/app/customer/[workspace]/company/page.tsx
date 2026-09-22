@@ -8,7 +8,7 @@ import {
 } from "@/components/admin/data-table";
 import { AvatarStack } from "@/components/admin/initials-avatar";
 import { customerApi, type CustomerCompany } from "@/lib/customer";
-import { withTeammates } from "@/lib/portal";
+import { dateKey, withTeammates } from "@/lib/portal";
 
 import { AddCompany } from "./add-company";
 import { parseFilters } from "@/lib/table-filter";
@@ -77,7 +77,7 @@ export default async function CompanyPage({
         {
           header: "Subscription Date",
           filter: "date",
-          sortValue: (row) => Date.parse(row.subscriptionDate ?? "") || 0,
+          sortValue: (row) => dateKey(row.subscriptionDate),
           cell: (row) =>
             row.subscriptionDate ?? (
               <span className="text-muted-foreground">—</span>

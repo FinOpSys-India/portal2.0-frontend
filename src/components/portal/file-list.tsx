@@ -6,7 +6,7 @@ import {
   FilePreview,
 } from "@/components/portal/file-preview";
 import { formatFileSize } from "@/lib/manager";
-import { documentPath } from "@/lib/portal";
+import { dateKey, documentPath } from "@/lib/portal";
 
 /** What the columns below read. Every portal's file rows satisfy it. */
 export interface FileRow {
@@ -92,7 +92,7 @@ export const fileColumns = (viewer: string): Column<FileRow>[] => [
   {
     header: "Upload Date",
     filter: "date",
-    sortValue: (row) => Date.parse(row.uploadedAt) || 0,
+    sortValue: (row) => dateKey(row.uploadedAt),
     cell: (row) => (
       <span className="text-muted-foreground tabular-nums">
         {row.uploadedAt}
