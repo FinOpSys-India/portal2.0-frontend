@@ -23,7 +23,7 @@ async function main() {
   // `NODE_ENV` readonly, which is right for app code and wrong for the one
   // place that has to stage the value the module under test reads.
   (process.env as Record<string, string>).NODE_ENV = "development";
-  const { collect, drain, record } = await import("./dev-calls");
+  const { collect, drain, record, reset } = await import("./dev-calls");
 
   /* ------------------------------------------------------------ dedupe --- */
 
@@ -102,6 +102,27 @@ async function main() {
   assert.equal(quiet.ECHO_ENABLED, false, "preview stays off without the flag");
 
   delete process.env.NEXT_PUBLIC_VERCEL_ENV;
+
+  /* ---------------------------------------- reset drops the last request --- */
+
+  /*
+   * The buffer is module-level and a warm server instance is shared by every
+   * request it handles. Without this, `/company_select` replayed the admin
+   * pages' paths in a customer's browser and collected four 403s and a 400 —
+   * a page reported as calling endpoints it has nothing to do with.
+   */
+  record("/admin/company-accounts");
+  record("/customers");
+  reset();
+  assert.deepEqual(
+    drain(),
+    [],
+    "a render must not inherit the previous request's paths",
+  );
+
+  // Still usable afterwards — reset clears, it does not disable.
+  record("/users/me");
+  assert.deepEqual(drain(), ["/users/me"]);
 
   /* ------------------------------------------------ collect hands over --- */
 

@@ -263,6 +263,18 @@ const MAX_INFLIGHT = 8;
 let inflight = 0;
 const waiting: Array<() => void> = [];
 
+/**
+ * How many requests are in flight right now.
+ *
+ * Read by `collect` in dev-calls.ts, which cannot otherwise tell a render that
+ * has finished fetching from one that is between waves. Exported rather than
+ * inferred because this counter is already the truth — it is what the
+ * concurrency cap above is built on.
+ */
+export function inflightCount(): number {
+  return inflight;
+}
+
 export async function withSlot<T>(run: () => Promise<T>): Promise<T> {
   if (inflight >= MAX_INFLIGHT) {
     await new Promise<void>((resolve) => waiting.push(resolve));

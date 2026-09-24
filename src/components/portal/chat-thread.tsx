@@ -6,6 +6,7 @@ import {
   Paperclip,
   SendHorizontal,
   Smile,
+  SmilePlus,
   Trash2,
 } from "lucide-react";
 
@@ -39,7 +40,13 @@ import {
   type ChatAttachment,
   type ChatMessage,
 } from "@/lib/manager";
-import { COMPOSER_EMOJI } from "@/lib/reactions";
+import {
+  clearLocal,
+  COMPOSER_EMOJI,
+  REACTIONS,
+  setLocal,
+  type MessageReaction,
+} from "@/lib/reactions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -312,6 +319,68 @@ export function ChatThread({
     }
   }
 
+  /**
+   * Move the viewer's reaction, or take it off — on a message, or on one file.
+   *
+   * TWO ENDPOINTS, ONE BUTTON. The API sets with `PUT` and removes with
+   * `DELETE`, so the click has to decide which it is: pressing the chip already
+   * held is the remove, anything else is a set. Sending the PUT for both would
+   * make the held chip un-pressable — re-setting the same reaction is a no-op
+   * under PUT, so it would never come off.
+   *
+   * ONE REACTION PER PERSON PER TARGET, and the target is the thing `file`
+   * picks out. A file and the message carrying it are separate targets: someone
+   * can hold 👍 on the message and ❤️ on the spreadsheet inside it, which is
+   * why the state below is read and written per target rather than per message.
+   *
+   * OPTIMISTIC, and it has to be: the chip moves on the click rather than on
+   * the round trip, because a reaction that waits reads as a dead button and
+   * gets pressed twice.
+   *
+   * The server's list replaces the guess when it sends one. When it does NOT —
+   * the endpoints may answer 204 — the optimistic state stands rather than
+   * being cleared, and the next thread read reconciles it. Somebody else's
+   * reaction landing mid-flight is the case the server's answer exists to
+   * settle, so it is preferred wherever it is given.
+   *
+   * Written straight into `setMessages` rather than through `merge`: this
+   * changes one field of a message already on screen, where `merge` replaces a
+   * whole row and would drop the attachments a live payload never carries.
+   */
+  async function react(
+    message: ChatMessage,
+    emoji: string,
+    file?: ChatAttachment,
+  ) {
+    const previous = file ? file.reactions : message.reactions;
+    const clearing = previous.some((r) => r.mine && r.emoji === emoji);
+
+    const patch = (reactions: MessageReaction[]) =>
+      setMessages((rows) =>
+        (rows ?? []).map((m) => {
+          if (m.id !== message.id) return m;
+          if (!file) return { ...m, reactions };
+          return {
+            ...m,
+            attachments: m.attachments.map((a) =>
+              a.id === file.id ? { ...a, reactions } : a,
+            ),
+          };
+        }),
+      );
+
+    patch(clearing ? clearLocal(previous) : setLocal(previous, emoji));
+    try {
+      const served = clearing
+        ? await chatApi.clearReaction(message.id, file?.id)
+        : await chatApi.setReaction(message.id, emoji, file?.id);
+      if (served) patch(served);
+    } catch (err) {
+      patch(previous);
+      setFailure(err instanceof Error ? err.message : "Could not react.");
+    }
+  }
+
   async function attach(file: File) {
     if (!sendFile || sending) return;
 
@@ -355,7 +424,7 @@ export function ChatThread({
               {isNewDay(message, messages[index - 1]) ? (
                 <DayDivider label={dayLabel(message.sentAt)} />
               ) : null}
-              <Bubble message={message} onDelete={remove} />
+              <Bubble message={message} onDelete={remove} onReact={react} />
             </React.Fragment>
           ))
         )}
@@ -460,9 +529,11 @@ function DayDivider({ label }: { label: string }) {
 function Bubble({
   message,
   onDelete,
+  onReact,
 }: {
   message: ChatMessage;
   onDelete: (message: ChatMessage) => void;
+  onReact: (message: ChatMessage, emoji: string, file?: ChatAttachment) => void;
 }) {
   const files = message.attachments;
 
@@ -508,6 +579,7 @@ function Bubble({
               key={file.id}
               file={file}
               mine={message.mine}
+              onReact={(emoji) => onReact(message, emoji, file)}
             />
           ))}
 
@@ -529,11 +601,20 @@ function Bubble({
             </span>
           </div>
         </div>
+
+        <ReactionChips
+          reactions={message.reactions}
+          onToggle={(emoji) => onReact(message, emoji)}
+          label="this message"
+        />
       </div>
 
-      {/* Beside the bubble and revealed on hover. `self-end` pins it to the
-          bubble's last line rather than floating beside it. */}
+      {/* Beside the bubble and revealed on hover, the way the delete already
+          was. `self-end` keeps both pinned to the bubble's last line rather
+          than floating beside a chip row that may not be there. */}
       <div className="flex items-center gap-0.5 self-end pb-0.5">
+        <ReactionPicker onPick={(emoji) => onReact(message, emoji)} />
+
         {/* Only your own. The server refuses anything else outright; this just
             declines to offer a control that would always fail. */}
         {message.mine ? (
@@ -560,6 +641,123 @@ function Bubble({
  */
 const ACTION_BUTTON =
   "rounded-md p-1 text-muted-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30";
+
+/**
+ * The chips under a message, or under one of its files.
+ *
+ * SHARED BY BOTH, because a reaction on a spreadsheet and a reaction on the
+ * sentence above it are the same control over two targets — a second copy of
+ * this markup would be where the two quietly drift apart.
+ *
+ * `onSurface` is the contrast switch, not a style preference. A message's chips
+ * hang UNDER the bubble on the page background, where card colours read
+ * correctly. A file's chips sit INSIDE the bubble, which for the viewer's own
+ * messages is `bg-primary` — card-on-primary there is invisible, so those are
+ * drawn from the bubble's own foreground instead.
+ *
+ * Renders nothing at all when there are no reactions: an empty flex row still
+ * takes its parent's `gap`, which would leave a stray line of space under every
+ * message in the thread.
+ */
+function ReactionChips({
+  reactions,
+  onToggle,
+  label,
+  onSurface = false,
+}: {
+  reactions: MessageReaction[];
+  onToggle: (emoji: string) => void;
+  /** What the chips are attached to, for the screen-reader name. */
+  label: string;
+  onSurface?: boolean;
+}) {
+  if (!reactions.length) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {reactions.map((reaction) => (
+        <button
+          key={reaction.emoji}
+          type="button"
+          onClick={() => onToggle(reaction.emoji)}
+          /* The name a screen reader reads is the emoji itself, which it
+             announces by its CLDR name ("thumbs up"), plus the count.
+             `aria-pressed` is what says the viewer is one of them — without it
+             the filled and hollow chips sound identical. */
+          aria-pressed={reaction.mine}
+          className={cn(
+            "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs leading-none tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
+            onSurface
+              ? reaction.mine
+                ? "border-current bg-current/15 text-current"
+                : "border-current/30 text-current/70 hover:bg-current/10"
+              : reaction.mine
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border bg-card text-muted-foreground hover:bg-muted",
+          )}
+        >
+          <span className="text-sm leading-none" aria-hidden>
+            {reaction.emoji}
+          </span>
+          <span className="sr-only">{`${reaction.emoji} on ${label},`}</span>
+          {reaction.count}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The six reactions, on one message.
+ *
+ * CONTROLLED, unlike the composer's picker, and the difference is what each is
+ * for: reacting is one decision and the popover should get out of the way once
+ * it is made, whereas someone decorating a sentence often wants three emoji and
+ * should not have to reopen the grid twice.
+ */
+function ReactionPicker({
+  onPick,
+  label = "this message",
+  className,
+}: {
+  onPick: (emoji: string) => void;
+  /** What is being reacted to, for the trigger's accessible name. */
+  label?: string;
+  /** Overrides the hover-revealed styling for a trigger that lives in a bubble. */
+  className?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`React to ${label}`}
+          className={className ?? ACTION_BUTTON}
+        >
+          <SmilePlus className="size-3.5" aria-hidden />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="center" className="w-auto flex-row gap-0.5 p-1">
+        {REACTIONS.map(({ emoji, label }) => (
+          <button
+            key={emoji}
+            type="button"
+            aria-label={label}
+            onClick={() => {
+              onPick(emoji);
+              setOpen(false);
+            }}
+            className="rounded-md p-1 text-lg leading-none transition-transform hover:scale-125 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+          >
+            <span aria-hidden>{emoji}</span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 /**
  * The composer's emoji grid.
@@ -624,9 +822,11 @@ function EmojiPicker({
 function AttachmentLink({
   file,
   mine,
+  onReact,
 }: {
   file: ChatAttachment;
   mine: boolean;
+  onReact: (emoji: string) => void;
 }) {
   /*
    * There is no URL to put in an `href` until one is asked for: the bytes are
@@ -690,7 +890,25 @@ function AttachmentLink({
             <Download className="size-4" aria-hidden />
           </button>
         </div>
+
+        {/* Hidden until the file is hovered or the trigger itself is focused.
+            `focus-within` is what keeps it reachable by keyboard — hover alone
+            would make the control exist only for a mouse. */}
+        <ReactionPicker
+          onPick={onReact}
+          label={file.name}
+          className="shrink-0 rounded-md p-1 opacity-0 transition-opacity group-hover/file:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 group-focus-within/file:opacity-100"
+        />
       </div>
+
+      {/* On the bubble's own surface, so the chips take their colour from it
+          rather than from the page — see `onSurface`. */}
+      <ReactionChips
+        reactions={file.reactions}
+        onToggle={onReact}
+        label={file.name}
+        onSurface
+      />
     </div>
   );
 }

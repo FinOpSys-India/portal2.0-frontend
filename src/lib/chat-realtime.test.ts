@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 
 import {
   keepTombstones,
+  sameProject,
   mergeTombstones,
   needsReload,
   pollWhileOffline,
@@ -263,3 +264,39 @@ void (async () => {
 
   console.log("chat realtime: all checks passed");
 })();
+
+/* ------------------------------------------------- project mismatch -- */
+
+/*
+ * The guard that decides whether a signed credential is used at all.
+ *
+ * The host comes from the BACKEND's ticket and the publishable key from this
+ * bundle. Crossed over, every symptom lies: the token mints 200, the socket
+ * opens, the server refuses it, and the client retries on a backoff forever
+ * because a refused credential is indistinguishable from a flaky network. That
+ * is a real deployment's failure, so the two are compared before connecting.
+ */
+assert.equal(
+  sameProject("https://abc.supabase.co", "https://abc.supabase.co"),
+  true,
+);
+
+/* A trailing slash and a path are not a different project. */
+assert.equal(
+  sameProject("https://abc.supabase.co/", "https://abc.supabase.co"),
+  true,
+);
+
+/* Different projects, which is the case that must return false. */
+assert.equal(
+  sameProject("https://qimfxjstlzreilusdfes.supabase.co", "https://aesxeqtrwmkeqkdwkzkz.supabase.co"),
+  false,
+  "two different Supabase projects must not be treated as one",
+);
+
+/* Unparseable compares as itself: an unusable value is a mismatch, which is
+   the safe answer — it turns the socket off rather than opening a doomed one. */
+assert.equal(sameProject("not a url", "https://abc.supabase.co"), false);
+assert.equal(sameProject("not a url", "not a url"), true);
+
+console.log("chat realtime: project guard ok");

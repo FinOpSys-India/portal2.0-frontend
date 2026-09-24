@@ -60,7 +60,13 @@ export default async function SpecialistProjectsPage({
       dir={dir}
       filters={parseFilters(f)}
       total={projects.length}
-      exportCsv={(filtered) => <ExportProjectsCsv filtered={filtered} />}
+      exportCsv={(filtered) => (
+        <ExportProjectsCsv
+          companyId={company}
+          companyName={scope}
+          filtered={filtered}
+        />
+      )}
       rows={projects}
       rowHref={(row) => scoped(`/specialist/projects/${row.id}`, company)}
       empty={

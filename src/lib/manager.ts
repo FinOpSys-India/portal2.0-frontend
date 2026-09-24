@@ -933,6 +933,25 @@ export const managerApi = {
    * no company directly, so "on this company" means "assigned to a service line
    * of theirs".
    */
+  /**
+   * The specialist list a PICKER needs: who they are, and nothing about load.
+   *
+   * `specialists()` below pairs the directory with the project book to count
+   * each person's active projects, which doubles the fan-out — both are one
+   * request per company. A dropdown renders a name and a speciality and throws
+   * the count away, so it pays for the directory alone.
+   */
+  async specialistOptions(
+    companyId?: string,
+  ): Promise<{ name: string; email: string; speciality: string }[]> {
+    const rows = await directory("specialists", companyId);
+    return rows.map((row) => ({
+      name: fullName(row),
+      email: row.email,
+      speciality: row.serviceSpeciality ?? "",
+    }));
+  },
+
   async specialists(companyId?: string): Promise<Specialist[]> {
     const [rows, projects] = await Promise.all([
       directory("specialists", companyId),

@@ -6,6 +6,7 @@ import { SpecialistShell } from "@/components/specialist/specialist-shell";
 import { NotificationBell } from "@/components/portal/portal-chrome";
 import { unreadThreads } from "@/lib/chat";
 import { dayLabel } from "@/lib/manager";
+import { myProfile } from "@/lib/portal";
 import { specialistApi } from "@/lib/specialist";
 
 export const metadata: Metadata = {
@@ -23,11 +24,12 @@ export const metadata: Metadata = {
  * until the reader happened to switch the header to it. Every company is swept
  * here, and each row is tagged with which one it came from.
  */
-async function UnreadBell() {
-  const companies = await specialistApi.companies().catch(() => []);
-  const threads = await unreadThreads(
-    companies.map(({ id, name }) => ({ id, name })),
-  ).catch(() => []);
+async function UnreadBell({
+  companies,
+}: {
+  companies: { id: string; name: string }[];
+}) {
+  const threads = await unreadThreads(companies).catch(() => []);
 
   return (
     <NotificationBell
@@ -50,22 +52,34 @@ export default async function SpecialistLayout({
 }: {
   children: React.ReactNode;
 }) {
+  /*
+   * `myProfile`, NOT `specialistApi.profile()`. That boundary pairs /users/me
+   * with an UNSCOPED project sweep — one request per company — to count the
+   * specialist's active projects, and the frame draws a name, an email and a
+   * picture. The count belongs to /specialist/profile, which is the page that
+   * shows it; paying for it on all eleven specialist pages bought nothing.
+   */
   const [profile, companies] = await Promise.all([
-    specialistApi.profile(),
+    myProfile(),
     specialistApi.companies(),
   ]);
 
+  // The bell's list is built from these same rows rather than fetching them
+  // again: it used to call `companies()` itself, which the data cache absorbed
+  // on a warm read and re-issued on the first render after any write.
+  const forBell = companies.map(({ id, name }) => ({ id, name }));
+
   return (
     <SpecialistShell
-      user={{ name: profile.name, email: profile.email, avatarUrl: profile.avatarUrl }}
-      companies={companies.map(({ id, name }) => ({ id, name }))}
+      user={{ name: profile.fullName, email: profile.email, avatarUrl: profile.avatarUrl }}
+      companies={forBell}
       /*
        * Behind a boundary for the same reason the manager's is: this is one
        * request per company for a dropdown, and the nav must not wait on it.
        */
       notifications={
         <Suspense fallback={<NotificationBell />}>
-          <UnreadBell />
+          <UnreadBell companies={forBell} />
         </Suspense>
       }
     >

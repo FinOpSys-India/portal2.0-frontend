@@ -69,6 +69,23 @@ export function PageLink({
     <Link
       href={href}
       aria-label={label}
+      /*
+       * NOT PREFETCHED, and that is the point of it being a link at all.
+       *
+       * This is the SAME page with a different query string, not a destination.
+       * Next prefetches every Link in the viewport, and a prefetch runs the
+       * target's whole server render — so a table with seven sortable headers
+       * re-rendered the page seven times over for orders nobody had asked for.
+       * Measured on the customer project detail, which has two tables: fourteen
+       * prefetch renders for one page view.
+       *
+       * The data cache hides the cost today, because every variant reads the
+       * same URLs. On a cold cache it is fourteen times the page's reads.
+       *
+       * What is lost is a head start on the first sort click, which is one
+       * render of a page the reader is already looking at.
+       */
+      prefetch={false}
       // The rows redraw in place; jumping to the top of the document would
       // lose the reader's position in a long list.
       scroll={false}
