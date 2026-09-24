@@ -36,10 +36,28 @@ export async function POST(request: NextRequest) {
    * already puts this out of reach of a cross-origin form post and into
    * preflight, which has no CORS headers to pass — this is the explicit second
    * lock, because the cost of it is one comparison.
+   *
+   * COMPARED AGAINST THE HOST HEADER, NOT `request.nextUrl.origin`. Behind a
+   * reverse proxy those are different things: `next start` builds the URL every
+   * NextRequest derives from out of the hostname and port it LISTENS on, so
+   * nextUrl.origin reads `http://localhost:5051` while the browser sends the
+   * public address. Every login then 403s. Only the scheme survives the hop
+   * (via x-forwarded-proto); the host has to be read from the forwarded header.
+   * This is what Next itself compares for the same CSRF check on Server
+   * Actions — see `x-forwarded-host` in its action handler.
+   *
+   * Host and port only, no scheme: the proxy terminates TLS, so the origin is
+   * https while everything this side sees is http.
    */
   const origin = request.headers.get("origin");
-  if (origin && origin !== request.nextUrl.origin) {
-    return new NextResponse(null, { status: 403 });
+  if (origin) {
+    const host =
+      request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+    // No host at all is refused rather than waved through: without it there is
+    // nothing to compare the Origin to, so the lock is not shut, it is absent.
+    if (!host || parseHost(origin) !== host) {
+      return new NextResponse(null, { status: 403 });
+    }
   }
 
   const body = await request.json().catch(() => null);
@@ -80,4 +98,13 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-forwarded-proto") === "https",
   });
   return response;
+}
+
+/** The `host:port` of an Origin header, or null if it is not a URL at all. */
+function parseHost(origin: string) {
+  try {
+    return new URL(origin).host;
+  } catch {
+    return null;
+  }
 }
