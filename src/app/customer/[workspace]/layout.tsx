@@ -1,44 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
 
 import { CustomerShell } from "@/components/customer/customer-shell";
-import { NotificationBell } from "@/components/portal/portal-chrome";
+import { LiveBell } from "@/components/portal/live-bell";
 import { api } from "@/lib/api";
-import { unreadThreads } from "@/lib/chat";
-import { dayLabel } from "@/lib/manager";
-import { customerApi, type Workspace } from "@/lib/customer";
+import { customerApi } from "@/lib/customer";
 
 export const metadata: Metadata = {
   title: { default: "FinOpSys", template: "%s – FinOpSys" },
 };
-
-/**
- * Every workspace, not just the open one.
- *
- * The bell was wired to `GET /chat/unread-count` for the CURRENT workspace, so a
- * customer who owns two companies had no way to learn their other manager had
- * written until they switched to it. Each row carries its company, and clicking
- * one crosses into that workspace's chat.
- */
-async function UnreadBell({ workspaces }: { workspaces: Workspace[] }) {
-  const threads = await unreadThreads(workspaces).catch(() => []);
-
-  return (
-    <NotificationBell
-      items={threads.map((t) => ({
-        id: t.conversationId,
-        // The workspace IS the company id, and it rides in the path here.
-        href: `/customer/${encodeURIComponent(t.companyId)}/connect/chat`,
-        company: t.company,
-        contact: t.contact,
-        preview: t.preview,
-        unread: t.unread,
-        when: t.at ? dayLabel(t.at) : "",
-      }))}
-    />
-  );
-}
 
 export default async function CustomerLayout({
   params,
@@ -71,11 +41,9 @@ export default async function CustomerLayout({
       workspaces={workspaces}
       user={{ name: profile.fullName, email: profile.email, avatarUrl: profile.avatarUrl }}
       owner={owned.some((c) => String(c.companyId) === id)}
-      notifications={
-        <Suspense fallback={<NotificationBell />}>
-          <UnreadBell workspaces={workspaces} />
-        </Suspense>
-      }
+      // A client component, so it mounts once and survives every navigation
+      // under this layout instead of sweeping again on each one. See LiveBell.
+      notifications={<LiveBell companies={workspaces} hrefFor="customer" />}
     >
       {children}
     </CustomerShell>
