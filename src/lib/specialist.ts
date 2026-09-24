@@ -9,6 +9,7 @@ import {
   listDocuments,
   managerApi,
   openConversation,
+  openThread,
   sendChatAttachment,
   sendEmailAs,
   uploadCompanyDocument,
@@ -27,7 +28,6 @@ import {
 import { get, getOrNull, patch } from "@/lib/http";
 import { fullName } from "@/lib/directory";
 import {
-  personAvatarUrl,
   personName,
   taskStatusCode,
   teammatePeople,
@@ -298,13 +298,7 @@ export const specialistApi = {
     const [id] = await scopeIds(companyId);
     if (!id) return { id: null, contact: "", contactAvatarUrl: null, unread: 0 };
 
-    const conversation = await openConversation(id);
-    return {
-      id: String(conversation.id),
-      contact: personName(conversation.counterpart),
-      contactAvatarUrl: personAvatarUrl(conversation.counterpart),
-      unread: conversation.unreadCount ?? 0,
-    };
+    return openThread(id);
   },
 
   async messages(companyId?: string): Promise<ChatMessage[]> {

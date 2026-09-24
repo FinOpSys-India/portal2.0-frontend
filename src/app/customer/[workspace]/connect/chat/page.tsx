@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { NoManagerYet } from "@/components/portal/no-manager-yet";
 import { customerApi } from "@/lib/customer";
 
 import { ManagerChat } from "./manager-chat";
@@ -13,6 +14,11 @@ export default async function CustomerChatPage({
 }) {
   const { workspace } = await params;
   const thread = await customerApi.thread(workspace);
+
+  // No thread until the company is staffed — see `openThread`.
+  if (!thread.id) {
+    return <NoManagerYet backHref={`/customer/${workspace}/connect`} />;
+  }
 
   return (
     <ManagerChat

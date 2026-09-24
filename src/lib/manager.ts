@@ -11,6 +11,7 @@ import { cache } from "react";
 
 import type { CompanyPlan, CustomerRole } from "@/lib/admin";
 import {
+  ApiError,
   describeFile,
   get,
   getOrNull,
@@ -27,6 +28,7 @@ import { fullName } from "@/lib/directory";
 import type { MessageReaction } from "@/lib/reactions";
 import {
   myProfile,
+  personAvatarUrl,
   personName,
   taskStatusCode,
   teammatePeople,
@@ -1440,6 +1442,32 @@ export async function openConversation(
     // omits it and the server resolves the company's manager for them.
     ...(participantUserId ? { participantUserId } : {}),
   });
+}
+
+/**
+ * The company's one thread, or an empty one when it has no manager yet.
+ *
+ * A company waiting to be staffed answers 409 NO_ACCOUNTING_MANAGER here, and
+ * an uncaught throw in a server component is the whole page: the customer and
+ * specialist chat screens both rendered "Something Went Wrong" instead of
+ * saying who they are waiting for. A null id is the shape those panes already
+ * carry for "no thread to post against", so it is the one this returns.
+ */
+export async function openThread(companyId: string): Promise<ManagerThread> {
+  try {
+    const conversation = await openConversation(companyId);
+    return {
+      id: String(conversation.id),
+      contact: personName(conversation.counterpart),
+      contactAvatarUrl: personAvatarUrl(conversation.counterpart),
+      unread: conversation.unreadCount ?? 0,
+    };
+  } catch (err) {
+    if (err instanceof ApiError && err.code === "NO_ACCOUNTING_MANAGER") {
+      return { id: null, contact: "", contactAvatarUrl: null, unread: 0 };
+    }
+    throw err;
+  }
 }
 
 /**

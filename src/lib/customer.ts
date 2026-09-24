@@ -15,6 +15,7 @@ import {
   createProjectOn,
   managerApi,
   openConversation,
+  openThread,
   sendChatAttachment,
   sendEmailAs,
   serviceOptions,
@@ -406,14 +407,8 @@ export const customerApi = {
     };
   },
 
-  async thread(workspaceId: string): Promise<ManagerThread> {
-    const conversation = await openConversation(workspaceId);
-    return {
-      id: String(conversation.id),
-      contact: personName(conversation.counterpart),
-      contactAvatarUrl: personAvatarUrl(conversation.counterpart),
-      unread: conversation.unreadCount ?? 0,
-    };
+  thread(workspaceId: string): Promise<ManagerThread> {
+    return openThread(workspaceId);
   },
 
   async messages(workspaceId: string): Promise<ChatMessage[]> {

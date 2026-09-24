@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { NoManagerYet } from "@/components/portal/no-manager-yet";
 import { companyScope, specialistApi } from "@/lib/specialist";
 
 import { ManagerChat } from "./manager-chat";
@@ -19,6 +20,9 @@ export default async function SpecialistChatPage({
 }) {
   const company = await companyScope((await searchParams).company);
   const thread = await specialistApi.thread(company);
+
+  // No company scoped, or none staffed yet — either way there is no thread.
+  if (!thread.id) return <NoManagerYet backHref="/specialist/connect" />;
 
   return (
     <ManagerChat
