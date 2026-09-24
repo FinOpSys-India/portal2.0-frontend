@@ -72,13 +72,7 @@ export default async function ManagerProjectsPage({
       dir={dir}
       filters={parseFilters(f)}
       total={projects.length}
-      exportCsv={(filtered) => (
-        <ExportProjectsCsv
-          companyId={company}
-          companyName={scope}
-          filtered={filtered}
-        />
-      )}
+      exportCsv={(filtered) => <ExportProjectsCsv filtered={filtered} />}
       action={
         <>
           {/* Add New Task here rather than only on a project page or a

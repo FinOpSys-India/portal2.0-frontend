@@ -10,8 +10,8 @@ import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { FilePreview } from "@/components/portal/file-preview";
 import { StatusBadge } from "@/components/portal/status-badge";
-import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { ExportProjectCsv } from "@/components/portal/export-csv";
+import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { customerApi, type CustomerFile } from "@/lib/customer";
@@ -64,7 +64,7 @@ export default async function CustomerProjectPage({
         action={
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={project.status} />
-            <ExportProjectCsv projectId={project.id} projectName={project.name} />
+            <ExportProjectCsv projectName={project.name} tasks={tasks} />
           </div>
         }
       />

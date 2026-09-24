@@ -52,33 +52,21 @@ export interface BackendReaction {
 }
 
 /**
- * The six offered on a bubble.
+ * The six the API stores, by wire name.
  *
- * THE WIRE VALUE IS `name`, NOT THE EMOJI. `PUT /chat/messages/:id/reaction`
- * takes `{ "reaction": "love" }` — a server-side enum — so the character is a
- * rendering detail this file owns and never leaves the client. An earlier
- * version of this comment argued the opposite, on the reasoning that storing
- * the character keeps the column readable and needs no migration for a seventh
- * reaction; the API settled it the other way, and a seventh now costs a backend
- * change as well as a row here.
- *
- * `label` is the button's accessible name: a screen reader reading the raw
- * character announces the CLDR name ("face with tears of joy"), which says what
- * the picture is rather than what pressing it means.
+ * PRIVATE, and read-only now: the reaction WRITES are gone (`PUT`/`DELETE
+ * /chat/messages/:id/reaction` exist on no backend), so nothing picks from this
+ * list any more. It stays because the message read still carries reactions and
+ * they arrive as names, which `reactionEmoji` resolves.
  */
-export const REACTIONS: { emoji: string; name: string; label: string }[] = [
-  { emoji: "👍", name: "like", label: "Like" },
-  { emoji: "😂", name: "laugh", label: "Laugh" },
-  { emoji: "😢", name: "sad", label: "Sad" },
-  { emoji: "😮", name: "wow", label: "Wow" },
-  { emoji: "❤️", name: "love", label: "Love" },
-  { emoji: "🙏", name: "thanks", label: "Thanks" },
+const REACTIONS: { emoji: string; name: string }[] = [
+  { emoji: "👍", name: "like" },
+  { emoji: "😂", name: "laugh" },
+  { emoji: "😢", name: "sad" },
+  { emoji: "😮", name: "wow" },
+  { emoji: "❤️", name: "love" },
+  { emoji: "🙏", name: "thanks" },
 ];
-
-/** The wire name for a chip's emoji, or null when it is not one of the six. */
-export function reactionName(emoji: string): string | null {
-  return REACTIONS.find((r) => r.emoji === emoji)?.name ?? null;
-}
 
 /**
  * The character for a wire name, falling back to the name itself.
@@ -157,60 +145,3 @@ export const COMPOSER_EMOJI: string[] = [
   // Signals and status.
   "❌", "⚠️", "❗", "❓", "🔴", "🟢", "🟡", "🔵", "🚩", "🔒", "🔔", "➡️",
 ];
-
-/**
- * Drop whatever the viewer is holding, wherever it is.
- *
- * ONE REACTION PER PERSON PER TARGET, which is the API's model rather than this
- * client's preference: `PUT .../reaction` SETS the viewer's reaction and
- * `DELETE .../reaction` takes a target and no emoji, which is only a complete
- * instruction if there is at most one to remove. So "clear mine" needs no
- * argument — it finds the row by `mine`, not by character.
- *
- * REMOVING THE LAST HOLDER DELETES THE ENTRY rather than leaving a count of
- * zero, which is the only case here that is not arithmetic — a chip reading "0"
- * is the bug this function exists to not have.
- *
- * Nothing here mutates its input: the caller keeps the old array to put back
- * when the request fails.
- */
-export function clearLocal(reactions: MessageReaction[]): MessageReaction[] {
-  return reactions.flatMap((r) => {
-    if (!r.mine) return [r];
-    if (r.count <= 1) return [];
-    return [{ ...r, count: r.count - 1, mine: false }];
-  });
-}
-
-/**
- * Move the viewer's reaction to `emoji`, as the server will report it.
- *
- * Optimistic: the chip has to move on the click, not on the round trip, because
- * a reaction that waits for a network answer reads as a dead button and gets
- * pressed again.
- *
- * A SET, NOT AN ADD. Clicking ❤️ while holding 👍 leaves the viewer on ❤️ alone
- * — the 👍 chip loses a count and, if nobody else held it, disappears. That is
- * `PUT` semantics, and computing it any other way here would paint two owned
- * chips that the server's answer then contradicts a moment later.
- *
- * Clicking the one already held is NOT this function — the caller sends the
- * DELETE and uses `clearLocal`. Routing it here instead would re-set the same
- * reaction, which under PUT is a no-op, so the chip would never come off.
- */
-export function setLocal(
-  reactions: MessageReaction[],
-  emoji: string,
-): MessageReaction[] {
-  const freed = clearLocal(reactions);
-  const existing = freed.find((r) => r.emoji === emoji);
-
-  // Appended, not sorted in: the server returns them in the order they were
-  // first used, and re-ordering on every click would move the chips out from
-  // under the cursor.
-  if (!existing) return [...freed, { emoji, count: 1, mine: true }];
-
-  return freed.map((r) =>
-    r.emoji === emoji ? { ...r, count: r.count + 1, mine: true } : r,
-  );
-}

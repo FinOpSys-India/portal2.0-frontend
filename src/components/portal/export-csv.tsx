@@ -1,24 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, Download } from "lucide-react";
+import { Download } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
-import {
-  companyProjectsExportPath,
-  projectExportFilename,
-  projectExportPath,
-  projectsExportFilename,
-} from "@/lib/export";
-import { downloadFile, saveCsv } from "@/lib/http";
+import { type Column, toCsv } from "@/components/admin/data-table";
+import { saveCsv } from "@/lib/http";
+import type { ProjectTask } from "@/lib/manager";
 
 /** The narrowed rows, serialized by the table that knows what `?f=` removed. */
 export type FilteredCsv = { csv: string; filename: string; count: number };
@@ -26,41 +16,25 @@ export type FilteredCsv = { csv: string; filename: string; count: number };
 /**
  * The CSV export control.
  *
- * ONE BUTTON OR TWO CHOICES, decided by whether the list is narrowed. With no
- * filters applied there is only one thing "export" can mean, and a menu holding
- * a single item is a click in the way. Once a filter is on, the two meanings
- * genuinely differ and the reader has to pick.
+ * BUILT IN THE BROWSER, from the rows on screen. There is no server-side export
+ * endpoint — `GET /projects/export` and `GET /projects/:id/export` were called
+ * here and exist on no backend — so the only file this can produce is the one
+ * made from what the table was handed. `?f=` is applied by the table over those
+ * rows, so the download honours the filters by construction.
  *
- * THE TWO COME FROM DIFFERENT PLACES, and that is not an implementation detail
- * the labels can hide:
- *
- *   `all`      re-queries the backend, which holds rows this page never loaded
- *              and is the authority on what the account contains.
- *   `filtered` is built from the rows ON SCREEN, because that is the only thing
- *              that can honour the filters. `?f=` is applied by the table over
- *              the rows it was handed — the export endpoint has never heard of
- *              it, so "give me the filtered ones" is not a request that can be
- *              made of the server.
- *
- * So a filtered export carries the columns as shown, and an unfiltered one
- * carries whatever the backend puts in its file. The menu names each by what it
- * contains rather than calling both "Export", because they are not the same
- * file with fewer rows.
+ * Renders nothing when there is nothing on screen: a button that cannot produce
+ * a file is worse than no button.
  */
-function ExportMenu({
-  all,
-  filtered,
-}: {
-  all?: { path: string; filename: string };
-  filtered?: FilteredCsv;
-}) {
+export function ExportProjectsCsv({ filtered }: { filtered?: FilteredCsv }) {
   const [pending, setPending] = React.useState(false);
 
-  async function run(action: () => void | Promise<void>) {
-    if (pending) return;
+  if (!filtered) return null;
+
+  async function run() {
+    if (pending || !filtered) return;
     setPending(true);
     try {
-      await action();
+      saveCsv(filtered.csv, filtered.filename);
       // Said explicitly because the browser's own signal is easy to miss: the
       // download lands in a shelf or a corner of the toolbar, and on a file
       // that saves instantly there is otherwise no sign the click did anything.
@@ -72,107 +46,60 @@ function ExportMenu({
     }
   }
 
-  const icon = pending ? <Spinner className="size-4" /> : <Download aria-hidden />;
-
-  // Nothing to offer — a list with no backend export and nothing on screen.
-  // A button that cannot produce a file is worse than no button.
-  if (!all && !filtered) return null;
-
-  if (!all || !filtered) {
-    const single = filtered;
-    return (
-      <Button
-        type="button"
-        variant="outline"
-        disabled={pending}
-        onClick={() =>
-          run(() =>
-            single ? saveCsv(single.csv, single.filename) : downloadFile(all!.path, all!.filename),
-          )
-        }
-      >
-        {icon}
-        Export CSV
-      </Button>
-    );
-  }
-
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" disabled={pending}>
-          {icon}
-          Export CSV
-          <ChevronDown aria-hidden />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {/* Filtered FIRST, and named with its count. It is what the reader is
-            looking at, so it is the one they almost always mean, and the count
-            is what makes the two tellable apart at a glance. */}
-        <DropdownMenuItem
-          onSelect={() => run(() => saveCsv(filtered.csv, filtered.filename))}
-        >
-          {`These ${filtered.count} ${filtered.count === 1 ? "row" : "rows"}`}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => run(() => downloadFile(all.path, all.filename))}
-        >
-          Everything, ignoring filters
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button type="button" variant="outline" disabled={pending} onClick={run}>
+      {pending ? <Spinner className="size-4" /> : <Download aria-hidden />}
+      Export CSV
+    </Button>
   );
 }
 
 /**
- * Every project on one company.
+ * The four columns the task table shows, for the file it exports.
  *
- * This wrapper exists because of the boundary: every projects page is a SERVER
- * component, and a function is not serializable across it — so the id crosses
- * and the call is built on this side.
+ * SAME COLUMNS, SAME ORDER as `ProjectTaskTable` — the export is meant to be
+ * the screen in a spreadsheet, and a file whose columns do not match the table
+ * above it reads as a different report.
  *
- * With no company there is no backend export to offer: the manager's list opens
- * unscoped until one is picked, and the endpoint requires `companyId`. The
- * filtered export still works, because it needs nothing but the rows.
+ * `toCsv` rather than joining strings here: it is what runs every cell through
+ * `csvField`, which defuses the leading `=`/`+`/`-`/`@` that Excel would
+ * otherwise execute as a formula. Task names come from customers and this file
+ * is opened by staff, so that is the path that matters.
  */
-export function ExportProjectsCsv({
-  companyId,
-  companyName,
-  filtered,
-}: {
-  companyId?: string;
-  companyName?: string;
-  filtered?: FilteredCsv;
-}) {
-  return (
-    <ExportMenu
-      all={
-        companyId
-          ? {
-              path: companyProjectsExportPath(companyId),
-              filename: projectsExportFilename(companyName),
-            }
-          : undefined
-      }
-      filtered={filtered}
-    />
-  );
-}
+const TASK_COLUMNS: Column<ProjectTask>[] = [
+  { header: "Name", cell: (task) => task.name },
+  { header: "Description", cell: (task) => task.description },
+  { header: "Status", cell: (task) => task.status },
+  { header: "Deadline", cell: (task) => task.deadline },
+];
 
-/** One project and its tasks. No filters — a detail page is a single record. */
+/**
+ * One project's tasks, as a CSV.
+ *
+ * BUILT FROM THE ROWS THE PAGE ALREADY HAS. There is no `GET /projects/:id/
+ * export` on any backend — this used to call one and download whatever came
+ * back. The page has already fetched the tasks to draw the table, so the file
+ * costs no request at all, and it says exactly what the reader is looking at.
+ *
+ * No button on a project with no tasks: the file would be a header row.
+ */
 export function ExportProjectCsv({
-  projectId,
   projectName,
+  tasks,
 }: {
-  projectId: string;
-  projectName?: string;
+  projectName: string;
+  tasks: ProjectTask[];
 }) {
+  if (!tasks.length) return null;
+
+  const base = projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
   return (
-    <ExportMenu
-      all={{
-        path: projectExportPath(projectId),
-        filename: projectExportFilename(projectId, projectName),
+    <ExportProjectsCsv
+      filtered={{
+        csv: toCsv(TASK_COLUMNS, tasks),
+        filename: `${base || "project"}-tasks.csv`,
+        count: tasks.length,
       }}
     />
   );
