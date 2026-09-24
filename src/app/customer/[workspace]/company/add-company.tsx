@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
 import { api } from "@/lib/api";
-import { companyInput } from "@/lib/company";
+import { applyCompanyFieldErrors, companyInput } from "@/lib/company";
 import { companySchema, type CompanyValues } from "@/lib/schemas";
 
 /**
@@ -85,9 +85,13 @@ export function AddCompany({ accountEmail }: { accountEmail: string }) {
         `/on_boarding_form_part_2?email=${encodeURIComponent(accountEmail)}&compID=${encodeURIComponent(company.id)}`,
       );
     } catch (err) {
-      setFailure(
-        err instanceof Error ? err.message : "Could not save your company.",
-      );
+      // Anything the server named a field for lands on that field; what is
+      // left — a rejection about something this form does not render — is
+      // appended to the alert rather than dropped.
+      const stray = applyCompanyFieldErrors(err, form.setError);
+      const message =
+        err instanceof Error ? err.message : "Could not save your company.";
+      setFailure(stray.length ? `${message} (${stray.join("; ")})` : message);
     }
   }
 

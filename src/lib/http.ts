@@ -41,6 +41,15 @@ export class ApiError extends Error {
     message: string,
     readonly status: number,
     readonly code?: string,
+    /**
+     * Per-field messages, keyed by the BACKEND's field name — `{ companyPhone:
+     * 'Required.' }`. Every validator that rejects a body populates this, and
+     * it used to be dropped here: a form then had only the summary line to
+     * show, which is how "Required fields are missing." ends up under a form
+     * whose every box looks filled in. A form that maps the names onto its own
+     * can put the message on the offending field instead.
+     */
+    readonly fields?: Record<string, string>,
   ) {
     super(message);
     this.name = "ApiError";
@@ -101,8 +110,11 @@ async function authHeaders(): Promise<Record<string, string>> {
  */
 async function unwrap<T>(res: Response): Promise<T> {
   const raw = await res.text();
-  let body: { data?: unknown; message?: string; error?: { code?: string; message?: string } } | null =
-    null;
+  let body: {
+    data?: unknown;
+    message?: string;
+    error?: { code?: string; message?: string; fields?: Record<string, string> };
+  } | null = null;
   try {
     body = raw ? JSON.parse(raw) : null;
   } catch {
@@ -131,6 +143,7 @@ async function unwrap<T>(res: Response): Promise<T> {
       res.status >= 500 && error?.code ? `${message} (${error.code})` : message,
       res.status,
       error?.code,
+      error?.fields,
     );
   }
 

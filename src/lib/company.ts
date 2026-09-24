@@ -17,6 +17,7 @@
 
 import type { CompanyInput, CompanyRecord } from "@/lib/api";
 import { countryCode } from "@/lib/countries";
+import { ApiError } from "@/lib/http";
 import type { CompanyValues } from "@/lib/schemas";
 
 /**
@@ -158,4 +159,63 @@ export function companyValues(company: CompanyRecord): CompanyValues {
       company.employeeCount === null ? "" : String(company.employeeCount),
     revenue: revenueBand(company.lastYearRevenue),
   };
+}
+
+/**
+ * Which box on the form holds the field the backend is complaining about.
+ *
+ * The two vocabularies do not line up — the form has one `zip` where the API
+ * has `postalCode`, and the API's address is a nested object whose parts come
+ * back as flat keys — so a rejection cannot be routed without this. Keys are
+ * every name `companyInput` can produce, plus the flat address names
+ * `validateAddress` reports.
+ *
+ * `countryCode` is derived from the country the user picked, so it points at
+ * the picker rather than at a box that does not exist. `revenueCurrency` is
+ * deliberately absent: it is hard-coded to USD, so nothing on the form can fix
+ * it and pinning it to a field would send the user to correct something they
+ * did not choose — it stays on the form-level alert instead.
+ */
+const COMPANY_FIELD_OF: Record<string, keyof CompanyValues> = {
+  companyName: "name",
+  companyType: "type",
+  companyEmail: "email",
+  companyPhone: "phone",
+  employeeCount: "employees",
+  lastYearRevenue: "revenue",
+  address: "addressLine1",
+  addressLine1: "addressLine1",
+  city: "city",
+  state: "state",
+  postalCode: "zip",
+  country: "country",
+  countryCode: "country",
+};
+
+/**
+ * Put a rejected request back on the fields it is about.
+ *
+ * Without this the backend's per-field messages are thrown away and the user
+ * reads the summary line alone — "Required fields are missing." under a form
+ * whose every box looks filled, naming none of them. The client schema catches
+ * the blanks it can see; what reaches here is what only the server knows (a
+ * postal code that is wrong for its country, a duplicate email), and it knows
+ * which field it means.
+ *
+ * Returns the messages it could NOT place, so the caller can still say
+ * something about a field this form does not render.
+ */
+export function applyCompanyFieldErrors(
+  err: unknown,
+  setError: (field: keyof CompanyValues, error: { message: string }) => void,
+): string[] {
+  if (!(err instanceof ApiError) || !err.fields) return [];
+
+  const unplaced: string[] = [];
+  for (const [name, message] of Object.entries(err.fields)) {
+    const field = COMPANY_FIELD_OF[name];
+    if (field) setError(field, { message });
+    else unplaced.push(`${name}: ${message}`);
+  }
+  return unplaced;
 }

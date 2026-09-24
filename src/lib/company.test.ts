@@ -10,7 +10,9 @@
 import assert from "node:assert/strict";
 
 import type { CompanyRecord } from "./api";
+import { ApiError } from "./http";
 import {
+  applyCompanyFieldErrors,
   COMPANY_TYPE_OPTIONS,
   companyInput,
   companyTypeLabel,
@@ -98,3 +100,75 @@ assert.equal(addressless.addressLine1, "");
 assert.equal(addressless.country, "");
 
 console.log("company: all checks passed");
+
+/* --------------------------------------------------- server field errors -- */
+
+/**
+ * A 400 that names fields must land on the boxes that hold them. The names do
+ * not match — `postalCode` is `zip` here, and the address arrives flat — so a
+ * mapping that drifts silently goes back to showing the summary line alone.
+ */
+{
+  const placed: Array<[string, string]> = [];
+  const stray = applyCompanyFieldErrors(
+    new ApiError("Required fields are missing.", 400, "VALIDATION_ERROR", {
+      companyPhone: "Required.",
+      postalCode: "Enter a valid postal code for the selected country.",
+      countryCode: "Use a valid 2-letter country code, e.g. US.",
+      revenueCurrency: "Use a 3-letter code, e.g. USD.",
+    }),
+    (field, error) => placed.push([field, error.message]),
+  );
+
+  assert.deepEqual(
+    placed.map(([field]) => field).sort(),
+    ["country", "phone", "zip"],
+    "each named field must land on its form box",
+  );
+  assert.equal(placed.find(([f]) => f === "phone")?.[1], "Required.");
+  // Nothing on the form sets the currency, so it stays on the alert.
+  assert.equal(stray.length, 1, "unmappable fields are handed back");
+  assert.match(stray[0], /^revenueCurrency: /);
+}
+
+// Every name companyInput can produce must be mappable, or a rejection about
+// it has nowhere to go.
+{
+  const body = companyInput({
+    name: "Nissan",
+    type: "Sole Proprietor",
+    addressLine1: "Noida",
+    city: "Noida",
+    state: "Uttar Pradesh",
+    zip: "201304",
+    country: "India",
+    email: "sg@gmail.com",
+    phone: "+918887502268",
+    employees: "10",
+    revenue: "$500K – $2M",
+  });
+
+  const placed: string[] = [];
+  applyCompanyFieldErrors(
+    new ApiError("Required fields are missing.", 400, "VALIDATION_ERROR", {
+      ...Object.fromEntries(
+        Object.keys(body)
+          .filter((k) => k !== "address" && k !== "revenueCurrency")
+          .map((k) => [k, "Required."]),
+      ),
+      ...Object.fromEntries(
+        Object.keys(body.address).map((k) => [k, "Required."]),
+      ),
+    }),
+    (field) => placed.push(field),
+  );
+  assert.equal(placed.length, 12, "every posted field must map to a box");
+}
+
+// A failure that is not a field rejection must not be mistaken for one.
+assert.deepEqual(
+  applyCompanyFieldErrors(new Error("Network down"), () => {
+    throw new Error("must not set a field error");
+  }),
+  [],
+);
