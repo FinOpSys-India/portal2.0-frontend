@@ -4,9 +4,9 @@ import { notFound, redirect } from "next/navigation";
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AddTask } from "@/components/portal/add-task";
 import { FilePreview } from "@/components/portal/file-preview";
+import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { StatusBadge } from "@/components/portal/status-badge";
-import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { fileKind, formatFileSize, scopeSwitch, scoped } from "@/lib/manager";
@@ -79,7 +79,7 @@ export default async function SpecialistProjectPage({
         action={
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={project.status} />
-            <ExportProjectCsv projectName={project.name} tasks={tasks} />
+            <ExportProjectCsv projectId={project.id} projectName={project.name} />
           </div>
         }
       />

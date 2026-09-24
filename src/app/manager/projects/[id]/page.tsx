@@ -68,7 +68,9 @@ export default async function ManagerProjectPage({
       <PageHeader
         title="Project Information"
         description={project.name}
-        action={<ExportProjectCsv projectName={project.name} tasks={tasks} />}
+        action={
+          <ExportProjectCsv projectId={project.id} projectName={project.name} />
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
