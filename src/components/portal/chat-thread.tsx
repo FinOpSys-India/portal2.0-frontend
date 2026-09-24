@@ -640,7 +640,15 @@ function Bubble({
  * the pointer moves into the popover — leaving a menu floating beside nothing.
  */
 const ACTION_BUTTON =
-  "rounded-md p-1 text-muted-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30";
+  "rounded-md p-1 text-muted-foreground transition-opacity duration-150 " +
+  // SHOWN BY DEFAULT, hidden only where hovering is possible. A pointer that
+  // cannot hover has no way to reveal these at all: on a phone or a tablet the
+  // react and delete controls simply did not exist, and the feature read as
+  // missing rather than as hidden. `@media (hover: hover)` is the test for a
+  // real pointer, so the quiet version survives on a desktop and the controls
+  // stay reachable everywhere else.
+  "opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 " +
+  "focus-visible:opacity-100 data-[state=open]:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30";
 
 /**
  * The chips under a message, or under one of its files.
@@ -897,7 +905,7 @@ function AttachmentLink({
         <ReactionPicker
           onPick={onReact}
           label={file.name}
-          className="shrink-0 rounded-md p-1 opacity-0 transition-opacity group-hover/file:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 group-focus-within/file:opacity-100"
+          className="shrink-0 rounded-md p-1 transition-opacity opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/file:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 group-focus-within/file:opacity-100"
         />
       </div>
 
