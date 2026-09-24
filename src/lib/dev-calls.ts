@@ -31,23 +31,40 @@
  * ever bites.
  */
 /**
- * Whether the echo runs at all. LOCAL DEVELOPMENT ONLY, and no environment can
- * change that.
+ * Whether the echo runs at all: local development, or a PREVIEW deploy that
+ * asks for it. Production cannot have it, and not by convention — see below.
  *
- * This used to honour NEXT_PUBLIC_API_ECHO=1 so a deployed build could show its
- * server-side reads in DevTools, which was a deliberate disclosure while the
- * deployment was a test environment with nobody real on it. Turning it on is a
- * genuine one: the echo re-issues every backend GET a render made, from the
- * browser, so anyone with the tab open reads the internal API surface and the
- * FULL response body of each call — including the fields a page fetched and
- * chose not to show.
+ * Turning this on is a real disclosure, which is why it is spelled out rather
+ * than left to whoever reads the variable name. The echo re-issues every
+ * backend GET a render made, from the browser, so anyone with the tab open
+ * reads the internal API surface and the FULL response body of each call —
+ * including the fields a page fetched and chose NOT to show. Each replay
+ * carries the viewer's own bearer token, so nobody sees another account's
+ * data; what they see is their own, unredacted by the UI.
  *
- * The flag is deleted rather than left unset, so a stray variable on a project
- * nobody re-reads cannot turn it back on. `next dev` still prints every server
- * fetch with its full URL and status to the terminal — see `logging.fetches` in
- * next.config.ts — which is the half of this that never left the machine.
+ * It also DOUBLES a page's backend reads, which is not free on the sweeps: a
+ * manager or specialist page already fetches once per company, and the echo
+ * makes that twice, against a ten-connection pool.
+ *
+ * PRODUCTION IS EXCLUDED BY THE BUILD, NOT BY REMEMBERING. The second clause
+ * reads `NEXT_PUBLIC_VERCEL_ENV`, which Vercel inlines at build time — so
+ * setting NEXT_PUBLIC_API_ECHO=1 on Production, by hand or by accident, still
+ * produces a build with the echo off. The variable is set on Preview alone,
+ * and that is the belt; this is the braces, because the variable is one click
+ * from being retargeted and this file is not.
+ *
+ * Preview and Production read the same backend, so a preview deploy shows the
+ * same API behaviour that production would — which is what makes excluding
+ * production cost nothing.
+ *
+ * `next dev` also prints every server fetch with its full URL and status to the
+ * terminal — see `logging.fetches` in next.config.ts — which is the half of
+ * this that never leaves the machine.
  */
-export const ECHO_ENABLED = process.env.NODE_ENV === "development";
+export const ECHO_ENABLED =
+  process.env.NODE_ENV === "development" ||
+  (process.env.NEXT_PUBLIC_API_ECHO === "1" &&
+    process.env.NEXT_PUBLIC_VERCEL_ENV !== "production");
 
 /** Bounded so a fan-out page (manager sweeps eight companies) cannot grow it without limit. */
 const LIMIT = 60;
