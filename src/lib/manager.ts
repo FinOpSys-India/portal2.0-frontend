@@ -122,8 +122,6 @@ export interface ProjectTask {
   description: string;
   status: TaskStatus;
   deadline: string;
-  /** Someone rewrote the name or the description after it was filed. */
-  edited: boolean;
 }
 
 export interface Specialist {
@@ -1049,25 +1047,6 @@ export const managerApi = {
   async setTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
     await patch(`/tasks/${encodeURIComponent(taskId)}/status`, {
       status: taskStatusCode(status),
-    });
-  },
-
-  /**
-   * Rewrite a task's name and description. The deadline and the project are NOT
-   * here: re-dating a task has to be re-checked against its project's own
-   * deadline, and moving it to another project changes who is assigned to it —
-   * neither is a typo fix, which is what this dialog is for.
-   *
-   * SEPARATE FROM `/status` because that endpoint calls `rejectUnknown` on its
-   * body, so a name sent there is a 400 rather than a quiet drop.
-   */
-  async editTask(
-    taskId: string,
-    task: { name: string; description: string },
-  ): Promise<void> {
-    await patch(`/tasks/${encodeURIComponent(taskId)}`, {
-      taskName: task.name,
-      description: task.description,
     });
   },
 

@@ -135,15 +135,7 @@ assert.deepEqual(toProjectTask(task), {
   description: "Match the bank feed against the ledger.",
   status: "To do",
   deadline: "8/15/2026",
-  edited: false,
 });
-
-// The Edited badge. A row that has never been rewritten carries `false`, and a
-// row from an API that does not send the field yet must read the same way —
-// `undefined` would render the badge as neither on nor off, and a task nobody
-// has touched must not be marked as touched.
-assert.equal(toProjectTask({ ...task, edited: true }).edited, true);
-assert.equal(toProjectTask({ ...task, edited: undefined }).edited, false);
 
 // Across projects the task name alone says nothing, so the project rides along.
 assert.equal(toSpecialistTask(task).project, "Q3 Bookkeeping");

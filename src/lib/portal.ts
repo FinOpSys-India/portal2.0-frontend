@@ -178,13 +178,6 @@ export interface BackendTask {
   description: string;
   status: string;
   deadlineDate: string | null;
-  /**
-   * Set once someone rewrites the name or the description — NOT on a status
-   * move, which is why this is a flag the server keeps rather than
-   * `updatedAt > createdAt` worked out here. Optional until the API carries it;
-   * absent reads as never edited, so the badge simply stays off.
-   */
-  edited?: boolean;
 }
 
 export function toProjectTask(t: BackendTask): ProjectTask {
@@ -195,7 +188,6 @@ export function toProjectTask(t: BackendTask): ProjectTask {
     description: t.description,
     status: toTaskStatus(t.status),
     deadline: t.deadlineDate ? usDate(t.deadlineDate) : "",
-    edited: t.edited ?? false,
   };
 }
 

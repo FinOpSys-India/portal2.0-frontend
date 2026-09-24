@@ -258,18 +258,6 @@ export const specialistApi = {
     });
   },
 
-  /**
-   * Fix the wording of a task on one of their own projects. Same call as the
-   * manager's — the endpoint decides who may write, and the answer is the
-   * company's accounting manager or the project's assigned specialist.
-   */
-  editTask(
-    taskId: string,
-    task: { name: string; description: string },
-  ): Promise<void> {
-    return managerApi.editTask(taskId, task);
-  },
-
   /** Files on their companies, optionally one project's. */
   async documents(
     companyId?: string,

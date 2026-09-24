@@ -3,7 +3,6 @@
 import * as React from "react";
 
 import { DataTable } from "@/components/admin/data-table";
-import { EditTask, EditedBadge } from "@/components/portal/edit-task";
 import { TaskStatusMenu } from "@/components/portal/task-status-menu";
 import {
   Dialog,
@@ -83,13 +82,11 @@ export function TaskTable({
         columns={[
           {
             header: "Task",
-            // The badge is not part of the name, so it must not join the sort
-            // key — otherwise every edited task sorts under "E".
             sortValue: (task) => task.name,
             cell: (task) => (
               <>
                 {/* Only the name opens the detail. A whole-row handler would
-                    swallow clicks on the status menu and the edit button. */}
+                    swallow clicks on the status menu. */}
                 <button
                   type="button"
                   onClick={() => setOpenId(task.id)}
@@ -97,7 +94,6 @@ export function TaskTable({
                 >
                   {task.name}
                 </button>
-                <EditedBadge edited={task.edited} />
               </>
             ),
           },
@@ -135,12 +131,6 @@ export function TaskTable({
               />
             ),
           },
-          {
-            // Blank header: an icon gutter, not a field. Nothing to order by.
-            header: "",
-            sortValue: false,
-            cell: (task) => <EditTask task={task} from={from} />,
-          },
         ]}
       />
 
@@ -152,10 +142,7 @@ export function TaskTable({
           {open ? (
             <>
               <DialogHeader>
-                <DialogTitle>
-                  {open.name}
-                  <EditedBadge edited={open.edited} />
-                </DialogTitle>
+                <DialogTitle>{open.name}</DialogTitle>
               </DialogHeader>
 
               <dl className="grid gap-4">

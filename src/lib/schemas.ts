@@ -175,13 +175,6 @@ export type NewTaskValues = z.infer<typeof newTaskSchema>;
  * bounded by the project's and the project decides the assignee, so neither
  * belongs in a dialog whose job is fixing what a task says.
  */
-export const editTaskSchema = newTaskSchema.pick({
-  name: true,
-  description: true,
-});
-
-export type EditTaskValues = z.infer<typeof editTaskSchema>;
-
 /*
  * No schema for the specialist-assignment dialog. Which services it must fill
  * and who is eligible for each are the server's to state — see
