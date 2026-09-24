@@ -15,7 +15,10 @@
  * Rather than guess, this is configurable and defaults to the documented `/api`.
  */
 
-/** Set by the frontend after sign-in; read by the proxy. Not HttpOnly — see below. */
+/**
+ * Set after sign-in by src/app/(auth)/login/session/route.ts, read by the proxy.
+ * HttpOnly, so script cannot read it back — the route exists to make that true.
+ */
 export const ACCESS_TOKEN_COOKIE = "accessToken";
 
 /**

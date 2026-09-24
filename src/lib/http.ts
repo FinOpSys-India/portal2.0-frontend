@@ -184,7 +184,7 @@ export async function refreshSession(): Promise<boolean> {
       const token = body?.data?.accessToken;
       if (!token) return false;
 
-      storeAccessToken(token, body.data.expiresInSeconds);
+      await storeAccessToken(token, body.data.expiresInSeconds);
       return true;
     } catch {
       return false;
@@ -201,24 +201,36 @@ export async function refreshSession(): Promise<boolean> {
 }
 
 /**
- * Park the access token where both sides can reach it.
+ * Park the access token where the proxy can reach it, and script cannot.
  *
- * NOT HttpOnly, and that is the trade being made: a server component has to be
- * able to read it, and it can only read cookies the browser sends. The refresh
- * token — the credential actually worth stealing, good for 30 days — stays
- * HttpOnly and untouchable in the backend's own cookie. This one expires in
- * minutes and is replaceable.
+ * HANDED TO A ROUTE HANDLER RATHER THAN WRITTEN HERE, which is the only way it
+ * gets to be HttpOnly: a cookie written with `document.cookie` is readable with
+ * `document.cookie`, so the bearer token for the whole portal used to sit in
+ * the cookie jar for any script on the page to collect. Only a Set-Cookie on a
+ * response can carry the flag, hence src/app/(auth)/login/session/route.ts.
+ *
+ * The old rationale for leaving it readable was that "a server component has to
+ * read it". That was a misreading of what HttpOnly does: the browser still
+ * SENDS the cookie on every request, so `cookies()` and the proxy see it
+ * exactly as before. The flag only blocks `document.cookie`.
+ *
+ * THROWS rather than returning false, so no caller can store a token, carry on,
+ * and discover it is signed out at the next fetch. `refreshSession` turns the
+ * throw back into `false` in its own catch, which is the one place that wants
+ * a soft answer.
  */
-export function storeAccessToken(token: string, expiresInSeconds?: number) {
+export async function storeAccessToken(
+  token: string,
+  expiresInSeconds?: number,
+) {
   if (onServer) return;
-  const maxAge = expiresInSeconds ?? 900;
-  const secure = location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${ACCESS_TOKEN_COOKIE}=${token}; Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
-}
-
-export function clearAccessToken() {
-  if (onServer) return;
-  document.cookie = `${ACCESS_TOKEN_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+  const res = await fetch("/login/session", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token, expiresInSeconds }),
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Could not start the session on this browser.");
 }
 
 /* ------------------------------------------------------- concurrency cap -- */

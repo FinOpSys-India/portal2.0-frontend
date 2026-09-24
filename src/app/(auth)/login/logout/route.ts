@@ -11,11 +11,15 @@ import {
  *
  * `POST /auth/logout` revokes the refresh-token family server-side, and
  * `api.logout` swallows its failure so the button can never hang. That left a
- * hole: the revoke is a call to a backend that times out under load, and the
- * refresh cookie is HttpOnly — `clearAccessToken` cannot touch it from script.
- * So a failed revoke left a live 30-day refresh cookie in the browser, the
- * proxy's next refresh hop spent it, and the PREVIOUS user was signed back in.
- * Signing in as the accounting manager landed on the admin portal that way.
+ * hole: the revoke is a call to a backend that times out under load, and every
+ * session cookie is HttpOnly — script cannot touch any of them. So a failed
+ * revoke left a live 30-day refresh cookie in the browser, the proxy's next
+ * refresh hop spent it, and the PREVIOUS user was signed back in. Signing in as
+ * the accounting manager landed on the admin portal that way.
+ *
+ * This is now the ONLY thing that clears the access cookie too — it used to be
+ * written by script, so `api.logout` could expire it directly; see
+ * ../session/route.ts for why it no longer can.
  *
  * Under `/login` deliberately: the proxy's matcher excludes that prefix, so
  * this route answers even once the access cookie is gone — which is exactly

@@ -17,7 +17,7 @@
  *   - ONE ENDPOINT SERVES VERIFY AND RESEND, selected by `action`.
  */
 
-import { clearAccessToken, get, patch, post, put, storeAccessToken } from "@/lib/http";
+import { get, patch, post, put, storeAccessToken } from "@/lib/http";
 import { PAYROLL } from "@/lib/plans";
 
 /** Top-level role codes as the backend spells them. */
@@ -268,7 +268,7 @@ export const api = {
       "/auth/signup",
       input,
     );
-    storeAccessToken(data.tokens.accessToken, data.tokens.expiresInSeconds);
+    await storeAccessToken(data.tokens.accessToken, data.tokens.expiresInSeconds);
 
     /*
      * The role comes from `me()`, not from the sign-up response.
@@ -292,7 +292,7 @@ export const api = {
       accessToken: string;
       expiresInSeconds: number;
     }>("/auth/otp", { action: "verify", challengeId, otp });
-    storeAccessToken(data.accessToken, data.expiresInSeconds);
+    await storeAccessToken(data.accessToken, data.expiresInSeconds);
     return { user: data.user, role: data.user.role };
   },
 
@@ -319,15 +319,20 @@ export const api = {
     // CSRF header is attached by `request()` — this route is cookie
     // authenticated, so the backend requires it.
     await post("/auth/logout").catch(() => {});
-    clearAccessToken();
 
     /*
      * The revoke above may have timed out — the backend 504s under a load the
-     * portal itself generates — and `clearAccessToken` only reaches the one
-     * cookie script can write. The refresh cookie is HttpOnly, still valid,
-     * and worth 30 days; left there, the next refresh hop signs the same
-     * person back in. This route expires all three on our own origin, so the
-     * browser ends up logged out whether or not the server heard about it.
+     * portal itself generates — and every session cookie is now HttpOnly, so
+     * script cannot expire any of them. The refresh cookie is the one that
+     * matters: still valid, worth 30 days, and left there the next refresh hop
+     * signs the same person back in. This route expires all three on our own
+     * origin, so the browser ends up logged out whether or not the server
+     * heard about it.
+     *
+     * It is therefore the ONLY thing that clears the access cookie now, where
+     * a `clearAccessToken()` used to run first as a belt to this braces. A
+     * same-origin POST that fails means the app itself is unreachable, and the
+     * cookie it failed to clear expires on its own in ~15 minutes.
      */
     await fetch("/login/logout", { method: "POST" }).catch(() => {});
   },

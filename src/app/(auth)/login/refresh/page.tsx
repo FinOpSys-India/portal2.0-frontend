@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 
-import { ACCESS_TOKEN_COOKIE } from "@/lib/backend";
 import { refreshSession } from "@/lib/http";
+import { safeNextPath } from "@/lib/session";
 
 /**
  * The hop that keeps a session alive across a navigation.
@@ -33,20 +33,23 @@ export default function RefreshSessionPage() {
   useEffect(() => {
     (async () => {
       /*
-       * `refreshSession` reporting true is not enough on its own — the cookie
-       * it wrote is what the proxy will actually read on the next hop, so that
-       * is what gets checked. Without this, a token that arrives already
-       * expired (a clock skew, a backend handing out a zero lifetime) would
-       * bounce proxy → here → proxy forever; with it, the trip ends at /login
-       * after one pass.
+       * `refreshSession` reporting true is now enough, and it was not always.
+       * It used to be paired with a read-back of `document.cookie`, because a
+       * token that arrived already expired (clock skew, a backend handing out
+       * a zero lifetime) wrote a dead cookie and still reported success — and
+       * the trip then bounced proxy → here → proxy forever. The access cookie
+       * is HttpOnly now, so that read-back is impossible; the check moved to
+       * the one place that can still make it, which refuses a non-positive
+       * lifetime with a 400 instead of setting nothing. See
+       * ../session/route.ts.
        */
-      const live =
-        (await refreshSession()) &&
-        document.cookie
-          .split("; ")
-          .some((row) => row.startsWith(`${ACCESS_TOKEN_COOKIE}=`));
+      const live = await refreshSession();
 
-      window.location.replace(live ? nextPath() : "/login");
+      window.location.replace(
+        live
+          ? safeNextPath(window.location.search, window.location.origin)
+          : "/login",
+      );
     })();
   }, []);
 
@@ -59,17 +62,4 @@ export default function RefreshSessionPage() {
       </h1>
     </main>
   );
-}
-
-/**
- * Where to continue, from `?next=`.
- *
- * Read from the URL bar, so it is untrusted: only a same-origin PATH is
- * followed. `//evil.example` is a protocol-relative URL that `location.replace`
- * would happily treat as another origin, which would turn an expired session
- * into an open redirect off a link anyone can send.
- */
-function nextPath(): string {
-  const next = new URLSearchParams(window.location.search).get("next");
-  return next?.startsWith("/") && !next.startsWith("//") ? next : "/";
 }
