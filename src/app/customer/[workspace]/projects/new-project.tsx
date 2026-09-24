@@ -26,16 +26,43 @@ import { toast } from "@/components/ui/toast";
 import { customerApi } from "@/lib/customer";
 import { newProjectSchema, type NewProjectValues } from "@/lib/schemas";
 
-export function NewProject({
-  workspaceId,
-  services,
-}: {
-  workspaceId: string;
-  services: string[];
-}) {
+export function NewProject({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [failure, setFailure] = React.useState<string | null>(null);
+  const [services, setServices] = React.useState<string[] | null>(null);
+
+  /*
+   * FETCHED ON OPEN, not with the page.
+   *
+   * The service list used to arrive as a prop, which meant the Projects page
+   * called `GET /projects/services` on every single view to fill a dialog that
+   * is shut. Almost every visit to that page is someone reading their projects,
+   * not creating one, so almost every one of those requests was wasted.
+   *
+   * This is the shape the manager's copy of this dialog already had
+   * (src/app/manager/projects/new-project.tsx): nothing is asked for until the
+   * reader opens the form. `null` is "not loaded yet" and renders an empty
+   * select rather than a wrong one; a failure lands as an empty list, so the
+   * form says it has no services instead of hanging on a spinner.
+   */
+  React.useEffect(() => {
+    if (!open) return;
+
+    let live = true;
+    customerApi
+      .availableServices(workspaceId)
+      .then((rows) => {
+        if (live) setServices(rows);
+      })
+      .catch(() => {
+        if (live) setServices([]);
+      });
+
+    return () => {
+      live = false;
+    };
+  }, [open, workspaceId]);
 
   const form = useForm<NewProjectValues>({
     resolver: zodResolver(newProjectSchema),
@@ -106,7 +133,7 @@ export function NewProject({
               icon={Wrench}
               required
               placeholder="Select a service"
-              options={services}
+              options={services ?? []}
             />
 
             <DateField

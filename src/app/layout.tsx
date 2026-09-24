@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Inter } from "next/font/google";
 
 import { NetworkEcho } from "@/components/dev/network-echo";
-import { ECHO_ENABLED, collect } from "@/lib/dev-calls";
+import { ECHO_ENABLED, collect, reset } from "@/lib/dev-calls";
 import { Toaster } from "@/components/ui/toast";
 import "./globals.css";
 
@@ -21,6 +21,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Before the page below records anything: the echo's buffer is module-level
+  // and a warm server instance is shared, so without this a render inherits
+  // whatever the previous request left in it. See `reset`.
+  reset();
+
   return (
     // `suppressHydrationWarning` covers THIS ELEMENT'S OWN ATTRIBUTES AND
     // NOTHING ELSE — not its children, not its text. Browser extensions edit

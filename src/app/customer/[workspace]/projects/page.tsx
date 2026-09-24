@@ -33,10 +33,9 @@ export default async function ProjectsPage({
     await Promise.all([params, searchParams]);
   const page = parsePage(raw);
   const size = parsePageSize(rawSize);
-  const [projects, services] = await Promise.all([
-    customerApi.projects(workspace),
-    customerApi.availableServices(workspace),
-  ]);
+  // Only the table. The create dialog fetches its own service list when it is
+  // opened — see NewProject — rather than every reader paying for one here.
+  const projects = await customerApi.projects(workspace);
 
   return (
     <DataTable<Project>
@@ -48,7 +47,7 @@ export default async function ProjectsPage({
       filters={parseFilters(f)}
       total={projects.length}
       exportCsv={(filtered) => <ExportProjectsCsv filtered={filtered} />}
-      action={<NewProject workspaceId={workspace} services={services} />}
+      action={<NewProject workspaceId={workspace} />}
       rows={projects}
       rowHref={(row) => `/customer/${workspace}/projects/${row.id}`}
       empty="No projects yet. Create one to get started."
