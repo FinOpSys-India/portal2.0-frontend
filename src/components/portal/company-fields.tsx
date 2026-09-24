@@ -2,6 +2,7 @@
 
 import {
   Building2,
+  FileDigit,
   Globe,
   Hash,
   Landmark,
@@ -55,6 +56,21 @@ export function CompanyFields({
         required
         placeholder="Select company type"
         options={COMPANY_TYPES}
+      />
+
+      {/* Under Company Type, not with Employees: this is the company's legal
+          identity, not a figure about its size. Optional — nothing stores it
+          yet, so the four detail pages that already render `enNumber` stay
+          blank until the API grows the column. */}
+      <TextField
+        control={control}
+        name="enNumber"
+        label="EN Number"
+        icon={FileDigit}
+        inputMode="numeric"
+        numeric
+        maxLength={9}
+        placeholder="123456789"
       />
 
       <TextField

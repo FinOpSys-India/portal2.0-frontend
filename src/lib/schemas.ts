@@ -87,6 +87,18 @@ export function companySchema(accountEmail: string) {
   return z.object({
     name: z.string().min(1, "Enter your company name."),
     type: z.string().min(1, "Select your company type."),
+    /*
+     * 1.0's EIN, under 1.0's name for it. OPTIONAL, and deliberately: the
+     * backend has no column for it yet (see `enNumber` in src/lib/portal.ts),
+     * so the value is collected and goes nowhere — refusing a submit over a
+     * number that is about to be discarded would be the worse failure. Nine
+     * digits when it is filled, which is what an EIN has.
+     */
+    enNumber: z
+      .string()
+      .refine((v) => v === "" || /^\d{9}$/.test(v), {
+        message: "An EN Number is nine digits.",
+      }),
     addressLine1: z.string().min(1, "Enter your address."),
     city: z.string().min(1, "Enter your city."),
     zip: z.string().min(1, "Enter your ZIP code."),

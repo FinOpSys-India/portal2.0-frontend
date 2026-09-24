@@ -166,6 +166,12 @@ export interface CompanyRecord {
   companyName: string;
   companyType: string;
   companyEmail: string;
+  /**
+   * 1.0's EIN. NO ROUTE SENDS IT — the backend has no column (same story as
+   * `enNumber` in src/lib/portal.ts). Optional so the onboarding form refills
+   * itself the day one exists, with no second pass over this file.
+   */
+  enNumber?: string | null;
   companyPhone: string | null;
   employeeCount: number | null;
   lastYearRevenue: string | null;

@@ -99,10 +99,27 @@ const validCompany = {
   phone: "2133734253",
   employees: "4",
   revenue: "$500K – $2M",
+  enNumber: "",
 };
 
 const schema = companySchema("owner@example.com");
 assert.ok(schema.safeParse(validCompany).success);
+
+/*
+ * EN Number — 1.0's EIN. Optional, because nothing stores it yet: refusing a
+ * submit over a value about to be discarded would be the worse failure. Nine
+ * digits when it IS filled, so the day the backend grows the column it is not
+ * handed a half-typed one.
+ */
+assert.ok(schema.safeParse({ ...validCompany, enNumber: "123456789" }).success);
+assert.equal(
+  errorFor(schema.safeParse({ ...validCompany, enNumber: "12345678" }), "enNumber"),
+  "An EN Number is nine digits.",
+);
+assert.equal(
+  errorFor(schema.safeParse({ ...validCompany, enNumber: "1234567890" }), "enNumber"),
+  "An EN Number is nine digits.",
+);
 
 // The rule 1.0 enforces silently: company email must differ from the account.
 assert.equal(

@@ -136,6 +136,7 @@ console.log("company: all checks passed");
 {
   const body = companyInput({
     name: "Nissan",
+    enNumber: "",
     type: "Sole Proprietor",
     addressLine1: "Noida",
     city: "Noida",

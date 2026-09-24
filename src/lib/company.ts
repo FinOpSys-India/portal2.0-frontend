@@ -110,6 +110,11 @@ function revenueFloor(band: string): string {
  */
 export function companyInput(values: CompanyValues): CompanyInput {
   return {
+    // ponytail: `enNumber` is collected by the form and NOT sent. The
+    // onboarding validator calls `rejectUnknown(body, ONBOARDING_FIELDS)`, so
+    // an extra key is a 400 that kills the whole submit — the form would stop
+    // working in exchange for a value nothing can store. Add it here, in one
+    // line, the day the backend lists it.
     companyName: values.name,
     companyType: companyTypeValue(values.type),
     companyEmail: values.email,
@@ -146,6 +151,9 @@ export function companyValues(company: CompanyRecord): CompanyValues {
   return {
     name: company.companyName,
     type: companyTypeLabel(company.companyType),
+    // Blank until the backend stores one, never a stand-in: a number that is
+    // not an EN Number, shown where one goes, is worse than an empty box.
+    enNumber: company.enNumber ?? "",
     addressLine1: address?.addressLine1 ?? "",
     city: address?.city ?? "",
     state: address?.state ?? "",

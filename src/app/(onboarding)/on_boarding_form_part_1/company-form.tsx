@@ -49,6 +49,7 @@ export function CompanyForm({
     defaultValues: initial ?? {
       name: "",
       type: "",
+      enNumber: "",
       addressLine1: "",
       city: "",
       zip: "",

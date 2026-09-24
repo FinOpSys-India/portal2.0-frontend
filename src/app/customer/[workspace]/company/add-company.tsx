@@ -58,6 +58,7 @@ export function AddCompany({ accountEmail }: { accountEmail: string }) {
     defaultValues: {
       name: "",
       type: "",
+      enNumber: "",
       addressLine1: "",
       city: "",
       zip: "",
