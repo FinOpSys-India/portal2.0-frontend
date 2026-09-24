@@ -59,14 +59,15 @@ export function CompanyFields({
       />
 
       {/* Under Company Type, not with Employees: this is the company's legal
-          identity, not a figure about its size. Optional — nothing stores it
-          yet, so the four detail pages that already render `enNumber` stay
-          blank until the API grows the column. */}
+          identity, not a figure about its size. Required, because the API
+          requires it — and it is what the four detail pages that already
+          render `enNumber` have been missing. */}
       <TextField
         control={control}
         name="enNumber"
         label="EN Number"
         icon={FileDigit}
+        required
         inputMode="numeric"
         numeric
         maxLength={9}

@@ -110,12 +110,14 @@ function revenueFloor(band: string): string {
  */
 export function companyInput(values: CompanyValues): CompanyInput {
   return {
-    // ponytail: `enNumber` is collected by the form and NOT sent. The
-    // onboarding validator calls `rejectUnknown(body, ONBOARDING_FIELDS)`, so
-    // an extra key is a 400 that kills the whole submit — the form would stop
-    // working in exchange for a value nothing can store. Add it here, in one
-    // line, the day the backend lists it.
     companyName: values.name,
+    // REQUIRED BY THE API, and the reason this form could not save at all: the
+    // onboarding validator lists `enNumber` among the fields it requires, so
+    // every submit without one came back 400 "Required fields are missing."
+    // while every box on screen looked filled in. Note that the copy of the
+    // backend kept in Portal-backend/ predates the field — it validates this
+    // same body happily, which is what made the failure look impossible.
+    enNumber: values.enNumber,
     companyType: companyTypeValue(values.type),
     companyEmail: values.email,
     companyPhone: values.phone,
@@ -151,8 +153,9 @@ export function companyValues(company: CompanyRecord): CompanyValues {
   return {
     name: company.companyName,
     type: companyTypeLabel(company.companyType),
-    // Blank until the backend stores one, never a stand-in: a number that is
-    // not an EN Number, shown where one goes, is worse than an empty box.
+    // Blank rather than a stand-in when a route does not send one back: a
+    // number that is not an EN Number, shown where one goes, is worse than an
+    // empty box.
     enNumber: company.enNumber ?? "",
     addressLine1: address?.addressLine1 ?? "",
     city: address?.city ?? "",
@@ -186,6 +189,7 @@ export function companyValues(company: CompanyRecord): CompanyValues {
  */
 const COMPANY_FIELD_OF: Record<string, keyof CompanyValues> = {
   companyName: "name",
+  enNumber: "enNumber",
   companyType: "type",
   companyEmail: "email",
   companyPhone: "phone",

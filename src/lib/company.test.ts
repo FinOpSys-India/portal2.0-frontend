@@ -136,7 +136,7 @@ console.log("company: all checks passed");
 {
   const body = companyInput({
     name: "Nissan",
-    enNumber: "",
+    enNumber: "123456789",
     type: "Sole Proprietor",
     addressLine1: "Noida",
     city: "Noida",
@@ -163,8 +163,20 @@ console.log("company: all checks passed");
     }),
     (field) => placed.push(field),
   );
-  assert.equal(placed.length, 12, "every posted field must map to a box");
+  assert.equal(placed.length, 13, "every posted field must map to a box");
 }
+
+// The EN Number must reach the API. Omitting it is a 400 that names no field,
+// which is how this form spent its life unable to save a company at all.
+assert.equal(
+  companyInput({
+    name: "Nissan", enNumber: "123456789", type: "Sole Proprietor",
+    addressLine1: "Noida", city: "Noida", state: "UP", zip: "201304",
+    country: "India", email: "sg@example.com", phone: "8887502268",
+    employees: "10", revenue: "$500K – $2M",
+  }).enNumber,
+  "123456789",
+);
 
 // A failure that is not a field rejection must not be mistaken for one.
 assert.deepEqual(

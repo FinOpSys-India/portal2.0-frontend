@@ -88,15 +88,17 @@ export function companySchema(accountEmail: string) {
     name: z.string().min(1, "Enter your company name."),
     type: z.string().min(1, "Select your company type."),
     /*
-     * 1.0's EIN, under 1.0's name for it. OPTIONAL, and deliberately: the
-     * backend has no column for it yet (see `enNumber` in src/lib/portal.ts),
-     * so the value is collected and goes nowhere — refusing a submit over a
-     * number that is about to be discarded would be the worse failure. Nine
-     * digits when it is filled, which is what an EIN has.
+     * 1.0's EIN, under 1.0's name for it. REQUIRED, because the API requires
+     * it: `enNumber` is in the onboarding validator's field list, so a submit
+     * without one comes back 400 "Required fields are missing." — which is the
+     * failure this form shipped with before anything asked for the number.
+     *
+     * Nine digits, which is what an EIN has.
      */
     enNumber: z
       .string()
-      .refine((v) => v === "" || /^\d{9}$/.test(v), {
+      .min(1, "Enter your EN Number.")
+      .refine((v) => /^\d{9}$/.test(v), {
         message: "An EN Number is nine digits.",
       }),
     addressLine1: z.string().min(1, "Enter your address."),

@@ -99,19 +99,22 @@ const validCompany = {
   phone: "2133734253",
   employees: "4",
   revenue: "$500K – $2M",
-  enNumber: "",
+  enNumber: "123456789",
 };
 
 const schema = companySchema("owner@example.com");
 assert.ok(schema.safeParse(validCompany).success);
 
 /*
- * EN Number — 1.0's EIN. Optional, because nothing stores it yet: refusing a
- * submit over a value about to be discarded would be the worse failure. Nine
- * digits when it IS filled, so the day the backend grows the column it is not
- * handed a half-typed one.
+ * EN Number — 1.0's EIN, and the field whose absence made this form unable to
+ * save anything: the API requires it, so a blank one is a 400 naming no field.
+ * Nine digits, refused blank.
  */
 assert.ok(schema.safeParse({ ...validCompany, enNumber: "123456789" }).success);
+assert.equal(
+  errorFor(schema.safeParse({ ...validCompany, enNumber: "" }), "enNumber"),
+  "Enter your EN Number.",
+);
 assert.equal(
   errorFor(schema.safeParse({ ...validCompany, enNumber: "12345678" }), "enNumber"),
   "An EN Number is nine digits.",

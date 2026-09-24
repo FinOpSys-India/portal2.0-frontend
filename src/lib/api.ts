@@ -131,6 +131,8 @@ export interface OwnedCompany {
 
 export interface CompanyInput {
   companyName: string;
+  /** 1.0's EIN. Required by the onboarding validator — see `companyInput`. */
+  enNumber: string;
   companyType: string;
   companyEmail: string;
   companyPhone: string;
@@ -167,9 +169,9 @@ export interface CompanyRecord {
   companyType: string;
   companyEmail: string;
   /**
-   * 1.0's EIN. NO ROUTE SENDS IT — the backend has no column (same story as
-   * `enNumber` in src/lib/portal.ts). Optional so the onboarding form refills
-   * itself the day one exists, with no second pass over this file.
+   * 1.0's EIN. Optional on the way BACK: onboarding requires it on the way in,
+   * but whether a company read returns it has not been confirmed, and a form
+   * that crashes reopening a saved company would be the worse bet.
    */
   enNumber?: string | null;
   companyPhone: string | null;
