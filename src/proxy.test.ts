@@ -6,6 +6,7 @@
  * variable at module scope.
  */
 import assert from "node:assert/strict";
+import { safeNextPath } from "@/lib/session";
 
 process.env.NEXT_PUBLIC_API_URL = "https://backend.example";
 
@@ -99,3 +100,41 @@ async function main() {
 }
 
 main();
+
+/* ------------------------------------------- ?next= cannot leave the site -- */
+
+/*
+ * The proxy MINTS `?next=` (it redirects a cookie-less navigation to
+ * /login/refresh carrying where the user was going) and the refresh page spends
+ * it on `location.replace`. So the value makes a round trip through the URL bar
+ * and is attacker-supplied by the time it comes back — an open redirect anyone
+ * can aim by sending a link to a portal user whose access cookie has lapsed,
+ * which is the ordinary state after ~15 idle minutes.
+ *
+ * `/\evil.example` is the case a `startsWith("//")` test misses: browsers
+ * parsing a special scheme treat a backslash in the authority as a slash.
+ */
+{
+  const ORIGIN = "https://portal.example";
+  const to = (next: string) =>
+    safeNextPath(`?next=${encodeURIComponent(next)}`, ORIGIN);
+
+  assert.equal(to("/admin/companies/42"), "/admin/companies/42", "a real path is kept");
+  assert.equal(to("/list_of_customers?page=2"), "/list_of_customers?page=2", "query rides along");
+
+  assert.equal(to("//evil.example"), "/", "protocol-relative is refused");
+  assert.equal(to("/\\evil.example"), "/", "backslash authority is refused");
+  assert.equal(to("https://evil.example/x"), "/", "absolute off-origin is refused");
+  assert.equal(to("javascript:alert(1)"), "/", "javascript: is refused");
+  assert.equal(safeNextPath("", ORIGIN), "/", "no next at all lands home");
+
+  // The guard is the parse, so this holds without enumerating forms: whatever
+  // the browser would resolve to another origin is dropped.
+  for (const hostile of ["//evil.example", "/\\evil.example", "https://evil.example/x"]) {
+    assert.notEqual(
+      new URL(to(hostile), ORIGIN).origin,
+      new URL(hostile, ORIGIN).origin,
+      `${hostile} must not survive as an off-origin target`,
+    );
+  }
+}

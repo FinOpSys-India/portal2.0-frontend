@@ -33,3 +33,33 @@ export function roleFromToken(token: string | undefined | null): Role | null {
     return null;
   }
 }
+
+/**
+ * The path to continue to after a session refresh, from an untrusted `?next=`.
+ *
+ * STRING PREFIX TESTS CANNOT DO THIS, which is what the previous version tried:
+ * it took anything starting with `/` that did not start with `//`, reasoning
+ * that `//evil.example` is the protocol-relative form that would leave the
+ * site. It is — but it is not the only one. Browsers parsing a special scheme
+ * fold a backslash to a slash in the authority position, so `/\evil.example`
+ * passes that guard and `location.replace` still lands on `https://evil.example`.
+ * An expired session is then a redirect anyone can aim by sending a link.
+ *
+ * So the check is the parse itself, against the same URL machinery the browser
+ * will use on the value: resolve it and keep it only if it stayed on this
+ * origin. That covers the backslash form, an absolute `https://evil.example`,
+ * and `javascript:` (whose origin is `null`) without enumerating any of them.
+ *
+ * Takes `search` and `origin` rather than reading `window` so it can be tested.
+ */
+export function safeNextPath(search: string, origin: string): string {
+  const next = new URLSearchParams(search).get("next");
+  if (!next) return "/";
+  try {
+    const url = new URL(next, origin);
+    if (url.origin !== origin) return "/";
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return "/";
+  }
+}
