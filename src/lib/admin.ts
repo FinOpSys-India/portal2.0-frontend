@@ -243,6 +243,13 @@ interface AccountRow {
   id: number;
   companyName: string;
   companyEmail: string;
+  /**
+   * 1.0's EIN. Optional here for the same reason it is optional in
+   * src/lib/portal.ts: onboarding requires one on the way in, but whether this
+   * particular route sends it back has not been confirmed, and a detail page
+   * that throws over a missing field is worse than one that prints a dash.
+   */
+  enNumber?: string | null;
   owner: Person | null;
   accountingManager: { firstName: string; lastName: string } | null;
   primaryAddress: BackendAddress | null;
@@ -609,9 +616,12 @@ export const adminApi = {
       // account team before the account.
       teamMembers: [...staff.teamMembers, ...teammates],
       email: row.companyEmail,
-      // 1.0's EIN column. The Node schema has no such field, so it stays blank
-      // rather than being filled with something that is not an EIN.
-      enNumber: "",
+      // 1.0's EIN column. Hard-coded blank here until the API grew the field —
+      // which it has: onboarding REQUIRES `enNumber`, so a company that exists
+      // has one, and the admin detail was the one page still printing a dash
+      // over it. Read like every other optional field, so a route that does not
+      // send it back still renders rather than throwing.
+      enNumber: row.enNumber ?? "",
       ...address(row.primaryAddress),
       // Rows from `activeServices` — the services and plan names this endpoint
       // does carry — priced from the subscription. Still "—" for a service the

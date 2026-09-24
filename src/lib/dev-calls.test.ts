@@ -21,7 +21,7 @@ async function main() {
   // `NODE_ENV` readonly, which is right for app code and wrong for the one
   // place that has to stage the value the module under test reads.
   (process.env as Record<string, string>).NODE_ENV = "development";
-  const { drain, record } = await import("./dev-calls");
+  const { collect, drain, record } = await import("./dev-calls");
 
   /* ------------------------------------------------------------ dedupe --- */
 
@@ -55,32 +55,38 @@ async function main() {
     import(`./dev-calls?${tag}`) as Promise<typeof import("./dev-calls")>;
 
   (process.env as Record<string, string>).NODE_ENV = "production";
-  delete process.env.NEXT_PUBLIC_API_ECHO;
   const off = await reload("production");
 
-  assert.equal(off.ECHO_ENABLED, false, "a plain production build stays off");
+  assert.equal(off.ECHO_ENABLED, false, "a production build stays off");
   off.record("/auth/me");
   assert.deepEqual(off.drain(), [], "nothing is recorded while it is off");
 
-  /* --------------------------------------------- opted in on a deploy --- */
+  /* ---------------------------------------- no environment can opt in --- */
 
+  // The point of the assertion: NEXT_PUBLIC_API_ECHO used to turn this on for a
+  // deployed build, and the echo streams every recorded path to the browser to
+  // be replayed with its real response body. The flag is gone, so a variable
+  // still sitting on some project — or one added back by hand — must not be
+  // able to re-open that.
   process.env.NEXT_PUBLIC_API_ECHO = "1";
-  const on = await reload("production-opted-in");
+  const flagged = await reload("production-flagged");
 
-  assert.equal(on.ECHO_ENABLED, true, "NEXT_PUBLIC_API_ECHO=1 turns it on");
-  on.record("/auth/me");
-  assert.deepEqual(on.drain(), ["/auth/me"]);
+  assert.equal(flagged.ECHO_ENABLED, false, "no env var re-enables the echo");
+  flagged.record("/auth/me");
+  assert.deepEqual(flagged.drain(), [], "and it records nothing either way");
+  assert.deepEqual(await flagged.collect(), [], "so it streams nothing down");
+  delete process.env.NEXT_PUBLIC_API_ECHO;
 
   /* ------------------------------------------------ collect hands over --- */
 
   // The layout renders before the page's fetches run, so `collect` is a promise
   // that reads the buffer late. Recording AFTER the call is the whole point —
   // if it drained eagerly the panel would be empty, which is the bug this
-  // replaced.
-  const collected = on.collect();
-  on.record("/projects?page=1");
+  // replaced. Back on the development copy, the only one that records.
+  const collected = collect();
+  record("/projects?page=1");
   assert.deepEqual(await collected, ["/projects?page=1"]);
-  assert.deepEqual(on.drain(), [], "collect leaves the buffer clear");
+  assert.deepEqual(drain(), [], "collect leaves the buffer clear");
 
   console.log("dev calls: all checks passed");
 }

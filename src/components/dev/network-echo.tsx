@@ -31,8 +31,8 @@ import { use } from "react";
  * These are DUPLICATE requests — the page already has its data. Timings here
  * are not the page's timings.
  *
- * Always on locally; on a deployed build only with NEXT_PUBLIC_API_ECHO=1 —
- * see ECHO_ENABLED for what turning that on exposes.
+ * LOCAL DEVELOPMENT ONLY. A deployed build passes null and replays nothing —
+ * see ECHO_ENABLED for what running this anywhere else would expose.
  */
 export function NetworkEcho({ paths }: { paths: Promise<string[]> | null }) {
   // `use` suspends until the render's list arrives, which is why the layout

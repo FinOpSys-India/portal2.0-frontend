@@ -16,8 +16,9 @@
  * answered with an empty list, silently, and the echo replayed nothing. Locally
  * it is all one process, which is exactly why the bug did not show there.
  *
- * OFF BY DEFAULT ON A DEPLOY. `record` is a no-op unless the echo is enabled,
- * so nothing here costs anything on a build that has not asked for it.
+ * NEVER ON A DEPLOY. `record` is a no-op unless the echo is enabled, and it is
+ * only ever enabled by `next dev` — so none of this costs, or discloses,
+ * anything on a built deployment.
  *
  * ponytail: one module-level buffer, not per-request. Two pages rendering at
  * once interleave their paths and the echo replays both — harmless when one
@@ -30,20 +31,23 @@
  * ever bites.
  */
 /**
- * Whether the echo runs at all.
+ * Whether the echo runs at all. LOCAL DEVELOPMENT ONLY, and no environment can
+ * change that.
  *
- * Always on locally. On a deployed build it waits for NEXT_PUBLIC_API_ECHO=1,
- * which is how live testing gets to see the server-side reads DevTools cannot
- * otherwise show. Next inlines NEXT_PUBLIC_* at build time, so setting or
- * clearing the variable takes a redeploy, not a restart.
+ * This used to honour NEXT_PUBLIC_API_ECHO=1 so a deployed build could show its
+ * server-side reads in DevTools, which was a deliberate disclosure while the
+ * deployment was a test environment with nobody real on it. Turning it on is a
+ * genuine one: the echo re-issues every backend GET a render made, from the
+ * browser, so anyone with the tab open reads the internal API surface and the
+ * FULL response body of each call — including the fields a page fetched and
+ * chose not to show.
  *
- * ENABLING IT ON A DEPLOY IS A DISCLOSURE: anyone who opens DevTools on that
- * build sees the internal API paths and the real response bodies. Clear the
- * variable before the site is customer-facing.
+ * The flag is deleted rather than left unset, so a stray variable on a project
+ * nobody re-reads cannot turn it back on. `next dev` still prints every server
+ * fetch with its full URL and status to the terminal — see `logging.fetches` in
+ * next.config.ts — which is the half of this that never left the machine.
  */
-export const ECHO_ENABLED =
-  process.env.NODE_ENV === "development" ||
-  process.env.NEXT_PUBLIC_API_ECHO === "1";
+export const ECHO_ENABLED = process.env.NODE_ENV === "development";
 
 /** Bounded so a fan-out page (manager sweeps eight companies) cannot grow it without limit. */
 const LIMIT = 60;
