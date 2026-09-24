@@ -62,3 +62,10 @@ Portal-backend*.zip
 /*.jpg
 /*.jpeg
 /*.zip
+
+# Playwright MCP scratch output — snapshots it drops in the working directory
+.playwright-mcp/
+/*.yml
+
+# Local API audit working file, deliberately not committed
+/api-per-page.md
