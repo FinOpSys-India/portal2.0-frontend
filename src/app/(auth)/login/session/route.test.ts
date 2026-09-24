@@ -18,11 +18,18 @@ async function main() {
   const { POST } = await import("./route");
 
   const ORIGIN = "https://portal.example";
+  // `host` is set on every call because that is what the origin check reads —
+  // a real request always carries one, and NextRequest does not invent it from
+  // the URL it was constructed with.
   const call = (body: unknown, headers: Record<string, string> = {}) =>
     POST(
       new NextRequest(`${ORIGIN}/login/session`, {
         method: "POST",
-        headers: { "content-type": "application/json", ...headers },
+        headers: {
+          "content-type": "application/json",
+          host: "portal.example",
+          ...headers,
+        },
         body: JSON.stringify(body),
       }),
     );
@@ -99,6 +106,49 @@ async function main() {
     { origin: ORIGIN },
   );
   assert.equal(same.status, 204, "our own Origin is fine");
+
+  // BEHIND A REVERSE PROXY, which is the case that used to 403 every single
+  // login. `next start` derives nextUrl from the hostname and port it listens
+  // on, so comparing the Origin to it compares the public address against
+  // `localhost:5051` and never matches. The forwarded host is the only thing
+  // here that knows what the browser typed.
+  const proxied = await call(
+    { token: "jwt.abc.def", expiresInSeconds: 900 },
+    {
+      origin: "https://workspace.finopsys.ai",
+      host: "localhost:5051",
+      "x-forwarded-host": "workspace.finopsys.ai",
+      "x-forwarded-proto": "https",
+    },
+  );
+  assert.equal(proxied.status, 204, "a forwarded same-origin POST must pass");
+  assert.equal(
+    proxied.cookies.get("accessToken")?.secure,
+    true,
+    "x-forwarded-proto https must still set a Secure cookie",
+  );
+
+  // A foreign Origin does not get in by being forwarded either.
+  const forwardedForeign = await call(
+    { token: "attacker.token", expiresInSeconds: 900 },
+    {
+      origin: "https://evil.example",
+      host: "localhost:5051",
+      "x-forwarded-host": "workspace.finopsys.ai",
+    },
+  );
+  assert.equal(forwardedForeign.status, 403, "forwarded foreign Origin refused");
+
+  // An Origin with nothing to compare it against is refused, not waved
+  // through: a missing host means the check is absent, not satisfied.
+  const hostless = await POST(
+    new NextRequest(`${ORIGIN}/login/session`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: ORIGIN },
+      body: JSON.stringify({ token: "jwt.abc.def", expiresInSeconds: 900 }),
+    }),
+  );
+  assert.equal(hostless.status, 403, "an Origin with no host is refused");
 
   /* ---------------------------------- plain http gets a usable cookie --- */
 
