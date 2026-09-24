@@ -100,7 +100,12 @@ export function AuthShell({
           />
         </Link>
 
-        <div className="flex flex-1 items-center justify-center py-12">
+        {/* py-6, not py-12: the column above already pays `py-8`, and the two
+            stacked put 80px of empty page above the Back button on any screen
+            long enough to scroll — the plan step, where centring has no slack
+            left to absorb it. A short form is unaffected either way: it is
+            centred in the spare room, so this padding never shows. */}
+        <div className="flex flex-1 items-center justify-center py-6">
           {/* 31.2rem = 26rem + 20%. Shared by every page in the shell so the
               form column stays the same width across auth and onboarding. */}
           <div
