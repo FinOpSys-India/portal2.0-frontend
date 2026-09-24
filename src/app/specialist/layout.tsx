@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 
-import { Suspense } from "react";
-
 import { SpecialistShell } from "@/components/specialist/specialist-shell";
-import { NotificationBell } from "@/components/portal/portal-chrome";
-import { unreadThreads } from "@/lib/chat";
-import { dayLabel } from "@/lib/manager";
+import { LiveBell } from "@/components/portal/live-bell";
 import { myProfile } from "@/lib/portal";
 import { specialistApi } from "@/lib/specialist";
 
@@ -15,37 +11,6 @@ export const metadata: Metadata = {
     template: "%s – Specialist – FinOpSys",
   },
 };
-
-/**
- * One thread per company, and a specialist works several.
- *
- * The bell used to count `specialistApi.thread()`, which resolves the FIRST
- * company only — a message from any other account was invisible in the chrome
- * until the reader happened to switch the header to it. Every company is swept
- * here, and each row is tagged with which one it came from.
- */
-async function UnreadBell({
-  companies,
-}: {
-  companies: { id: string; name: string }[];
-}) {
-  const threads = await unreadThreads(companies).catch(() => []);
-
-  return (
-    <NotificationBell
-      items={threads.map((t) => ({
-        id: t.conversationId,
-        // `?company=` is what decides WHICH thread the chat page opens.
-        href: `/specialist/connect/chat?company=${encodeURIComponent(t.companyId)}`,
-        company: t.company,
-        contact: t.contact,
-        preview: t.preview,
-        unread: t.unread,
-        when: t.at ? dayLabel(t.at) : "",
-      }))}
-    />
-  );
-}
 
 export default async function SpecialistLayout({
   children,
@@ -77,11 +42,9 @@ export default async function SpecialistLayout({
        * Behind a boundary for the same reason the manager's is: this is one
        * request per company for a dropdown, and the nav must not wait on it.
        */
-      notifications={
-        <Suspense fallback={<NotificationBell />}>
-          <UnreadBell companies={forBell} />
-        </Suspense>
-      }
+      // A client component, so it mounts once and survives every navigation
+      // under this layout instead of sweeping again on each one. See LiveBell.
+      notifications={<LiveBell companies={forBell} hrefFor="specialist" />}
     >
       {children}
     </SpecialistShell>
