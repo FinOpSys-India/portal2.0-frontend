@@ -230,6 +230,30 @@ export function pollWhileOffline(
  * browser. Both readers below treat that as "this feature is off" rather than
  * as an error.
  */
+/** Just the hostname, for comparing two project URLs without tripping on a trailing slash. */
+function host(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Whether two Supabase project URLs name the same project.
+ *
+ * Compared by HOST, because the two sides are written by different hands: the
+ * backend echoes its project URL on the ticket, this bundle carries one in an
+ * env var, and a trailing slash or a `http`/`https` difference between them is
+ * not a different project. A malformed value compares as itself rather than
+ * throwing — an unparseable URL is a mismatch, which is the safe answer.
+ *
+ * Exported for the test.
+ */
+export function sameProject(a: string, b: string): boolean {
+  return host(a) === host(b);
+}
+
 async function connect(): Promise<{
   client: SupabaseClient;
   ticket: RealtimeTicket;
@@ -250,6 +274,36 @@ async function connect(): Promise<{
 
   const projectUrl = ticket.url ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!projectUrl || !ticket.token) return null;
+
+  /*
+   * TWO HALVES OF ONE PROJECT, OR NOTHING.
+   *
+   * The host comes from the BACKEND (`ticket.url`, its own Supabase project);
+   * the publishable key comes from THIS bundle. Point them at different
+   * projects and every symptom is a lie: the token mints 200, the socket opens,
+   * and then the server refuses it — `HTTP Authentication failed; no valid
+   * credentials available` — and the client retries on a backoff forever,
+   * because a refused credential looks exactly like a flaky network from here.
+   *
+   * Seen on a real deployment: the backend signed for one project while the
+   * preview carried another project's key, and the page sat in a permanent
+   * retry loop nobody could read from the UI.
+   *
+   * So it is checked before the socket is opened. A mismatch is a configuration
+   * fault, not a runtime one, and the honest answer is the same as "live chat
+   * is off": return null, let the caller fall back to its poll, and say why
+   * once instead of failing every few seconds in silence.
+   */
+  const configured = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (configured && !sameProject(projectUrl, configured)) {
+    console.error(
+      `[chat] Live chat is off: the backend signs realtime tokens for ${host(projectUrl)} ` +
+        `but this build carries the publishable key for ${host(configured)}. ` +
+        `Point NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY at the ` +
+        `same project the backend's SUPABASE_JWT_SECRET belongs to. Falling back to polling.`,
+    );
+    return null;
+  }
 
   // Imported here rather than at module scope so the client bundle only pays
   // for it on a screen that actually opens a thread.
@@ -355,11 +409,85 @@ export function mergeTombstones(
  * switched off" indistinguishable from "live chat is running", so the other
  * portal's message sat unseen until someone reloaded the page.
  */
+
+/*
+ * ONE CLIENT AND ONE TOKEN PER PAGE, however many threads subscribe.
+ *
+ * `connect()` mints a token and builds a Supabase client every time it is
+ * called, and the thread's effect can run more than once for a single open
+ * thread — it did on a real deployment, producing two `GET /chat/realtime-token`
+ * calls, two clients, and the browser's own complaint: "Multiple GoTrueClient
+ * instances detected in the same browser context." One of each was orphaned:
+ * still holding a credential, still renewing it, delivering nothing.
+ *
+ * So the connection is shared and reference-counted rather than the effect being
+ * made clever. Whatever causes a second subscribe — a remount, a Suspense
+ * boundary resolving, a second thread on one screen — it joins the existing
+ * client instead of building another.
+ *
+ * REFERENCE COUNTED, NOT CACHED FOREVER. The last subscriber to leave tears the
+ * client down and drops the token. A module-level cache that outlived its
+ * subscribers would leave a signed credential alive in the tab after the reader
+ * closed the thread, which is the one thing a shared client must not do.
+ */
+let shared: {
+  promise: Promise<{ client: SupabaseClient; ticket: RealtimeTicket } | null> | null;
+  timer: ReturnType<typeof setInterval> | null;
+  refs: number;
+} = { promise: null, timer: null, refs: 0 };
+
+async function acquire() {
+  shared.refs += 1;
+
+  if (!shared.promise) {
+    shared.promise = connect().then((live) => {
+      if (!live) return null;
+
+      /*
+       * The token is good for thirty minutes. Re-minted at eighty percent of
+       * that so a reader in a long conversation is never dropped mid-thread —
+       * the socket survives, only its credential is replaced.
+       *
+       * One timer for the shared client, not one per subscriber: two threads on
+       * screen used to mean two renewals racing to set the same auth.
+       */
+      const renewAt = Math.max(30, live.ticket.expiresInSeconds * 0.8) * 1000;
+      shared.timer = setInterval(async () => {
+        try {
+          const next = await get<RealtimeTicket>("/chat/realtime-token");
+          live.client.realtime.setAuth(next.token);
+        } catch {
+          // Leave the existing token in place. It is still valid for the
+          // remaining twenty percent, and the next tick may well succeed.
+        }
+      }, renewAt);
+
+      return live;
+    });
+  }
+
+  const live = await shared.promise;
+  if (!live) release();
+  return live;
+}
+
+function release() {
+  shared.refs -= 1;
+  if (shared.refs > 0) return;
+
+  const pending = shared.promise;
+  if (shared.timer) clearInterval(shared.timer);
+  shared = { promise: null, timer: null, refs: 0 };
+  // Resolved after the last reader left: drop the socket rather than leave it
+  // open on a thread nobody is looking at.
+  void pending?.then((live) => live?.client.removeAllChannels());
+}
+
 export async function subscribeToThread(
   conversationId: string,
   handlers: LiveHandlers,
 ): Promise<(() => void) | null> {
-  const live = await connect();
+  const live = await acquire();
   if (!live) return null;
 
   const { client, ticket } = live;
@@ -405,24 +533,8 @@ export async function subscribeToThread(
      */
     .subscribe((status) => handlers.onHealth?.(status === "SUBSCRIBED"));
 
-  /*
-   * The token is good for thirty minutes. Re-minted at eighty percent of that
-   * so a reader in a long conversation is never dropped mid-thread — the socket
-   * survives, only its credential is replaced.
-   */
-  const renewAt = Math.max(30, ticket.expiresInSeconds * 0.8) * 1000;
-  const timer = setInterval(async () => {
-    try {
-      const next = await get<RealtimeTicket>("/chat/realtime-token");
-      client.realtime.setAuth(next.token);
-    } catch {
-      // Leave the existing token in place. It is still valid for the remaining
-      // twenty percent, and the next tick may well succeed.
-    }
-  }, renewAt);
-
   return () => {
-    clearInterval(timer);
     client.removeChannel(channel);
+    release();
   };
 }
