@@ -24,7 +24,7 @@ export default async function ManagerEmailPage({
   // whichever company is selected.
   const recipients =
     forParty === "specialist"
-      ? (await managerApi.specialists()).map((s) => ({
+      ? (await managerApi.specialistOptions()).map((s) => ({
           value: s.email,
           label: `${s.name} · ${s.speciality}`,
         }))
