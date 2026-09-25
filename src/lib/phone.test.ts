@@ -57,4 +57,19 @@ for (const [n, c] of [
   assert.ok(withDialCode(n, c).startsWith(dialCode(c)));
 }
 
+/* ------------------------------------------------ legacy rows on screen -- */
+
+/*
+ * The same join runs at DISPLAY time on records saved before any code was
+ * stored, so a detail page shows a dialable number instead of bare digits. It
+ * has to be idempotent for that to be safe: the adapters cannot tell a legacy
+ * row from a new one, and they run on both.
+ */
+assert.equal(withDialCode("8887502268", "India"), "+91 8887502268");
+assert.equal(withDialCode("+91 8887502268", "India"), "+91 8887502268");
+
+/* A record with no country renders what was stored rather than inventing a
+   code. This is the honest failure: incomplete beats wrong. */
+assert.equal(withDialCode("8887502268", ""), "8887502268");
+
 console.log("phone: all checks passed");

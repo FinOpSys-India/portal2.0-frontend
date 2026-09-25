@@ -26,6 +26,7 @@ import {
   type TaskStatus,
 } from "@/lib/manager";
 import { get, getOrNull, patch } from "@/lib/http";
+import { withDialCode } from "@/lib/phone";
 import { fullName } from "@/lib/directory";
 import {
   personName,
@@ -130,7 +131,9 @@ export const specialistApi = {
       // is not worth a second request for one line of a profile card.
       speciality: SPECIALITY[me.specificRole ?? ""] ?? "",
       activeProjects: projects.length,
-      phone: me.phone ?? "",
+      // With the dialling code of the country on the profile; rows saved before
+      // that was stored hold national digits alone.
+      phone: withDialCode(me.phone ?? "", a.country),
       address: [a.addressLine1, a.city, a.state, a.zip]
         .filter(Boolean)
         .join(", "),

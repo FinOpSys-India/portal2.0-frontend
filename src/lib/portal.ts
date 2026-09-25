@@ -673,7 +673,9 @@ export async function myProfile(): Promise<MyProfile> {
   return {
     fullName: fullName(me),
     email: me.email,
-    phone: me.phone ?? "",
+    // With the dialling code of the country on the profile; legacy rows hold
+    // national digits alone. The form strips it again for the field.
+    phone: withDialCode(me.phone ?? "", me.address?.country ?? ""),
     avatarUrl: me.avatarUrl ?? null,
     ...toAddressFields(me.address),
   };

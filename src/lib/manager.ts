@@ -9,6 +9,8 @@
 import type { PortalPerson } from "@/lib/portal";
 import { cache } from "react";
 
+import { withDialCode } from "@/lib/phone";
+
 import type { CompanyPlan, CustomerRole } from "@/lib/admin";
 import {
   ApiError,
@@ -770,7 +772,11 @@ function toManagerCustomer(row: DirectoryRow): ManagerCustomer {
     companies: (row.companies ?? []).map((c) => c.companyName),
     companyIds: (row.companies ?? []).map((c) => String(c.companyId)),
     position: row.jobTitle ?? row.specificRoleName ?? "",
-    phone: row.phone ?? "",
+    // Shown with the dialling code of the country on the record. Numbers saved
+    // before that was stored carry only national digits, and a number nobody
+    // outside the country can dial is the thing this avoids. Idempotent, so a
+    // row already holding a `+` is untouched — see `withDialCode`.
+    phone: withDialCode(row.phone ?? "", row.address?.country ?? ""),
     ...toAddressFields(row.address),
   };
 }
@@ -1047,7 +1053,9 @@ export const managerApi = {
     return {
       ...summary,
       companyId: company,
-      phone: detail.specialist.phone ?? "",
+      // With the dialling code of the country on the record — see the note in
+      // `toManagerCustomer`.
+      phone: withDialCode(detail.specialist.phone ?? "", address.country),
       avatarUrl: detail.specialist.avatarUrl ?? null,
       // The detail card renders one line, not a block.
       address: [address.addressLine1, address.city, address.state, address.zip]

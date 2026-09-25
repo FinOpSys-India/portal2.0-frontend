@@ -15,6 +15,7 @@ import {
 } from "@/lib/http";
 import { subscription, type BillingView, type Subscription } from "@/lib/billing";
 import { fullName, roleIds, type DirectoryUser } from "@/lib/directory";
+import { withDialCode } from "@/lib/phone";
 import {
   money,
   teammatePeople,
@@ -504,7 +505,11 @@ export const adminApi = {
       position: found.jobTitle ?? found.specificRoleName ?? "",
       // The customer's own phone (onboarding step 1) and address (their profile
       // page). Blank if the deployed backend predates the ADMIN gate.
-      phone: profile?.phone ?? "",
+      //
+      // Shown with the dialling code of the country on the record: rows saved
+      // before that was stored hold national digits alone, which nobody outside
+      // the country can dial. Idempotent — see `withDialCode`.
+      phone: withDialCode(profile?.phone ?? "", profile?.address?.country ?? ""),
       avatarUrl: profile?.avatarUrl ?? null,
       ...address(profile?.address ?? null),
     };
