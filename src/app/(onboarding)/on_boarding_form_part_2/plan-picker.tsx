@@ -13,7 +13,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -128,7 +127,7 @@ export function PlanPicker({
     <form onSubmit={onSubmit} className="space-y-8">
       {/* Carries the company, so the step it returns to EDITS this one rather
           than opening a blank form that would create a second. */}
-      <div className="-mb-2">
+      <div className="mb-6">
         <BackLink
           href={`/on_boarding_form_part_1?email=${encodeURIComponent(accountEmail)}&compID=${encodeURIComponent(companyId)}`}
         >
@@ -332,7 +331,7 @@ export function PlanPicker({
             </p>
           </div>
 
-          <CustomPlanCard />
+          <CustomPlanCard companyId={companyId} />
         </aside>
       </div>
     </form>
@@ -342,16 +341,32 @@ export function PlanPicker({
 /**
  * The custom-plan escape hatch, carried over from 1.0.
  *
- * There is no endpoint behind it. 1.0's own "Connect with us" only ever opened
- * a confirmation — the sales team works the account from the signup record —
- * and inventing a request the backend has nowhere to put would be a form that
- * silently discards what someone typed into it. So the dialog is the whole
- * feature, and it says only what is true: someone will be in touch.
- *
- * ponytail: if a real endpoint lands, this becomes a submit — the dialog is
- * already the success state it would need.
+ * 1.0's own "Connect with us" only opened a confirmation — there was no
+ * endpoint behind it. There is one now: `POST /billing/custom-plan-request`
+ * files the company with sales, and the dialog is its success state rather
+ * than the whole feature. Nothing is priced and nothing is selected here, so
+ * the company id is the entire request.
  */
-function CustomPlanCard() {
+function CustomPlanCard({ companyId }: { companyId: string }) {
+  const [open, setOpen] = React.useState(false);
+  const [failure, setFailure] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState(false);
+
+  async function onConnect() {
+    setFailure(null);
+    setPending(true);
+    try {
+      await api.requestCustomPlan(Number(companyId));
+      setOpen(true);
+    } catch (err) {
+      setFailure(
+        err instanceof Error ? err.message : "Could not send your request.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className="mt-4 rounded-xl border border-border p-5">
       <h2 className="text-sm font-semibold">Custom Plan</h2>
@@ -360,15 +375,23 @@ function CustomPlanCard() {
         and we&rsquo;ll price it around you.
       </p>
 
-      <Dialog>
-        {/* asChild so the trigger is the Button, not a button wrapping one.
-            Radix sets type="button", which matters inside this <form>. */}
-        <DialogTrigger asChild>
-          <Button variant="outline" size="lg" className="mt-4 w-full">
-            Connect with Us
-          </Button>
-        </DialogTrigger>
+      <FormAlert>{failure}</FormAlert>
 
+      {/* type="button" is not decoration: this card sits inside the checkout
+          <form>, and a default-type button here submits it. Radix's
+          DialogTrigger used to set it; the dialog is opened from code now. */}
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="mt-4 w-full"
+        onClick={onConnect}
+        disabled={pending}
+      >
+        {pending ? "Sending…" : "Connect with Us"}
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="text-center">
           <DialogHeader>
             <DialogTitle className="text-center text-success">

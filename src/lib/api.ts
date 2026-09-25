@@ -253,6 +253,14 @@ export interface Checkout {
   sessionId: string;
 }
 
+export interface CustomPlanRequest {
+  id: number;
+  companyId: number;
+  /** "NEW" on a first request. */
+  requestType: string;
+  createdAt: string;
+}
+
 export const api = {
   /** Step one: password check. Answers 202 with a challenge, not a session. */
   login(email: string, password: string): Promise<OtpChallenge> {
@@ -452,6 +460,17 @@ export const api = {
   /** Where Stripe returns to. Normalized to paid/processing/pending/cancelled/failed. */
   checkoutStatus(sessionId: string): Promise<{ status: string }> {
     return get(`/billing/checkout-status?sessionId=${encodeURIComponent(sessionId)}`);
+  },
+
+  /**
+   * "Connect with Us" on the plan step. Files the company with sales; nothing
+   * is priced and nothing is charged.
+   *
+   * `requestType` comes back NEW on the first one — the row is the whole
+   * payload, so a repeat is the backend's business and not this screen's.
+   */
+  requestCustomPlan(companyId: number): Promise<CustomPlanRequest> {
+    return post("/billing/custom-plan-request", { companyId });
   },
 };
 
