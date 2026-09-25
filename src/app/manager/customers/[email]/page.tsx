@@ -22,7 +22,10 @@ export default async function ManagerCustomerPage({
     params,
     searchParams,
   ]);
-  const customer = await managerApi.customer(decodeURIComponent(email));
+  // Scoped to the company on the URL: the same company the list that linked
+  // here was under. Unscoped, the lookup merges rows across companies and the
+  // check below compares against the wrong one — see `managerApi.customer`.
+  const customer = await managerApi.customer(decodeURIComponent(email), picked);
 
   if (!customer) notFound();
 

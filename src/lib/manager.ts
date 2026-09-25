@@ -851,8 +851,34 @@ export const managerApi = {
    * email, so the id is resolved through the directory the caller may already
    * read. One extra request, and no invented lookup-by-email route.
    */
-  async customer(email: string): Promise<ManagerCustomer | null> {
-    const row = (await directory("customers")).find((c) => c.email === email);
+  /**
+   * One customer, read UNDER THE COMPANY IN VIEW — the same scope the list that
+   * links here is under.
+   *
+   * `companyId` is not optional decoration. Each `GET /customers?companyId=`
+   * reports only the company it was asked about, so the same person comes back
+   * from two companies carrying two different `companies` arrays. The unscoped
+   * sweep this used to do merged them through a Map keyed on the user, and a
+   * Map keeps the LAST write — so the row from the company the reader was
+   * looking at was overwritten by whichever company happened to be swept last.
+   *
+   * The page then compared `?company=` against that surviving row and found no
+   * match, so `scopeSwitch` sent the reader back to the list. Every customer on
+   * more than one of the manager's companies was unreachable: click the row,
+   * land back on the table. Scoped, the row describes the company that was
+   * asked for and the comparison holds.
+   *
+   * Unscoped is still allowed, for a bare link that carries no company: the
+   * page pulls the scope onto the record from whatever comes back and tries
+   * again, which is the behaviour `scopeSwitch` was written for.
+   */
+  async customer(
+    email: string,
+    companyId?: string,
+  ): Promise<ManagerCustomer | null> {
+    const row = (await directory("customers", companyId)).find(
+      (c) => c.email === email,
+    );
     if (!row) return null;
 
     const detail = await get<{ customer: DirectoryRow }>(
