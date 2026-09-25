@@ -18,6 +18,7 @@
 import type { CompanyInput, CompanyRecord } from "@/lib/api";
 import { countryCode } from "@/lib/countries";
 import { ApiError } from "@/lib/http";
+import { stripDialCode, withDialCode } from "@/lib/phone";
 import type { CompanyValues } from "@/lib/schemas";
 
 /**
@@ -120,7 +121,9 @@ export function companyInput(values: CompanyValues): CompanyInput {
     enNumber: values.enNumber,
     companyType: companyTypeValue(values.type),
     companyEmail: values.email,
-    companyPhone: values.phone,
+    // With its dialling code — the field is national digits beside a country
+    // picker, and the country is right here on the same form.
+    companyPhone: withDialCode(values.phone, values.country),
     employeeCount: Number(values.employees),
     // Sent as a string: the column is DECIMAL(18,2) and the value must never
     // pass through a binary float on the way there.
@@ -165,7 +168,8 @@ export function companyValues(company: CompanyRecord): CompanyValues {
     // saved, and a country nobody chose is not that.
     country: address?.country ?? "",
     email: company.companyEmail,
-    phone: company.companyPhone ?? "",
+    // Back to national digits for the field; the picker shows the country.
+    phone: stripDialCode(company.companyPhone ?? "", address?.country ?? ""),
     employees:
       company.employeeCount === null ? "" : String(company.employeeCount),
     revenue: revenueBand(company.lastYearRevenue),

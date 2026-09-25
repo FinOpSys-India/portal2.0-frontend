@@ -43,7 +43,8 @@ const saved: CompanyRecord = {
   companyName: "Harbor Coffee Roasters",
   companyType: "S_CORPORATION",
   companyEmail: "billing@harbor.example.com",
-  companyPhone: "2133734253",
+  // Stored with its dialling code, which is how every number is saved now.
+  companyPhone: "+1 2133734253",
   employeeCount: 4,
   // DECIMAL(18,2) on the way out — the floor of the "$500K – $2M" band.
   lastYearRevenue: "500000.00",
@@ -63,6 +64,11 @@ assert.equal(values.revenue, "$500K – $2M");
 assert.equal(values.employees, "4");
 assert.equal(values.zip, "73301");
 assert.equal(values.country, "United States of America");
+
+// The FIELD shows national digits: the country picker beside it carries the
+// code, so the stored `+1` is stripped on the way in and re-added on the way
+// out. Getting this wrong is how an edit-and-save turns +1 into +1 +1.
+assert.equal(values.phone, "2133734253");
 
 // What the form would send back is what the backend already holds — reopening
 // the step and pressing Continue unchanged must be a no-op, not an edit.

@@ -17,6 +17,7 @@ import { FormAlert } from "@/components/auth/form-alert";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Form } from "@/components/ui/form";
 import { COUNTRIES } from "@/lib/countries";
+import { stripDialCode } from "@/lib/phone";
 import { saveMyProfile, type MyProfile } from "@/lib/portal";
 import { profileSchema, type ProfileValues } from "@/lib/schemas";
 
@@ -56,7 +57,9 @@ export function ProfileForm({
   const form = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      phone: profile.phone,
+      // National digits for the field; the picker beside it carries the code.
+      // Saved numbers hold their dialling code — see `withDialCode`.
+      phone: stripDialCode(profile.phone, profile.country),
       addressLine1: profile.addressLine1,
       city: profile.city,
       state: profile.state,

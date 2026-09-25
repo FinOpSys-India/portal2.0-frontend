@@ -45,3 +45,51 @@ export function dialCode(country: string): string {
   const region = phoneRegion(country);
   return region ? `+${getCountryCallingCode(region)}` : "";
 }
+
+/**
+ * A number as it should be STORED: the country's dialling code, then the digits.
+ *
+ * Every phone field in this app is a country picker beside a box of national
+ * digits, and only the digits were ever sent. So the record held `8887502268`
+ * with nothing to say which country it belonged to, and every screen that drew
+ * it — a customer detail, a profile, a company record — showed a number nobody
+ * outside that country could dial.
+ *
+ * `+91 8887502268` is one string the API already accepts (`common.phone` takes
+ * an optional leading `+` and 7 to 15 digits) and one string every reader can
+ * use.
+ *
+ * IDEMPOTENT. A value that already carries a `+` is returned untouched, so a
+ * record being re-saved after an edit does not collect a second code.
+ *
+ * The code is dropped when the country resolves to nothing — an unknown country
+ * is not a reason to refuse to save a number the user typed.
+ */
+export function withDialCode(phone: string, country: string): string {
+  const typed = phone.trim();
+  if (!typed || typed.startsWith("+")) return typed;
+
+  const code = dialCode(country);
+  return code ? `${code} ${typed}` : typed;
+}
+
+/**
+ * The digits a phone FIELD should show, given what was stored.
+ *
+ * The inverse of `withDialCode`, and it takes the country rather than guessing
+ * one: `+1` is the United States and Canada both, so a stored number cannot say
+ * on its own which picker entry to select. The form already knows the country —
+ * it is on the record beside the number — so the code is stripped only when it
+ * is the one that country would have added.
+ *
+ * Anything else is returned whole. A number stored under a country the record
+ * no longer names is still a number, and showing it intact beats showing it
+ * mangled.
+ */
+export function stripDialCode(stored: string, country: string): string {
+  const value = stored.trim();
+  const code = dialCode(country);
+  if (!code || !value.startsWith(code)) return value;
+
+  return value.slice(code.length).trim();
+}

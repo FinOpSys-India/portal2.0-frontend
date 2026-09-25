@@ -18,6 +18,7 @@ import type { CompanyPlan } from "@/lib/admin";
 import { countryCode } from "@/lib/countries";
 import { fullName } from "@/lib/directory";
 import { del, get, patch } from "@/lib/http";
+import { withDialCode } from "@/lib/phone";
 import type {
   ChatMessage,
   ClientCompany,
@@ -705,7 +706,9 @@ export function toAddressPayload(values: ProfileValues) {
  */
 export async function saveMyProfile(values: ProfileValues): Promise<void> {
   await patch("/users/me", {
-    phone: values.phone,
+    // Stored with its dialling code. The field holds national digits beside a
+    // country picker, and only the digits used to be sent — see `withDialCode`.
+    phone: withDialCode(values.phone, values.country),
     address: toAddressPayload(values),
   });
 }

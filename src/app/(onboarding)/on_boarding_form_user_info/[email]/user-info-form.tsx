@@ -18,6 +18,7 @@ import {
 import { FormAlert } from "@/components/auth/form-alert";
 import { Form } from "@/components/ui/form";
 import { api, type User as Me } from "@/lib/api";
+import { withDialCode } from "@/lib/phone";
 import { COUNTRIES } from "@/lib/countries";
 import { userInfoSchema, type UserInfoValues } from "@/lib/schemas";
 
@@ -71,7 +72,9 @@ export function UserInfoForm({ email, me }: { email: string; me: Me }) {
       await api.saveUserInfo({
         firstName: me.firstName,
         lastName: me.lastName,
-        phone: values.phone,
+        // With its dialling code. `phoneCountry` is on this form for exactly
+        // this — it is not sent as a field of its own.
+        phone: withDialCode(values.phone, values.phoneCountry),
         jobTitle: values.jobTitle,
       });
       router.push(
