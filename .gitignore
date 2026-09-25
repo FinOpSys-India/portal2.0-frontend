@@ -67,5 +67,6 @@ Portal-backend*.zip
 .playwright-mcp/
 /*.yml
 
-# Local API audit working file, deliberately not committed
+# Local API audit working files, deliberately not committed
 /api-per-page.md
+/verify-on-production.md
