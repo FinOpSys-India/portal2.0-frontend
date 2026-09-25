@@ -257,17 +257,10 @@ export function PlanPicker({
               ))}
             </div>
             {/* 1.0 has the same gap: the company form offers a $10M+ band with
-                no tax tier to match. Said out loud rather than hidden. */}
-            <p className="mt-3 text-sm text-muted-foreground">
-              Over $10M in revenue?{" "}
-              <a
-                href="mailto:hello@finopsys.ai"
-                className="font-medium text-primary underline-offset-4 hover:underline"
-              >
-                Talk to Us
-              </a>{" "}
-              about custom pricing.
-            </p>
+                no tax tier to match. Said out loud rather than hidden — and it
+                files the same sales request the sidebar card does, rather than
+                opening a mail client and hoping someone reads it. */}
+            <TalkToUs companyId={companyId} />
           </Section>
         </div>
 
@@ -339,20 +332,20 @@ export function PlanPicker({
 }
 
 /**
- * The custom-plan escape hatch, carried over from 1.0.
+ * The custom-plan request, shared by the two places that file one: the sidebar
+ * card and the "Talk to Us" line under the tax tiers.
  *
- * 1.0's own "Connect with us" only opened a confirmation — there was no
- * endpoint behind it. There is one now: `POST /billing/custom-plan-request`
- * files the company with sales, and the dialog is its success state rather
- * than the whole feature. Nothing is priced and nothing is selected here, so
- * the company id is the entire request.
+ * One request, one confirmation, one failure — a screen where the same ask has
+ * two behaviours depending on which sentence it was asked from is a screen
+ * nobody can support. Each trigger holds its own instance, so the dialog opens
+ * over the button that was pressed and no state has to be threaded between them.
  */
-function CustomPlanCard({ companyId }: { companyId: string }) {
+function useCustomPlanRequest(companyId: string) {
   const [open, setOpen] = React.useState(false);
   const [failure, setFailure] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
 
-  async function onConnect() {
+  async function send() {
     setFailure(null);
     setPending(true);
     try {
@@ -366,6 +359,54 @@ function CustomPlanCard({ companyId }: { companyId: string }) {
       setPending(false);
     }
   }
+
+  return { open, setOpen, failure, pending, send };
+}
+
+/** The success state. Controlled — there is no trigger, the POST opens it. */
+function CustomPlanDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="text-center">
+        <DialogHeader>
+          <DialogTitle className="text-center text-success">
+            Thank you!
+          </DialogTitle>
+        </DialogHeader>
+
+        <p className="text-muted-foreground">
+          We&rsquo;ve sent your details to our team. They&rsquo;ll connect with
+          you shortly to discuss your custom plan.
+        </p>
+
+        <DialogClose asChild>
+          <Button size="lg" className="w-full">
+            Return
+          </Button>
+        </DialogClose>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * The custom-plan escape hatch, carried over from 1.0.
+ *
+ * 1.0's own "Connect with us" only opened a confirmation — there was no
+ * endpoint behind it. There is one now: `POST /billing/custom-plan-request`
+ * files the company with sales, and the dialog is its success state rather
+ * than the whole feature. Nothing is priced and nothing is selected here, so
+ * the company id is the entire request.
+ */
+function CustomPlanCard({ companyId }: { companyId: string }) {
+  const { open, setOpen, failure, pending, send } =
+    useCustomPlanRequest(companyId);
 
   return (
     <div className="mt-4 rounded-xl border border-border p-5">
@@ -385,32 +426,50 @@ function CustomPlanCard({ companyId }: { companyId: string }) {
         variant="outline"
         size="lg"
         className="mt-4 w-full"
-        onClick={onConnect}
+        onClick={send}
         disabled={pending}
       >
         {pending ? "Sending…" : "Connect with Us"}
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="text-center">
-          <DialogHeader>
-            <DialogTitle className="text-center text-success">
-              Thank you!
-            </DialogTitle>
-          </DialogHeader>
-
-          <p className="text-muted-foreground">
-            Our team will connect you shortly.
-          </p>
-
-          <DialogClose asChild>
-            <Button size="lg" className="w-full">
-              Return
-            </Button>
-          </DialogClose>
-        </DialogContent>
-      </Dialog>
+      <CustomPlanDialog open={open} onOpenChange={setOpen} />
     </div>
+  );
+}
+
+/**
+ * The same request, offered where the gap is felt: a company over $10M has no
+ * tax tier to pick. Rendered as the text link it has always been rather than a
+ * second button — it is an aside inside a sentence, not a call to action.
+ */
+function TalkToUs({ companyId }: { companyId: string }) {
+  const { open, setOpen, failure, pending, send } =
+    useCustomPlanRequest(companyId);
+
+  return (
+    <>
+      <p className="mt-3 text-sm text-muted-foreground">
+        Over $10M in revenue?{" "}
+        <button
+          type="button"
+          onClick={send}
+          disabled={pending}
+          className="rounded-xs font-medium text-primary underline-offset-4 transition-colors duration-150 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 disabled:opacity-60"
+        >
+          {pending ? "Sending…" : "Talk to Us"}
+        </button>{" "}
+        about custom pricing.
+      </p>
+
+      {/* Inline rather than in the sidebar's alert: the person who pressed this
+          is reading this paragraph, and a failure they cannot see is a request
+          they will think they made. */}
+      {failure ? (
+        <p className="mt-1 text-sm text-destructive">{failure}</p>
+      ) : null}
+
+      <CustomPlanDialog open={open} onOpenChange={setOpen} />
+    </>
   );
 }
 
