@@ -23,10 +23,25 @@ import { dayLabel } from "@/lib/manager";
  * should have had anyway — sitting on one page for ten minutes used to show a
  * count frozen at whatever it was when the page loaded.
  *
+ * ONLY WHILE THE TAB IS WATCHED. A timer alone would be worse than what it
+ * replaced: the server version cost nothing once a reader stopped navigating,
+ * whereas a bare interval polls a forgotten tab for as long as it is open —
+ * one request per company per tick, which for a manager holding eight is
+ * hundreds an hour into a window nobody is looking at. So the timer runs only
+ * while the document is visible, and a tab returning to the foreground catches
+ * up at once rather than waiting out the rest of a tick.
+ *
  * Starts empty and fills in. The bell renders immediately with no count, which
  * is what the Suspense fallback did before, so the frame is never held up.
  */
 const REFRESH_MS = 60_000;
+
+/*
+ * A floor between loads, because "catch up when shown" fires on every return to
+ * the tab and someone alt-tabbing between two windows would otherwise sweep
+ * every company on each flip.
+ */
+const MIN_GAP_MS = 20_000;
 
 export function LiveBell({
   companies,
@@ -49,8 +64,13 @@ export function LiveBell({
 
   React.useEffect(() => {
     let live = true;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    let lastAt = 0;
 
     const load = () => {
+      if (Date.now() - lastAt < MIN_GAP_MS) return;
+      lastAt = Date.now();
+
       unreadThreads(companies)
         .then((threads) => {
           if (!live) return;
@@ -74,12 +94,30 @@ export function LiveBell({
         .catch(() => {});
     };
 
-    load();
-    const timer = setInterval(load, REFRESH_MS);
+    const start = () => {
+      if (timer) return;
+      load();
+      timer = setInterval(load, REFRESH_MS);
+    };
+
+    const stop = () => {
+      if (!timer) return;
+      clearInterval(timer);
+      timer = null;
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") start();
+      else stop();
+    };
+
+    onVisibility();
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       live = false;
-      clearInterval(timer);
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
     };
     // `companies` is covered by `key`; see above.
     // eslint-disable-next-line react-hooks/exhaustive-deps

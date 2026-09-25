@@ -42,9 +42,13 @@ export function NewProject({ workspaceId }: { workspaceId: string }) {
    *
    * This is the shape the manager's copy of this dialog already had
    * (src/app/manager/projects/new-project.tsx): nothing is asked for until the
-   * reader opens the form. `null` is "not loaded yet" and renders an empty
-   * select rather than a wrong one; a failure lands as an empty list, so the
-   * form says it has no services instead of hanging on a spinner.
+   * reader opens the form.
+   *
+   * A FAILURE IS SAID OUT LOUD. Fetched with the page, a failure used to take
+   * the page down with it, which at least told the reader something was wrong.
+   * Moved in here it would otherwise be swallowed into an empty dropdown —
+   * a form that looks complete, offers nothing to pick, and explains
+   * nothing. So the error is surfaced where the reader is: in the dialog.
    */
   React.useEffect(() => {
     if (!open) return;
@@ -56,7 +60,9 @@ export function NewProject({ workspaceId }: { workspaceId: string }) {
         if (live) setServices(rows);
       })
       .catch(() => {
-        if (live) setServices([]);
+        if (!live) return;
+        setServices([]);
+        setFailure("Could not load the list of services. Close this and try again.");
       });
 
     return () => {
