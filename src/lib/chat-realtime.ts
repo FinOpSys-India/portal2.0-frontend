@@ -338,32 +338,49 @@ async function connect(): Promise<{
 export async function loadTombstones(
   conversationId: string,
 ): Promise<ChatMessage[]> {
-  const live = await connect();
+  /*
+   * `acquire`, NOT `connect`. This read used to build its own Supabase client
+   * and mint its own token, alongside the one `subscribeToThread` was already
+   * holding — two clients and two `GET /chat/realtime-token` calls on every
+   * chat page load, and the browser's "Multiple GoTrueClient instances detected"
+   * warning naming exactly that.
+   *
+   * It is the same session reading the same project a moment apart, so it joins
+   * the connection already open instead of opening a second one. `release` in
+   * the finally: this is a one-shot read, and holding a reference past it would
+   * keep the socket alive for a thread nobody is subscribed to.
+   */
+  const live = await acquire();
   if (!live) return [];
 
-  const { data, error } = await live.client
-    .from("chat_messages")
-    .select("id,sender_user_id,created_at")
-    .eq("conversation_id", conversationId)
-    .not("deleted_at", "is", null)
-    .order("created_at", { ascending: true })
-    // The thread reads 50; this is headroom over that and a bound on a thread
-    // somebody has been deleting in for a year.
-    .limit(200);
+  try {
+    const { data, error } = await live.client
+      .from("chat_messages")
+      .select("id,sender_user_id,created_at")
+      .eq("conversation_id", conversationId)
+      .not("deleted_at", "is", null)
+      .order("created_at", { ascending: true })
+      // The thread reads 50; this is headroom over that and a bound on a thread
+      // somebody has been deleting in for a year.
+      .limit(200);
 
-  // Swallowed like every other failure here: a thread that draws no tombstones
-  // is the state the app shipped in, and it is not worth an error over.
-  if (error || !data) return [];
+    // Swallowed like every other failure here: a thread that draws no
+    // tombstones is the state the app shipped in, and it is not worth an error
+    // over.
+    if (error || !data) return [];
 
-  return (data as TombstoneRow[]).map((row) => ({
-    id: String(row.id),
-    mine: row.sender_user_id === live.ticket.userId,
-    body: "",
-    sentAt: row.created_at,
-    attachments: [],
-    reactions: [],
-    deleted: true,
-  }));
+    return (data as TombstoneRow[]).map((row) => ({
+      id: String(row.id),
+      mine: row.sender_user_id === live.ticket.userId,
+      body: "",
+      sentAt: row.created_at,
+      attachments: [],
+      reactions: [],
+      deleted: true,
+    }));
+  } finally {
+    release();
+  }
 }
 
 /**
@@ -429,37 +446,14 @@ export function mergeTombstones(
  * client down and drops the token. A module-level cache that outlived its
  * subscribers would leave a signed credential alive in the tab after the reader
  * closed the thread, which is the one thing a shared client must not do.
- *
- * WITH A GRACE PERIOD, because reference counting alone does not survive a
- * REMOUNT. Counting helps two subscribers that overlap; a remount is two that
- * do not. Measured on production: the effect mounted, the connection resolved,
- * the count fell to zero and the client was destroyed — and then the component
- * mounted again and built a second one. Two tokens, two clients, and the
- * browser's "Multiple GoTrueClient instances" warning, exactly as before the
- * sharing was added.
- *
- * So the last release schedules the teardown instead of performing it, and a
- * subscriber arriving inside the window reclaims the live connection. The cost
- * is a signed credential living a few seconds longer than the reader who
- * fetched it — bounded, and far short of its thirty minute life.
  */
 let shared: {
   promise: Promise<{ client: SupabaseClient; ticket: RealtimeTicket } | null> | null;
   timer: ReturnType<typeof setInterval> | null;
-  idle: ReturnType<typeof setTimeout> | null;
   refs: number;
-} = { promise: null, timer: null, idle: null, refs: 0 };
-
-/** How long a connection outlives its last subscriber, for a remount to reclaim. */
-const GRACE_MS = 5_000;
+} = { promise: null, timer: null, refs: 0 };
 
 async function acquire() {
-  // A remount lands here before the scheduled teardown runs, and takes the
-  // live connection back rather than paying for another one.
-  if (shared.idle) {
-    clearTimeout(shared.idle);
-    shared.idle = null;
-  }
   shared.refs += 1;
 
   if (!shared.promise) {
@@ -498,21 +492,11 @@ function release() {
   shared.refs -= 1;
   if (shared.refs > 0) return;
 
-  // Scheduled, not immediate — see the note above. Cleared by `acquire` if a
-  // remount claims the connection first.
-  if (shared.idle) clearTimeout(shared.idle);
-  shared.idle = setTimeout(teardown, GRACE_MS);
-}
-
-function teardown() {
-  // Someone acquired inside the window and this fired anyway: leave it alone.
-  if (shared.refs > 0) return;
-
   const pending = shared.promise;
   if (shared.timer) clearInterval(shared.timer);
-  shared = { promise: null, timer: null, idle: null, refs: 0 };
-  // Nobody came back: drop the socket rather than leave it open on a thread
-  // nobody is looking at, and the token with it.
+  shared = { promise: null, timer: null, refs: 0 };
+  // Resolved after the last reader left: drop the socket rather than leave it
+  // open on a thread nobody is looking at.
   void pending?.then((live) => live?.client.removeAllChannels());
 }
 
