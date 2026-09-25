@@ -1359,6 +1359,30 @@ export async function createProjectOn(
  * portals compose through the same form and the same endpoint — only the
  * recipient's side of the account differs, and the server decides that.
  */
+/**
+ * The subject a recipient actually sees, tagged with the company it is about.
+ *
+ * NOTHING ELSE IN THE MAIL SAYS WHICH ACCOUNT IT IS. The backend sends from a
+ * shared portal address with the sender's personal name on it and replies go to
+ * the sender — so an accounting manager holding eight companies received
+ * "Siddharth Gautam" and a subject, with no way to tell which client it
+ * concerned without opening it and inferring.
+ *
+ * The subject is the only part of a message visible while triaging an inbox, so
+ * that is where the tag goes. It survives a reply as `Re: [Toyota] ...`, which
+ * keeps a thread attributable after it leaves this app.
+ *
+ * Not applied twice: a sender who typed the company themselves, or a subject
+ * being reused from an earlier tagged one, keeps what they wrote.
+ *
+ * Exported for the test.
+ */
+export function taggedSubject(subject: string, companyName?: string): string {
+  const name = companyName?.trim();
+  if (!name) return subject;
+  return subject.startsWith(`[${name}]`) ? subject : `[${name}] ${subject}`;
+}
+
 export async function sendEmailAs(input: {
   to: string;
   subject: string;
@@ -1374,12 +1398,12 @@ export async function sendEmailAs(input: {
 
   await post("/emails", {
     companyId: Number(companyId),
-    subject: input.subject,
+    subject: taggedSubject(input.subject, to.companyName),
     // The column is HTML. The composer is plain text, so it is escaped rather
     // than passed through — an address with an angle bracket in it would
     // otherwise become markup.
     bodyHtml: `<p>${escapeHtml(input.message).replace(/\n/g, "<br>")}</p>`,
-    to: [to],
+    to: [to.id],
     // Omitted entirely with nothing attached: `files: []` is accepted, but the
     // no-attachment path is meant to be one request and this keeps it one.
     ...(files.length ? { files } : {}),
@@ -1441,16 +1465,32 @@ function escapeHtml(text: string): string {
  * roles (an accounting manager is refused the manager list, and that is correct
  * — they are not their own counterparty), so one 403 must not lose the others.
  */
-async function recipientId(companyId: string, email: string): Promise<number> {
+async function recipientId(
+  companyId: string,
+  email: string,
+): Promise<{ id: number; companyName?: string }> {
   const scope = `companyId=${encodeURIComponent(companyId)}`;
   const list = async <K extends string>(
     path: string,
     key: K,
-  ): Promise<{ id: number; email: string }[]> => {
-    const data = await get<Partial<Record<K, { id: number; email: string }[]>>>(
-      `/emails/recipients/${path}?${scope}`,
-    ).catch(() => ({}) as Partial<Record<K, { id: number; email: string }[]>>);
-    return data[key] ?? [];
+  ): Promise<{
+    rows: { id: number; email: string }[];
+    companyName?: string;
+  }> => {
+    const data = await get<
+      Partial<Record<K, { id: number; email: string }[]>> & {
+        companyName?: string;
+      }
+    >(`/emails/recipients/${path}?${scope}`).catch(
+      () =>
+        ({}) as Partial<Record<K, { id: number; email: string }[]>> & {
+          companyName?: string;
+        },
+    );
+    // The envelope names the company these people belong to, which is what the
+    // subject line is tagged with — see `sendEmailAs`. Taken from here rather
+    // than looked up separately, because this request is already being made.
+    return { rows: data[key] ?? [], companyName: data.companyName };
   };
 
   const groups = await Promise.all([
@@ -1459,9 +1499,12 @@ async function recipientId(companyId: string, email: string): Promise<number> {
     list("accounting-managers", "accountingManagers"),
   ]);
 
-  const found = groups.flat().find((r) => r.email === email);
+  const found = groups.flatMap((g) => g.rows).find((r) => r.email === email);
   if (!found) throw new Error(`${email} is not on this account.`);
-  return found.id;
+
+  // Whichever list answered — an accounting manager is refused the manager
+  // list, so the first one with a name on it is the one that succeeded.
+  return { id: found.id, companyName: groups.find((g) => g.companyName)?.companyName };
 }
 
 /**

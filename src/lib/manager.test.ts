@@ -26,6 +26,7 @@ import {
   unreadConversations,
   type Conversation,
   type ManagedProject,
+  taggedSubject,
 } from "./manager";
 
 function conversation(over: Partial<Conversation>): Conversation {
@@ -354,3 +355,30 @@ assert.equal(
 );
 
 console.log("manager api: all checks passed");
+
+/* ------------------------------------------------- email subject tag -- */
+
+/*
+ * The only part of a sent email that says which company it is about. The mail
+ * goes from a shared portal address with the sender's personal name on it, so
+ * an accounting manager holding several companies has nothing else to triage
+ * on — see `taggedSubject`.
+ */
+assert.equal(
+  taggedSubject("Invoice question", "Toyota"),
+  "[Toyota] Invoice question",
+);
+
+/* Already tagged — a reply, or a sender who typed it themselves. Left alone
+   rather than stacked into "[Toyota] [Toyota] ...". */
+assert.equal(
+  taggedSubject("[Toyota] Invoice question", "Toyota"),
+  "[Toyota] Invoice question",
+);
+
+/* No company name resolved: send what the sender wrote rather than an empty
+   bracket. The recipient lists are role-gated and one of them can 403. */
+assert.equal(taggedSubject("Invoice question", undefined), "Invoice question");
+assert.equal(taggedSubject("Invoice question", "   "), "Invoice question");
+
+console.log("manager api: email subject tag ok");
