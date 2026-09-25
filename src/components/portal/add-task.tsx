@@ -14,6 +14,7 @@ import {
   TextareaField,
 } from "@/components/auth/fields";
 import { FormAlert } from "@/components/auth/form-alert";
+import { tomorrow } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -149,6 +150,11 @@ export function AddTask({
                 name="deadline"
                 label="Deadline Date"
                 required
+                // The same floor the project forms use: 1.0 blocks today as
+                // well as the past, so the first selectable day is tomorrow.
+                // A task deadline that expires the evening it is set is a
+                // data-entry mistake more often than an intention.
+                min={tomorrow()}
               />
 
               {only ? (

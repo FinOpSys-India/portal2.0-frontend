@@ -13,6 +13,7 @@ import {
   TextField,
 } from "@/components/auth/fields";
 import { FormAlert } from "@/components/auth/form-alert";
+import { tomorrow } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -163,10 +164,4 @@ export function NewProject({ workspaceId }: { workspaceId: string }) {
       </DialogContent>
     </Dialog>
   );
-}
-
-function tomorrow(): string {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
 }
