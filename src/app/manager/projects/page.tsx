@@ -8,7 +8,6 @@ import {
 import { PersonCell } from "@/components/admin/initials-avatar";
 import { ExportProjectsCsv } from "@/components/portal/export-csv";
 import { ProgressBar } from "@/components/portal/progress-bar";
-import { AddTask } from "@/components/portal/add-task";
 import { ProjectDeadline } from "@/components/portal/project-deadline";
 import {
   companyScope,
@@ -79,23 +78,15 @@ export default async function ManagerProjectsPage({
           filtered={filtered}
         />
       )}
+      // Add New Task is gone from this screen. It stays on a project's own
+      // page, where the task being added has an obvious project; here the
+      // dropdown had to ask which one, on a list whose job is the projects
+      // themselves.
       action={
-        <>
-          {/* Add New Task here rather than only on a project page or a
-              specialist's: those two narrow the project list to one and to one
-              person's, and the manager plans the whole account. `POST /tasks`
-              admits the company's OWN accounting manager on ANY of its
-              projects, so the dropdown is this page's list — every project in
-              the scope the reader is already looking at. */}
-          <AddTask
-            from="manager"
-            projects={projects.map(({ id, name }) => ({ id, name }))}
-          />
-          <NewProject
-            companies={companies.map(({ id, name }) => ({ id, name }))}
-            defaultCompanyId={company}
-          />
-        </>
+        <NewProject
+          companies={companies.map(({ id, name }) => ({ id, name }))}
+          defaultCompanyId={company}
+        />
       }
       rows={projects}
       rowHref={(row) => scoped(`/manager/projects/${row.id}`, company)}
