@@ -429,14 +429,37 @@ export function mergeTombstones(
  * client down and drops the token. A module-level cache that outlived its
  * subscribers would leave a signed credential alive in the tab after the reader
  * closed the thread, which is the one thing a shared client must not do.
+ *
+ * WITH A GRACE PERIOD, because reference counting alone does not survive a
+ * REMOUNT. Counting helps two subscribers that overlap; a remount is two that
+ * do not. Measured on production: the effect mounted, the connection resolved,
+ * the count fell to zero and the client was destroyed — and then the component
+ * mounted again and built a second one. Two tokens, two clients, and the
+ * browser's "Multiple GoTrueClient instances" warning, exactly as before the
+ * sharing was added.
+ *
+ * So the last release schedules the teardown instead of performing it, and a
+ * subscriber arriving inside the window reclaims the live connection. The cost
+ * is a signed credential living a few seconds longer than the reader who
+ * fetched it — bounded, and far short of its thirty minute life.
  */
 let shared: {
   promise: Promise<{ client: SupabaseClient; ticket: RealtimeTicket } | null> | null;
   timer: ReturnType<typeof setInterval> | null;
+  idle: ReturnType<typeof setTimeout> | null;
   refs: number;
-} = { promise: null, timer: null, refs: 0 };
+} = { promise: null, timer: null, idle: null, refs: 0 };
+
+/** How long a connection outlives its last subscriber, for a remount to reclaim. */
+const GRACE_MS = 5_000;
 
 async function acquire() {
+  // A remount lands here before the scheduled teardown runs, and takes the
+  // live connection back rather than paying for another one.
+  if (shared.idle) {
+    clearTimeout(shared.idle);
+    shared.idle = null;
+  }
   shared.refs += 1;
 
   if (!shared.promise) {
@@ -475,11 +498,21 @@ function release() {
   shared.refs -= 1;
   if (shared.refs > 0) return;
 
+  // Scheduled, not immediate — see the note above. Cleared by `acquire` if a
+  // remount claims the connection first.
+  if (shared.idle) clearTimeout(shared.idle);
+  shared.idle = setTimeout(teardown, GRACE_MS);
+}
+
+function teardown() {
+  // Someone acquired inside the window and this fired anyway: leave it alone.
+  if (shared.refs > 0) return;
+
   const pending = shared.promise;
   if (shared.timer) clearInterval(shared.timer);
-  shared = { promise: null, timer: null, refs: 0 };
-  // Resolved after the last reader left: drop the socket rather than leave it
-  // open on a thread nobody is looking at.
+  shared = { promise: null, timer: null, idle: null, refs: 0 };
+  // Nobody came back: drop the socket rather than leave it open on a thread
+  // nobody is looking at, and the token with it.
   void pending?.then((live) => live?.client.removeAllChannels());
 }
 
