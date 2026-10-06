@@ -70,7 +70,7 @@ export function WorkspacePill({
           >
             <span className="flex-1 truncate">{option.name}</span>
             {unpaid.includes(option.id) ? (
-              <Badge variant="destructive">Complete payment</Badge>
+              <Badge variant="destructive">Payment pending</Badge>
             ) : null}
             {option.id === current.id ? (
               <Check className="size-4" aria-hidden />

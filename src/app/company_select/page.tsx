@@ -117,7 +117,7 @@ export default async function WorkspaceSelectPage() {
                   <span className="flex-1 text-sm font-medium">
                     {workspace.name}
                   </span>
-                  {owes && <Badge variant="destructive">Complete payment</Badge>}
+                  {owes && <Badge variant="destructive">Payment pending</Badge>}
                   <ChevronRight
                     className="size-4 text-muted-foreground"
                     aria-hidden

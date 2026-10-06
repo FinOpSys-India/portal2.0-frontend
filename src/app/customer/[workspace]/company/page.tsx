@@ -82,7 +82,7 @@ export default async function CompanyPage({
             <span className="flex items-center gap-2">
               <span className="font-medium">{row.name}</span>
               {unpaid.includes(row.id) && (
-                <Badge variant="destructive">Complete payment</Badge>
+                <Badge variant="destructive">Payment pending</Badge>
               )}
             </span>
           ),
