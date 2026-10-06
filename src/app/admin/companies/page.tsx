@@ -138,10 +138,26 @@ export default async function CompaniesPage({
            * Assignment is a one-way door: the control shows only where a
            * company has no manager yet. Once one is set the cell is plain
            * text — no change, no removal from this screen.
+           *
+           * AND ONLY ON A LIVE COMPANY. `Active` is the paid, subscribed state;
+           * everything else — mid-onboarding, lapsed, archived — folds into
+           * `Onboarded` (see `toCompany`), and staffing a manager onto an
+           * account that may never pay commits a person to work that does not
+           * exist. Gated on `Active` rather than on `!== "Onboarded"` so a
+           * status added later is closed by default, not open.
+           *
+           * CLIENT-SIDE ONLY. `PUT /companies/:id/accounting-manager` checks
+           * the MANAGER (exists, ACTIVE, holds the role) and not the company's
+           * status, so this is the portal's rule and the API will still accept
+           * the write from anywhere else.
            */
           cell: (row) =>
             row.accountingManager ?? (
-              <AssignManager companyId={row.id} managers={managers} />
+              <AssignManager
+                companyId={row.id}
+                managers={managers}
+                disabled={row.status !== "Active"}
+              />
             ),
         },
       ]}

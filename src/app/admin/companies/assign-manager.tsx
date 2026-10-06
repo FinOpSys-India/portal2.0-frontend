@@ -30,13 +30,22 @@ import { adminApi, type ManagerOption } from "@/lib/admin";
  * is no change and no removal from this screen — assigned means assigned.
  * (`PUT` replaces and `DELETE` unassigns on the backend; neither is called
  * from here.)
+ *
+ * Not available at all until the company is live — see `disabled`.
  */
 export function AssignManager({
   companyId,
   managers,
+  disabled,
 }: {
   companyId: string;
   managers: ManagerOption[];
+  /**
+   * Greys the button out — for a company that is not live yet. Disabled rather
+   * than absent: the row's Status chip says why, and a cell that simply emptied
+   * itself would read as "this company needs no manager" instead of "not yet".
+   */
+  disabled?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -73,6 +82,7 @@ export function AssignManager({
       <Button
         variant="outline"
         size="sm"
+        disabled={disabled}
         onClick={() => setOpen(true)}
         className="relative z-10 -mx-2"
       >
