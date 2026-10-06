@@ -766,7 +766,7 @@ type ScopedDirectoryRow = DirectoryRow & { scopeCompanyId: string };
 function toManagerCustomer(row: DirectoryRow): ManagerCustomer {
   return {
     name: fullName(row),
-    role: row.specificRole === "OWNER" ? "Owner" : "Teammate",
+    role: row.specificRole === "OWNER" ? "Owner" : "Team Member",
     email: row.email,
     avatarUrl: row.avatarUrl ?? null,
     companies: (row.companies ?? []).map((c) => c.companyName),

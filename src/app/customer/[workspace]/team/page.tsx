@@ -11,7 +11,7 @@ import { customerApi, type TeamMember } from "@/lib/customer";
 import { InviteTeammate } from "./invite-teammate";
 import { parseFilters } from "@/lib/table-filter";
 
-export const metadata: Metadata = { title: "Team" };
+export const metadata: Metadata = { title: "Team Member" };
 
 export default async function TeamPage({
   params,
@@ -52,7 +52,7 @@ export default async function TeamPage({
 
   return (
     <DataTable<TeamMember>
-      title="Team"
+      title="Team Member"
       page={page}
       size={size}
       sort={sort}
@@ -81,7 +81,7 @@ export default async function TeamPage({
         ) : undefined
       }
       rows={team}
-      empty="No teammates yet. Invite someone to share access."
+      empty="No team members yet. Invite someone to share access."
       columns={[
         {
           header: "Name",

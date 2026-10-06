@@ -126,13 +126,13 @@ export function InviteTeammate({
       <DialogTrigger asChild>
         <Button>
           <Plus className="size-4" aria-hidden />
-          Invite Teammate
+          Invite Team Member
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Invite a Teammate</DialogTitle>
+          <DialogTitle>Invite a Team Member</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -270,7 +270,7 @@ export function InviteTeammate({
 
                   <FormDescription>
                     They will be able to open every company you tick. No role to
-                    pick — an invited teammate joins as a member.
+                    pick — an invited team member joins as a member.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

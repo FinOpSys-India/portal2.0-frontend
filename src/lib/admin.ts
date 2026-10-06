@@ -23,7 +23,7 @@ import {
   type PortalPerson,
 } from "@/lib/portal";
 
-export type CustomerRole = "Owner" | "Teammate";
+export type CustomerRole = "Owner" | "Team Member";
 
 export interface Customer {
   name: string;
@@ -341,7 +341,7 @@ function toCustomer(row: CustomerRow): Customer {
     name: fullName(row),
     // OWNER / TEAM is the backend's own vocabulary; the table says Owner /
     // Teammate and has since 1.0.
-    role: row.specificRole === "OWNER" ? "Owner" : "Teammate",
+    role: row.specificRole === "OWNER" ? "Owner" : "Team Member",
     email: row.email,
     avatarUrl: row.avatarUrl ?? null,
     companies: (row.companies ?? []).map((c) => c.companyName),
