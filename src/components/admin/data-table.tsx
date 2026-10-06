@@ -66,8 +66,12 @@ export type Column<T> = {
    * text a deadline compares like a long number. `enum` offers the values the
    * loaded rows actually hold, as a checklist, and `list` does the same for a
    * cell holding several of them.
+   *
+   * `false` drops the column from the filter rail while keeping its sort — for
+   * a column nobody narrows by, where `sortValue: false` would take the header
+   * link away too.
    */
-  filter?: FilterType;
+  filter?: FilterType | false;
   /**
    * The values a `list` column holds for one row — the companies a customer
    * belongs to, not the comma-joined line the cell renders.
@@ -226,7 +230,7 @@ function filterable<T>(column: Column<T>): {
 } | null {
   // Opting out of sorting opts out of filtering too: both need a value, and a
   // column of buttons or avatars has none.
-  if (column.sortValue === false) return null;
+  if (column.sortValue === false || column.filter === false) return null;
   const cell = column.cell;
   return {
     type: column.filter ?? "text",

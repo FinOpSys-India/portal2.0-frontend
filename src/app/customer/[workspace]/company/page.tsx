@@ -76,7 +76,9 @@ export default async function CompanyPage({
         },
         {
           header: "Subscription Date",
-          filter: "date",
+          // Sortable but not filterable: a customer reads their own handful of
+          // companies, and nobody narrows that list by when they signed.
+          filter: false,
           sortValue: (row) => dateKey(row.subscriptionDate),
           cell: (row) =>
             row.subscriptionDate ?? (
@@ -85,7 +87,11 @@ export default async function CompanyPage({
         },
         {
           header: "Team Members",
-          filter: "number",
+          // Searched by NAME, not by headcount: the question anyone asks of
+          // this column is "which company is Dana on?". The cell is an avatar
+          // stack, so the names have to be handed over separately.
+          filter: "text",
+          filterValues: (row) => row.teamMembers.map((person) => person.name),
           sortValue: (row) => row.teamMembers.length,
           cell: (row) => <AvatarStack people={row.teamMembers} />,
         },

@@ -408,6 +408,52 @@ async function main() {
   assert.deepEqual(fields[1].options, ["Active", "On Hold"]);
   assert.equal(fields[0].options, undefined);
 
+  /* --------------------------------------- filter: false, and name search */
+
+  // The customer's company list: Subscription Date sorts but offers no filter,
+  // and Team Members is searched by a person's NAME over the avatar stack.
+  type Company = { name: string; team: { name: string }[] };
+  const companyColumns: Column<Company>[] = [
+    { header: "Subscription Date", filter: false, cell: (c) => c.name },
+    {
+      header: "Team Members",
+      filter: "text",
+      filterValues: (c) => c.team.map((p) => p.name),
+      sortValue: (c) => c.team.length,
+      cell: () => null,
+    },
+  ];
+  const companies: Company[] = [
+    { name: "Acme Air", team: [{ name: "Dana Reed" }, { name: "Ivo Lang" }] },
+    { name: "Zephyr Freight", team: [{ name: "Mina Okafor" }] },
+  ];
+
+  assert.deepEqual(
+    filterFields(companyColumns, companies).map((f) => `${f.header}:${f.type}`),
+    ["Team Members:text"],
+  );
+
+  // A stale `?f=` on the dropped column leaves the list whole rather than
+  // narrowing it by a filter nothing applies.
+  assert.equal(
+    filterRows(
+      companies,
+      companyColumns,
+      parseFilters("Subscription%20Date:before:2026-01-01"),
+    ).length,
+    2,
+  );
+
+  // Half a first name is enough, and it matches any face in the stack.
+  assert.deepEqual(
+    filterRows(
+      companies,
+      companyColumns,
+      parseFilters("Team%20Members:contains:ivo"),
+    ).map((c) => c.name),
+    ["Acme Air"],
+  );
+
   console.log("data table paging, sorting and filtering: all checks passed");
 }
 
