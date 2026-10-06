@@ -172,7 +172,7 @@ console.log("company: all checks passed");
   assert.equal(placed.length, 13, "every posted field must map to a box");
 }
 
-// The EN Number must reach the API. Omitting it is a 400 that names no field,
+// The EIN must reach the API. Omitting it is a 400 that names no field,
 // which is how this form spent its life unable to save a company at all.
 assert.equal(
   companyInput({

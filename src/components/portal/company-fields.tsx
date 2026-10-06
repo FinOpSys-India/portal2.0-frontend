@@ -65,7 +65,7 @@ export function CompanyFields({
       <TextField
         control={control}
         name="enNumber"
-        label="EN Number"
+        label="EIN"
         icon={FileDigit}
         required
         inputMode="numeric"
@@ -77,7 +77,7 @@ export function CompanyFields({
       <TextField
         control={control}
         name="addressLine1"
-        label="Address Line 1"
+        label="Company Address"
         icon={MapPin}
         required
         autoComplete="address-line1"
@@ -160,7 +160,7 @@ export function CompanyFields({
         <SelectField
           control={control}
           name="revenue"
-          label="Last Year's Revenue"
+          label="Revenue"
           icon={Hash}
           required
           placeholder="Select a range"

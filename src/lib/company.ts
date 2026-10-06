@@ -157,7 +157,7 @@ export function companyValues(company: CompanyRecord): CompanyValues {
     name: company.companyName,
     type: companyTypeLabel(company.companyType),
     // Blank rather than a stand-in when a route does not send one back: a
-    // number that is not an EN Number, shown where one goes, is worse than an
+    // number that is not an EIN, shown where one goes, is worse than an
     // empty box.
     enNumber: company.enNumber ?? "",
     addressLine1: address?.addressLine1 ?? "",

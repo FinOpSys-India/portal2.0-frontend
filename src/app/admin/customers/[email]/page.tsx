@@ -62,7 +62,7 @@ export default async function CustomerDetailPage({
         </DetailSection>
 
         <DetailSection title="Address">
-          <DetailRow label="Address Line 1" value={customer.addressLine1} />
+          <DetailRow label="User Address" value={customer.addressLine1} />
           <DetailRow label="City" value={customer.city} />
           <DetailRow label="State" value={customer.state} />
           <DetailRow label="ZIP Code" value={customer.zip} />

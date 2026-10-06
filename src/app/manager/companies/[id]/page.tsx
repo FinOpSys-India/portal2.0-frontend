@@ -30,7 +30,7 @@ export const metadata: Metadata = { title: "Company" };
  * Company Information — Basic Details, Full Address, Current Plans, in 1.0's
  * order (am-09-company-detail.png).
  *
- * EN Number is the one field a manager can write in 1.0, and 1.0 gives it no
+ * The EIN is the one field a manager can write in 1.0, and 1.0 gives it no
  * Save button, so an edit either autosaves on blur or is silently discarded.
  * Read-only here until that is settled: an input with nowhere to commit is
  * worse than a value.
@@ -72,11 +72,11 @@ export default async function ManagerCompanyPage({
         <DetailSection title="Basic Details">
           <DetailRow label="Company Name" value={company.name} />
           <DetailRow label="Company Email" value={company.email} />
-          <DetailRow label="EN Number" value={company.enNumber} />
+          <DetailRow label="EIN" value={company.enNumber} />
         </DetailSection>
 
         <DetailSection title="Full Address Information">
-          <DetailRow label="Address Line 1" value={company.addressLine1} />
+          <DetailRow label="Company Address" value={company.addressLine1} />
           <DetailRow label="City" value={company.city} />
           <DetailRow label="State" value={company.state} />
           <DetailRow label="ZIP Code" value={company.zip} />

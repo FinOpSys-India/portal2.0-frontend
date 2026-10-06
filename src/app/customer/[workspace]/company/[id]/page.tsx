@@ -44,7 +44,7 @@ export default async function CustomerCompanyPage({
         <DetailSection title="Basic Details">
           <DetailRow label="Company Name" value={company.name} />
           <DetailRow label="Company Email" value={company.email} />
-          <DetailRow label="EN Number" value={company.enNumber} />
+          <DetailRow label="EIN" value={company.enNumber} />
           <DetailRow
             label="Active Services"
             value={company.activeServices.join(", ")}
@@ -53,7 +53,7 @@ export default async function CustomerCompanyPage({
         </DetailSection>
 
         <DetailSection title="Full Address Information">
-          <DetailRow label="Address Line 1" value={company.addressLine1} />
+          <DetailRow label="Company Address" value={company.addressLine1} />
           <DetailRow label="City" value={company.city} />
           <DetailRow label="State" value={company.state} />
           <DetailRow label="ZIP Code" value={company.zip} />

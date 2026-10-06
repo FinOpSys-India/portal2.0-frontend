@@ -106,22 +106,22 @@ const schema = companySchema("owner@example.com");
 assert.ok(schema.safeParse(validCompany).success);
 
 /*
- * EN Number — 1.0's EIN, and the field whose absence made this form unable to
+ * EIN — the field whose absence made this form unable to
  * save anything: the API requires it, so a blank one is a 400 naming no field.
  * Nine digits, refused blank.
  */
 assert.ok(schema.safeParse({ ...validCompany, enNumber: "123456789" }).success);
 assert.equal(
   errorFor(schema.safeParse({ ...validCompany, enNumber: "" }), "enNumber"),
-  "Enter your EN Number.",
+  "Enter your EIN.",
 );
 assert.equal(
   errorFor(schema.safeParse({ ...validCompany, enNumber: "12345678" }), "enNumber"),
-  "An EN Number is nine digits.",
+  "An EIN is nine digits.",
 );
 assert.equal(
   errorFor(schema.safeParse({ ...validCompany, enNumber: "1234567890" }), "enNumber"),
-  "An EN Number is nine digits.",
+  "An EIN is nine digits.",
 );
 
 // The rule 1.0 enforces silently: company email must differ from the account.

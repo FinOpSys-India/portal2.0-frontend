@@ -97,9 +97,9 @@ export function companySchema(accountEmail: string) {
      */
     enNumber: z
       .string()
-      .min(1, "Enter your EN Number.")
+      .min(1, "Enter your EIN.")
       .refine((v) => /^\d{9}$/.test(v), {
-        message: "An EN Number is nine digits.",
+        message: "An EIN is nine digits.",
       }),
     addressLine1: z.string().min(1, "Enter your address."),
     city: z.string().min(1, "Enter your city."),
@@ -115,7 +115,7 @@ export function companySchema(accountEmail: string) {
       .string()
       .min(1, "Enter your number of employees.")
       .refine((v) => Number(v) >= 0, { message: "Enter a valid number." }),
-    revenue: z.string().min(1, "Select your last year's revenue."),
+    revenue: z.string().min(1, "Select your revenue."),
   });
 }
 
