@@ -48,6 +48,7 @@ const SEGMENTS = [
 export function CustomerShell({
   workspace,
   workspaces,
+  unpaid,
   user,
   owner,
   notifications,
@@ -55,6 +56,8 @@ export function CustomerShell({
 }: {
   workspace: Workspace;
   workspaces: Workspace[];
+  /** Company ids with no subscription yet — tagged in the switcher. */
+  unpaid?: string[];
   user: { name: string; email: string; avatarUrl?: string | null };
   /**
    * Does this reader OWN the company on screen — not own something somewhere.
@@ -90,7 +93,18 @@ export function CustomerShell({
           <WorkspacePill
             current={workspace}
             options={workspaces}
-            onSelect={(id) => router.push(`/customer/${id}/projects`)}
+            unpaid={unpaid}
+            // An unpaid company has no portal to switch into — its projects
+            // page is a frame around nothing until there is a subscription —
+            // so the switcher goes where its tag says, as the picker and the
+            // Company table do.
+            onSelect={(id) =>
+              router.push(
+                unpaid?.includes(id)
+                  ? `/on_boarding_form_part_2?compID=${encodeURIComponent(id)}`
+                  : `/customer/${id}/projects`,
+              )
+            }
           />
           {notifications ?? <NotificationBell />}
           <AccountMenu

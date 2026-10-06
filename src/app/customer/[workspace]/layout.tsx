@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { CustomerShell } from "@/components/customer/customer-shell";
 import { LiveBell } from "@/components/portal/live-bell";
-import { api } from "@/lib/api";
+import { api, unpaidCompanyIds } from "@/lib/api";
 import { customerApi } from "@/lib/customer";
 
 export const metadata: Metadata = {
@@ -24,10 +24,14 @@ export default async function CustomerLayout({
   // `/companies/owned` filters on `ownerUserId`, so a teammate matches nothing
   // and loses the owner-only nav rows. It fails closed on error for the same
   // reason the bell does: a frame that renders beats a frame that throws.
-  const [workspaces, profile, owned] = await Promise.all([
+  // The onboarding read fails closed alongside the owned-company one: it only
+  // decides whether a switcher row carries a payment tag, and a frame that
+  // renders beats a frame that throws.
+  const [workspaces, profile, owned, status] = await Promise.all([
     customerApi.workspaces(),
     customerApi.profile(),
     api.ownedCompanies().catch(() => []),
+    api.onboardingStatus().catch(() => null),
   ]);
   const workspace = workspaces.find((w) => w.id === id);
 
@@ -41,6 +45,7 @@ export default async function CustomerLayout({
       workspaces={workspaces}
       user={{ name: profile.fullName, email: profile.email, avatarUrl: profile.avatarUrl }}
       owner={owned.some((c) => String(c.companyId) === id)}
+      unpaid={status ? unpaidCompanyIds(status) : []}
       // A client component, so it mounts once and survives every navigation
       // under this layout instead of sweeping again on each one. See LiveBell.
       notifications={<LiveBell companies={workspaces} hrefFor="customer" />}

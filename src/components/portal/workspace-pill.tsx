@@ -2,6 +2,7 @@
 
 import { Check, ChevronDown } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ export function WorkspacePill({
   label = "Workspace",
   menuLabel = "Switch workspace",
   variant = "default",
+  unpaid = [],
 }: {
   current: PillOption;
   options: PillOption[];
@@ -37,6 +39,14 @@ export function WorkspacePill({
   menuLabel?: string;
   /** Outline for a pill inside the page — the brand fill belongs to the bar. */
   variant?: "default" | "outline";
+  /**
+   * Options that still owe a subscription. Tagged here as they are in the
+   * workspace picker and the Company table, because this is the third way into
+   * a company and a switcher that looks identical for a draft and a live
+   * account is how someone lands on an empty-looking portal. Where the tag
+   * leads is `onSelect`'s business, not this component's.
+   */
+  unpaid?: string[];
 }) {
   return (
     <DropdownMenu>
@@ -59,6 +69,9 @@ export function WorkspacePill({
             onSelect={() => onSelect(option.id)}
           >
             <span className="flex-1 truncate">{option.name}</span>
+            {unpaid.includes(option.id) ? (
+              <Badge variant="destructive">Complete payment</Badge>
+            ) : null}
             {option.id === current.id ? (
               <Check className="size-4" aria-hidden />
             ) : null}
