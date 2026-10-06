@@ -7,7 +7,8 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { AuthCard } from "@/components/auth/fields";
 import { AuthHeading } from "@/components/auth/auth-shell";
 import { InitialsAvatar } from "@/components/admin/initials-avatar";
-import { api } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+import { api, unpaidCompanyIds } from "@/lib/api";
 import { customerApi } from "@/lib/customer";
 import { myProfile } from "@/lib/portal";
 
@@ -28,7 +29,17 @@ export const metadata: Metadata = { title: "Select workspace – FinOpSys" };
  * are about to enter, and skipping it made the page look broken.
  */
 export default async function WorkspaceSelectPage() {
-  const workspaces = await customerApi.workspaces();
+  /*
+   * The status read is no longer only the empty branch's business: it names
+   * which companies are unpaid, and that is a chip on a row here rather than a
+   * redirect away from the page. One request for the ordinary path too, spent
+   * on the one screen where an owner chooses what to open.
+   */
+  const [workspaces, status] = await Promise.all([
+    customerApi.workspaces(),
+    api.onboardingStatus(),
+  ]);
+  const unpaid = unpaidCompanyIds(status);
 
   /*
    * NOTHING TO PICK MEANS TWO DIFFERENT THINGS, and only one of them is
@@ -44,13 +55,10 @@ export default async function WorkspaceSelectPage() {
    * that page bounces a non-owner straight back here — and it asked someone
    * whose access comes from `company_members` to create a company instead.
    *
-   * The status read costs a request and is spent only on the empty branch, so
-   * the ordinary path — a picker with rows in it — is unchanged.
+   * Both branches read the status fetched above.
    */
   if (workspaces.length === 0) {
-    const { isOwner } = await api.onboardingStatus();
-
-    if (isOwner) {
+    if (status.isOwner) {
       // The profile read happens only here, since the step is addressed by email.
       const { email } = await myProfile();
       redirect(`/on_boarding_form_part_1?email=${encodeURIComponent(email)}`);
@@ -85,23 +93,39 @@ export default async function WorkspaceSelectPage() {
         </AuthHeading>
 
         <ul className="space-y-2">
-          {workspaces.map((workspace) => (
-            <li key={workspace.id}>
-              <Link
-                href={`/customer/${workspace.id}/projects`}
-                className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors duration-150 hover:border-primary/25 hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
-              >
-                <InitialsAvatar name={workspace.name} />
-                <span className="flex-1 text-sm font-medium">
-                  {workspace.name}
-                </span>
-                <ChevronRight
-                  className="size-4 text-muted-foreground"
-                  aria-hidden
-                />
-              </Link>
-            </li>
-          ))}
+          {workspaces.map((workspace) => {
+            /*
+             * AN UNPAID COMPANY IS A ROW, NOT A ROADBLOCK. It is listed with
+             * the rest and opens its own plan step instead of the portal — so
+             * a draft company left unpaid costs its owner that one workspace,
+             * and never the others. The chip is what says why the row goes
+             * somewhere else before it is clicked.
+             */
+            const owes = unpaid.includes(workspace.id);
+
+            return (
+              <li key={workspace.id}>
+                <Link
+                  href={
+                    owes
+                      ? `/on_boarding_form_part_2?compID=${encodeURIComponent(workspace.id)}`
+                      : `/customer/${workspace.id}/projects`
+                  }
+                  className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors duration-150 hover:border-primary/25 hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+                >
+                  <InitialsAvatar name={workspace.name} />
+                  <span className="flex-1 text-sm font-medium">
+                    {workspace.name}
+                  </span>
+                  {owes && <Badge variant="destructive">Complete payment</Badge>}
+                  <ChevronRight
+                    className="size-4 text-muted-foreground"
+                    aria-hidden
+                  />
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </AuthCard>
     </AuthShell>

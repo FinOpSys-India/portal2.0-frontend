@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AUTH_PANELS, AuthShell } from "@/components/auth/auth-shell";
-import { api, unpaidCompany } from "@/lib/api";
+import { api, unpaidCompanyIds } from "@/lib/api";
 import { planCatalog } from "@/lib/billing";
 import { PlanPicker } from "./plan-picker";
 
@@ -28,14 +28,12 @@ export default async function PlanPage({
   // email — so it cannot be left to whatever the URL happened to carry.
   const accountEmail = decodeURIComponent(email) || (await api.me()).email;
 
-  // Arriving from the company step carries `compID`. Arriving from a resumed
-  // session does not — `GET /onboarding` reports that a company exists without
-  // naming it — and checkout is addressed by company, so it is looked up. The
-  // UNPAID one: this screen bills a company, and the first one alphabetically
-  // is as likely as not one that is already live. See `unpaidCompany`.
+  // Arriving from the company step carries `compID`, and so does the tagged row
+  // in the workspace picker. Arriving from a resumed session carries nothing, so
+  // the company to bill is looked up — the UNPAID one, since this screen bills a
+  // company and opening it on a live one is a 409. See `unpaidCompanyIds`.
   const companyId =
-    compID ||
-    String(unpaidCompany(await api.ownedCompanies())?.companyId ?? "");
+    compID || (unpaidCompanyIds(await api.onboardingStatus())[0] ?? "");
 
   // No company to bill. Rendering the picker anyway means the plan is chosen,
   // Get started is pressed, and the FIRST thing the user is told is a

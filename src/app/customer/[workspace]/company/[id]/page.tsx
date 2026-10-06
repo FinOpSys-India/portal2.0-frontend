@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AlertCircle } from "lucide-react";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AvatarStack } from "@/components/admin/initials-avatar";
 import { PageHeader } from "@/components/portal/portal-shell";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { api, unpaidCompanyIds } from "@/lib/api";
 import { customerApi } from "@/lib/customer";
 
 export const metadata: Metadata = { title: "Company" };
@@ -33,14 +37,41 @@ export default async function CustomerCompanyPage({
   // second company has to open from the first company's frame. Who may read
   // which company is the service's own per-company check — a company that is
   // not theirs is a 403 there, never a page.
-  const company = await customerApi.company(id);
+  const [company, status] = await Promise.all([
+    customerApi.company(id),
+    api.onboardingStatus(),
+  ]);
   if (!company) notFound();
+
+  /*
+   * The Company table sends an unpaid row to its plan step, so this page is
+   * reached for one only by a typed URL, a bookmark, or a link from before the
+   * bill. Saying so beats a panel of fields that look like a live account —
+   * Active Services and Subscription Date are both blank on a company that was
+   * never activated, which reads as missing data rather than an unpaid bill.
+   */
+  const owes = unpaidCompanyIds(status).includes(id);
 
   return (
     <>
       <PageHeader title="Company Information" description={company.name} />
 
       <div className="grid gap-6">
+        {owes && (
+          <Alert variant="destructive" className="items-start">
+            <AlertCircle className="size-4" aria-hidden />
+            <AlertDescription>
+              Payment for this company is pending, so it is not active yet.{" "}
+              <Link
+                href={`/on_boarding_form_part_2?compID=${encodeURIComponent(id)}`}
+              >
+                Complete payment
+              </Link>{" "}
+              to start using it.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <DetailSection title="Basic Details">
           <DetailRow label="Company Name" value={company.name} />
           <DetailRow label="Company Email" value={company.email} />

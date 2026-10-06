@@ -7,6 +7,8 @@ import {
   parsePageSize,
 } from "@/components/admin/data-table";
 import { AvatarStack } from "@/components/admin/initials-avatar";
+import { Badge } from "@/components/ui/badge";
+import { api, unpaidCompanyIds } from "@/lib/api";
 import { customerApi, type CustomerCompany } from "@/lib/customer";
 import { dateKey, withTeammates } from "@/lib/portal";
 
@@ -32,10 +34,15 @@ export default async function CompanyPage({
     await Promise.all([params, searchParams]);
   const page = parsePage(raw);
   const size = parsePageSize(rawSize);
-  const [owned, profile] = await Promise.all([
+  const [owned, profile, status] = await Promise.all([
     customerApi.companies(),
     customerApi.profile(),
+    api.onboardingStatus(),
   ]);
+  // Which rows still owe a subscription. The list is the owner's own companies,
+  // so it is empty for a teammate and nothing here is tagged for them — the
+  // bill is not theirs and checkout would refuse them anyway.
+  const unpaid = unpaidCompanyIds(status);
   // The company read names the account team — owner, accounting manager,
   // specialists — and never the colleagues this customer invited themselves.
   const companies = await withTeammates(owned);
@@ -53,8 +60,14 @@ export default async function CompanyPage({
       rows={companies}
       // The frame stays on the open workspace — a company is read from
       // wherever you stand, the switcher is what moves you.
+      //
+      // EXCEPT AN UNPAID ONE, which opens its plan step instead. There is
+      // nothing to read on a company that was never activated, and the row the
+      // chip is on should go where the chip says.
       rowHref={(row) =>
-        `/customer/${encodeURIComponent(workspace)}/company/${encodeURIComponent(row.id)}`
+        unpaid.includes(row.id)
+          ? `/on_boarding_form_part_2?compID=${encodeURIComponent(row.id)}`
+          : `/customer/${encodeURIComponent(workspace)}/company/${encodeURIComponent(row.id)}`
       }
       empty="No companies yet."
       columns={[
@@ -65,7 +78,14 @@ export default async function CompanyPage({
           // about one spelling at a time.
           filter: "enum",
           sortValue: (row) => row.name,
-          cell: (row) => <span className="font-medium">{row.name}</span>,
+          cell: (row) => (
+            <span className="flex items-center gap-2">
+              <span className="font-medium">{row.name}</span>
+              {unpaid.includes(row.id) && (
+                <Badge variant="destructive">Complete payment</Badge>
+              )}
+            </span>
+          ),
         },
         {
           header: "Active Services",

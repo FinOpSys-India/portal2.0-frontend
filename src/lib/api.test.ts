@@ -7,7 +7,13 @@
  */
 import assert from "node:assert/strict";
 
-import { landingPathForRole, toSelectedServices, unpaidCompany } from "./api";
+import {
+  api,
+  landingPathFor,
+  landingPathForRole,
+  toSelectedServices,
+  unpaidCompanyIds,
+} from "./api";
 import { BOOKKEEPING_TIERS, TAX_TIERS } from "./plans";
 
 // Every role lands somewhere distinct, and the routes are the 1.0 ones.
@@ -71,25 +77,79 @@ for (const tier of TAX_TIERS) {
 
 console.log("auth api: all checks passed");
 
-// The plan step bills ONE company, and it is the one with no subscription —
-// never simply the first, which `GET /companies/owned` orders by name. Picking
-// the live one there sent an owner to checkout on a company that already had a
-// subscription, which is a 409 and a dead end on the only screen that could
-// have settled the outstanding bill.
-const owned = [
-  { companyId: 23, companyName: "Acme", status: "ACTIVE" },
-  { companyId: 41, companyName: "Zenith", status: "ONBOARDING" },
-];
-assert.equal(unpaidCompany(owned)?.companyId, 41);
+// The plan step bills ONE company, and it is the one with no subscription.
+// `GET /onboarding` answers per company now; this used to read a company's
+// ACTIVE/ONBOARDING state off `/companies/owned`, which lagged the payment and
+// could not say WHICH of several bills was outstanding.
+const status = {
+  isOwner: true,
+  profileComplete: true,
+  companyCreated: true,
+  paymentComplete: false,
+  complete: true,
+  companies: [
+    { id: 10, companyName: "zomato", paymentComplete: true },
+    { id: 11, companyName: "Palentier", paymentComplete: false },
+    { id: 5, companyName: "Swiggy", paymentComplete: true },
+  ],
+};
 
-// SUSPENDED counts as unpaid too: the webhook moves a company there when its
-// subscription lapses, so it has no live subscription and checkout is open.
-assert.equal(
-  unpaidCompany([{ companyId: 7, companyName: "Lapsed", status: "SUSPENDED" }])
-    ?.companyId,
-  7,
+// Only the unpaid one, and as a string — a row id and a route param are strings
+// everywhere they are compared against this.
+assert.deepEqual(unpaidCompanyIds(status), ["11"]);
+
+// Everything paid: nothing is tagged and nothing routes to checkout.
+assert.deepEqual(
+  unpaidCompanyIds({ ...status, paymentComplete: true, companies: [status.companies[0]] }),
+  [],
 );
 
-// Every company live: there is nothing to bill, and the caller routes to the
-// portal rather than opening checkout on one that would refuse it.
-assert.equal(unpaidCompany([owned[0]]), undefined);
+// A deployment that predates the field, and a non-owner, both send no
+// `companies` at all. Neither has a bill to show, so neither gets one.
+assert.deepEqual(unpaidCompanyIds({ ...status, companies: undefined }), []);
+
+/*
+ * AN UNPAID COMPANY NO LONGER HIJACKS THE LOGIN.
+ *
+ * It used to: an owner with one company left as an unpaid draft was sent to its
+ * plan step on every sign-in, which locked them out of the companies they HAD
+ * paid for. The bill is a chip on that one row now, so login lands on the
+ * portal and the picker routes.
+ */
+const session = {
+  role: "CUSTOMER" as const,
+  user: {
+    id: 12,
+    email: "shubham.gupta@finopsys.ai",
+    firstName: "Shubham",
+    lastName: "Gupta",
+    role: "CUSTOMER" as const,
+  },
+};
+
+// Timers aside, the last checks are async and this file compiles to CJS, which
+// has no top-level await — same wrapper chat-realtime.test.ts uses.
+void (async () => {
+  // The one request `landingPathFor` makes, stubbed — the fetch path is not
+  // what is under test here, the branching is.
+  api.onboardingStatus = async () => status as never;
+  assert.equal(await landingPathFor(session as never), "/company_select");
+
+  // Still a wizard for the steps that ARE the owner's to finish: no profile,
+  // and a profile with no company.
+  api.onboardingStatus = async () =>
+    ({ ...status, profileComplete: false, complete: false }) as never;
+  assert.match(
+    await landingPathFor(session as never),
+    /^\/on_boarding_form_user_info\//,
+  );
+
+  api.onboardingStatus = async () =>
+    ({ ...status, companyCreated: false, complete: false }) as never;
+  assert.match(
+    await landingPathFor(session as never),
+    /^\/on_boarding_form_part_1\?/,
+  );
+
+  console.log("onboarding routing: all checks passed");
+})();

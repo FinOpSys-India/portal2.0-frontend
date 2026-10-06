@@ -112,6 +112,15 @@ export interface OnboardingStatus {
   /** True only when EVERY owned company has a subscription, not merely one. */
   paymentComplete: boolean;
   complete: boolean;
+  /**
+   * The owned companies and which of them are paid for — the only per-company
+   * payment signal the client gets, and the reason an outstanding bill is a
+   * chip on one row instead of a wall in front of the whole account.
+   *
+   * Absent for a non-owner, and absent from a deployment that predates the
+   * field, so every reader goes through `unpaidCompanyIds`.
+   */
+  companies?: { id: number; companyName: string; paymentComplete: boolean }[];
 }
 
 /**
@@ -475,28 +484,26 @@ export const api = {
 };
 
 /**
- * The company an owner still owes a subscription for, if any.
+ * The companies an owner still owes a subscription for, newest bill first as
+ * the status payload orders them. Ids as strings: that is what a route param
+ * and a workspace id are everywhere else.
  *
- * NOT `companies[0]`. That was "first by company name" — `GET /companies/owned`
- * orders alphabetically — which on an owner with more than one company is as
- * likely as not the one already paid for. The plan step then opened on a live
- * company, `POST /billing/checkout` answered 409 SUBSCRIPTION_ALREADY_ACTIVE,
- * and the owner was left on the one screen that could have unblocked their
- * account with no way through it. `paymentComplete` goes false when ANY owned
- * company lacks a subscription, so "there is a bill" and "this is the company
- * to bill" are different questions and only the second one is answered here.
+ * NOT `companies[0]`, and not a company's `status` either. This read used to go
+ * through `GET /companies/owned` and call anything non-ACTIVE unpaid, which was
+ * a guess standing in for a fact — a company is created ONBOARDING and only the
+ * Stripe webhook moves it, so the state lagged the payment and said nothing
+ * about which of several bills was outstanding. `GET /onboarding` now answers
+ * per company, so "is there a bill" and "which company is it on" stop being the
+ * same question.
  *
- * `status` is the payment signal the client has: a company is created
- * ONBOARDING and only the Stripe webhook moves it — to ACTIVE when the
- * subscription goes live, back to SUSPENDED when it lapses. Both of the
- * non-ACTIVE states are a company with no live subscription, which is exactly
- * what checkout is for. The owned-company payload carries no subscription of
- * its own to read instead.
+ * Empty for a non-owner and for a deployment that predates `companies` — in
+ * both cases nothing is tagged and nothing routes to checkout, which is the
+ * right answer for someone who has no bill to settle anyway.
  */
-export function unpaidCompany(
-  companies: OwnedCompany[],
-): OwnedCompany | undefined {
-  return companies.find((company) => company.status !== "ACTIVE");
+export function unpaidCompanyIds(status: OnboardingStatus): string[] {
+  return (status.companies ?? [])
+    .filter((company) => !company.paymentComplete)
+    .map((company) => String(company.id));
 }
 
 /**
@@ -540,21 +547,21 @@ export async function landingPathFor(session: Session): Promise<string> {
   const email = encodeURIComponent(session.user.email);
   if (!status.companyCreated) return `/on_boarding_form_part_1?email=${email}`;
 
-  // A company exists and something is unpaid. The plan step is addressed by
-  // company and the status payload names none, so the one to bill is looked up.
-  const company = unpaidCompany(await api.ownedCompanies());
-  if (company) {
-    return `/on_boarding_form_part_2?email=${email}&compID=${company.companyId}`;
-  }
-
   /*
-   * There is an outstanding bill and nothing owned to settle it on — every
-   * company reads ACTIVE while `paymentComplete` says otherwise, which is the
-   * two sources disagreeing (a company left ACTIVE after its subscription
-   * lapsed, say). Opening checkout on a live company is the 409 this function
-   * exists to avoid, and the company step would have them create a shell they
-   * did not ask for, so the portal is the honest destination: the backend's own
-   * `requirePaidAccount` will say what is owed if anything still is.
+   * A COMPANY EXISTS AND SOMETHING IS UNPAID — AND THAT IS NOT A DETOUR.
+   *
+   * This used to look up the unpaid company and open the plan step on it, which
+   * made an outstanding bill a wall across the whole account: an owner who left
+   * a second company as a draft could not reach the first one again, and a
+   * first-timer who stopped mid-signup came back to a checkout screen with no
+   * way past it. Payment is per company, so it belongs on the company — the
+   * picker tags the unpaid row and that row is the link to its plan step (see
+   * `unpaidCompanyIds`). Everything else opens normally.
+   *
+   * The portal is therefore the destination for every owner who has a profile
+   * and a company, paid or not. `complete` above is left as the only shortcut
+   * out: it is the flag the backend's own `requirePaidAccount` reads, so while
+   * the two agree there is nothing left for this function to decide.
    */
   return landingPathForRole(session.role);
 }

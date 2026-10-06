@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AUTH_PANELS, AuthShell } from "@/components/auth/auth-shell";
-import { api, landingPathForRole, unpaidCompany } from "@/lib/api";
+import { api, landingPathForRole, unpaidCompanyIds } from "@/lib/api";
 import { companyValues } from "@/lib/company";
 import { CompanyForm } from "./company-form";
 
@@ -43,14 +43,10 @@ export default async function CompanyPage({
    * Arriving from the plan step's Back carries `compID`. Arriving from step 1
    * after going back to correct it does not — but the company was already
    * created on the way through, and a blank form here would create a SECOND
-   * one. `GET /onboarding` says only THAT a company exists, so the unpaid one
-   * is looked up the same way the plan step looks it up.
+   * one. So the unpaid one is read off the status already fetched above, the
+   * same company the plan step bills.
    */
-  const companyId =
-    compID ||
-    (status.companyCreated
-      ? String(unpaidCompany(await api.ownedCompanies())?.companyId ?? "")
-      : "");
+  const companyId = compID || (unpaidCompanyIds(status)[0] ?? "");
   const existing = companyId ? await api.company(companyId) : null;
 
   return (
