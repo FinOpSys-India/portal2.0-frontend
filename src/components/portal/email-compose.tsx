@@ -15,6 +15,7 @@ import {
 import { FormAlert } from "@/components/auth/form-alert";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
+import { toast } from "@/components/ui/toast";
 import { customerApi } from "@/lib/customer";
 import {
   ACCEPTED_UPLOAD_EXTENSIONS,
@@ -73,7 +74,6 @@ export function EmailCompose({
   companyId?: string;
 }) {
   const [failure, setFailure] = React.useState<string | null>(null);
-  const [sent, setSent] = React.useState(false);
   const [files, setFiles] = React.useState<File[]>([]);
   const [dragging, setDragging] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -88,7 +88,6 @@ export function EmailCompose({
   const none = !fixedTo && recipients.length === 0;
 
   function add(chosen: File[]) {
-    setSent(false);
     if (!chosen.length) return;
 
     const { files: next, refused } = acceptAttachments(files, chosen);
@@ -100,7 +99,6 @@ export function EmailCompose({
     form.reset();
     setFiles([]);
     setFailure(null);
-    setSent(false);
   }
 
   async function onSubmit(values: ConnectEmailValues) {
@@ -109,7 +107,10 @@ export function EmailCompose({
       await SEND[from]({ ...values, companyId, files });
       form.reset();
       setFiles([]);
-      setSent(true);
+      // A toast, not a line under the form: the send empties the draft, so
+      // there is nothing left on screen for an inline notice to belong to.
+      // 1.0 has no sent folder either, so there is nowhere to go and look.
+      toast.success("Email sent.");
     } catch (err) {
       setFailure(err instanceof Error ? err.message : "Could not send.");
     }
@@ -133,9 +134,6 @@ export function EmailCompose({
             onSubmit={form.handleSubmit(onSubmit)}
             noValidate
             className="space-y-4"
-            // Any edit clears the confirmation: it described the last send,
-            // not the draft now on screen.
-            onChange={() => setSent(false)}
           >
             {fixedTo ? (
               <StaticField label="To" value={fixedTo.label} />
@@ -267,13 +265,6 @@ export function EmailCompose({
             ) : null}
 
             <FormAlert>{failure}</FormAlert>
-
-            {sent ? (
-              <p role="status" className="text-sm text-muted-foreground">
-                Sent. 1.0 has no sent folder, so there is nothing to open
-                afterwards.
-              </p>
-            ) : null}
 
             <div className="flex items-center gap-3">
               <SubmitButton
