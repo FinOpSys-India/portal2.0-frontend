@@ -24,6 +24,10 @@ import {
  * table that moves. Nested providers are fine — the shell keeps its own for the
  * sidebar.
  *
+ * INSIDE A DATA TABLE ROW, THE TRIGGER NEEDS `relative z-10`. The clickable
+ * row is one stretched link with `after:inset-0`, which covers every other
+ * cell and swallows the hover before the trigger sees it.
+ *
  * NOT AN ACCESSIBILITY DEVICE. A tooltip is a mouse affordance; the callers
  * here keep the same names in a visually hidden list, which is what a screen
  * reader and a keyboard actually reach.

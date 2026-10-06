@@ -170,8 +170,12 @@ export function AvatarStack({
           {/* The span, not the avatar, is what the tooltip hangs off: it is a
               plain element, so it takes the ref and the pointer handlers the
               trigger needs. The overlap lives here for the same reason — the
-              circle inside keeps only its ring. */}
-          <span className="-ml-2 inline-flex first:ml-0">
+              circle inside keeps only its ring.
+
+              `relative z-10` lifts it over the stretched row link, whose
+              `after:inset-0` covers the row and otherwise swallows the hover
+              before the trigger ever sees it. */}
+          <span className="relative z-10 -ml-2 inline-flex first:ml-0">
             <InitialsAvatar
               name={person.name}
               src={person.avatarUrl}
@@ -189,7 +193,7 @@ export function AvatarStack({
         <Hint label={rest.map((person) => person.name).join(", ")}>
           <span
             aria-hidden
-            className="-ml-2 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground ring-2 ring-card select-none"
+            className="relative z-10 -ml-2 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground ring-2 ring-card select-none"
           >
             +{rest.length}
           </span>
