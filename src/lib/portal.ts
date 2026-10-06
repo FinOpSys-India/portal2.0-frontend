@@ -54,6 +54,13 @@ export interface BackendPerson {
   avatarUrl?: string | null;
   /** Null when the joined row carried no address — `toPerson` always sends the key. */
   email?: string | null;
+  /**
+   * What this person typed about themselves at onboarding. `projectDto.toPerson`
+   * sends it for everyone it builds, so every person embedded on a company team
+   * carries one — but it is NOT a role, and the staff's role beats it wherever
+   * the two are shown together (see `companyTitle`).
+   */
+  jobTitle?: string | null;
 }
 
 export const personName = (p: BackendPerson | null | undefined): string =>
@@ -433,6 +440,32 @@ export interface BackendAddress {
   country: string | null;
 }
 
+/**
+ * A specialist on a company's team, with the service lines they are staffed on.
+ *
+ * `specializations` is what `companyDto.toTeam` groups the assignment rows into
+ * — one entry per service a person covers on THIS company, deduplicated by code.
+ * It is the only thing in the payload that says which kind of specialist they
+ * are: the team is built by `projectDto.toPerson`, which carries no
+ * `specificRole`. Optional because the plain company reads
+ * (`toCompanyWithPeople`) name their specialists by slot instead and send no
+ * assignments at all.
+ */
+export interface BackendSpecialist extends BackendPerson {
+  specializations?: {
+    assignmentId?: number;
+    specializationCode: string;
+    specializationName: string | null;
+  }[];
+}
+
+/** `companyDto.toTeam` — our side of an account, plus the one customer who signed up. */
+export interface BackendTeam {
+  owner: BackendPerson | null;
+  accountingManager: BackendPerson | null;
+  specialists: BackendSpecialist[];
+}
+
 export interface BackendCompany {
   id: number;
   companyName: string;
@@ -452,16 +485,8 @@ export interface BackendCompany {
    */
   activeServices: { specializationName: string; planName?: string | null }[];
   billing: { currentPeriodEnd: string | null } | null;
-  teamMembers?: {
-    owner: BackendPerson | null;
-    accountingManager: BackendPerson | null;
-    specialists: BackendPerson[];
-  };
-  members?: {
-    owner: BackendPerson | null;
-    accountingManager: BackendPerson | null;
-    specialists: BackendPerson[];
-  };
+  teamMembers?: BackendTeam;
+  members?: BackendTeam;
   servicePlans?: {
     specializationName: string;
     planName: string | null;
@@ -521,6 +546,13 @@ export interface BackendTeammate {
   firstName: string;
   lastName: string;
   jobTitle: string | null;
+  /**
+   * Their seat in the catalog, as `specific_roles` names it. A fallback for a
+   * blank job title and nothing more: every teammate is invited as CUSTOMER /
+   * TEAM, so this is the SAME string for all of them and would tell a reader
+   * nothing if it outranked what the owner typed.
+   */
+  specificRoleName?: string | null;
   email: string;
   avatarUrl?: string | null;
 }
@@ -537,6 +569,27 @@ export function teamPeople(company: BackendCompany): PortalPerson[] {
   return [team?.owner, team?.accountingManager, ...(team?.specialists ?? [])]
     .filter((p): p is BackendPerson => Boolean(p))
     .map(toPortalPerson);
+}
+
+/**
+ * What a specialist is called: the service lines they are staffed on, as titles.
+ *
+ * "Bookkeeping" + " Specialist", built from `specializationName` rather than
+ * from the `SPECIALIST_1`…`_4` codes the profile cards map, because the team
+ * payload carries assignments and no specific role. A person staffed on two
+ * services gets both, joined — the alternative is picking one arbitrarily and
+ * telling half the readers the wrong thing.
+ *
+ * Empty when nothing is staffed, which is a real state: `toTeam` keys the map on
+ * `specialistUserId`, so an assignment whose specialization join did not load
+ * still yields a person with no specializations at all.
+ */
+export function specialistTitle(p: BackendSpecialist): string {
+  return (p.specializations ?? [])
+    .map((s) => s.specializationName)
+    .filter((n): n is string => Boolean(n))
+    .map((n) => `${n} Specialist`)
+    .join(", ");
 }
 
 /**

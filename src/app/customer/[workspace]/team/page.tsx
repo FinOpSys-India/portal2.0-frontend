@@ -11,7 +11,7 @@ import { customerApi, type TeamMember } from "@/lib/customer";
 import { InviteTeammate } from "./invite-teammate";
 import { parseFilters } from "@/lib/table-filter";
 
-export const metadata: Metadata = { title: "Team Member" };
+export const metadata: Metadata = { title: "Team" };
 
 export default async function TeamPage({
   params,
@@ -52,7 +52,7 @@ export default async function TeamPage({
 
   return (
     <DataTable<TeamMember>
-      title="Team Member"
+      title="Team"
       page={page}
       size={size}
       sort={sort}
@@ -88,7 +88,15 @@ export default async function TeamPage({
           sortValue: (row) => row.name,
           cell: (row) => <PersonCell name={row.name} avatarUrl={row.avatarUrl} />,
         },
-        { header: "Job Title", cell: (row) => row.jobTitle },
+        { header: "Title", cell: (row) => row.title },
+        /*
+         * WHO THEY WORK FOR, because the table now holds both sides of the
+         * account — the customer's own colleagues and the FinOpSys staff on it.
+         * An `enum` filter rather than text: there are exactly two answers on any
+         * one workspace, and a checklist of two is how a reader asks for "just
+         * my people" without typing their own company's name.
+         */
+        { header: "Company", cell: (row) => row.company, filter: "enum" },
         {
           header: "Email Address",
           cell: (row) => (

@@ -29,7 +29,7 @@ const SEGMENTS = [
   { segment: "connect", label: "Connect", icon: MessageSquare },
   { segment: "files", label: "Documents", icon: Paperclip },
   { segment: "company", label: "Company", icon: Building2 },
-  { segment: "team", label: "Team Member", icon: Users },
+  { segment: "team", label: "Team", icon: Users },
   // OWNER-ONLY, and hidden rather than shown-and-refused: `GET
   // /billing/subscription` 403s a teammate (see `billingAccess.js`), so the row
   // led every invited teammate to a page that could only tell them no. The page

@@ -33,6 +33,7 @@ import {
   personAvatarUrl,
   personId,
   personName,
+  specialistTitle,
   teamPeople,
   teammatePeople,
   toClientCompanyDetail,
@@ -40,6 +41,7 @@ import {
   toProjectTask,
   usDate,
   type BackendCompany,
+  type BackendPerson,
   type PortalPerson,
   type BackendDocument,
   type BackendProject,
@@ -93,8 +95,77 @@ export interface TeamMember {
   name: string;
   /** Their picture, when the row carries one. Null draws their initials. */
   avatarUrl: string | null;
-  jobTitle: string;
+  /**
+   * Their role where we assign one, their own job title otherwise — see
+   * `toTeamRoster`. Not `jobTitle` any more: half these rows no longer show one.
+   */
+  title: string;
+  /** Who they work for: the customer's own company, or `FINOPSYS`. */
+  company: string;
   email: string;
+}
+
+/** Us, in the Company column. Spelled as every other screen in the portal spells it. */
+export const FINOPSYS = "FinOpSys";
+
+/**
+ * Everyone on an account, from both sides of it: the customer's own people and
+ * the FinOpSys staff serving them.
+ *
+ * THE ROLE OUTRANKS THE JOB TITLE, for us. An accounting manager is "Accounting
+ * Manager" and a specialist is "Bookkeeping Specialist" however they filled in
+ * the onboarding form, because the reader is asking what this person does on
+ * THEIR account and the assignment is the answer. `jobTitle` is what someone
+ * typed about their career; it would have a tax specialist reading "Senior
+ * Associate" on the one screen whose job is telling a customer who handles their
+ * taxes.
+ *
+ * The customer's side is the other way round — their job title first, the
+ * catalog role only as a fallback. Every teammate is invited as CUSTOMER / TEAM,
+ * so the role is one shared string there and the typed title is the only thing
+ * that distinguishes an office manager from a controller.
+ *
+ * Owner and staff come from `teamMembers`; the teammates are their own read,
+ * because no company read carries `company_members` rows at all. Separated from
+ * the fetching so the precedence above can be checked against a payload.
+ */
+export function toTeamRoster(
+  company: BackendCompany | null,
+  teammates: BackendTeammate[],
+): TeamMember[] {
+  const team = company?.teamMembers ?? company?.members;
+  const companyName = company?.companyName ?? "";
+
+  const row = (
+    p: BackendPerson,
+    title: string,
+    employer: string,
+  ): TeamMember => ({
+    name: personName(p),
+    avatarUrl: personAvatarUrl(p),
+    title,
+    company: employer,
+    email: p.email ?? "",
+  });
+
+  return [
+    // Their side: the one customer who signed up, then everyone they invited.
+    ...(team?.owner ? [row(team.owner, team.owner.jobTitle ?? "", companyName)] : []),
+    ...teammates.map((t) => ({
+      name: fullName(t),
+      avatarUrl: t.avatarUrl ?? null,
+      title: t.jobTitle ?? t.specificRoleName ?? "",
+      company: companyName,
+      email: t.email,
+    })),
+    // Ours.
+    ...(team?.accountingManager
+      ? [row(team.accountingManager, "Accounting Manager", FINOPSYS)]
+      : []),
+    ...(team?.specialists ?? []).map((p) =>
+      row(p, specialistTitle(p) || "Specialist", FINOPSYS),
+    ),
+  ];
 }
 
 
@@ -339,19 +410,30 @@ export const customerApi = {
   },
 
   async team(workspaceId: string): Promise<TeamMember[]> {
-    // The same roster the company detail screens stack as faces
-    // (`teammatePeople`), kept richer here: this page is a table with a job
-    // title and an email in it.
-    const data = await get<{ teammates: BackendTeammate[] }>(
-      `/teammates?companyId=${encodeURIComponent(workspaceId)}`,
-    );
+    /*
+     * BOTH SIDES OF THE ACCOUNT, which is two reads.
+     *
+     * `/teammates` is the customer's own colleagues and nothing else — the owner
+     * is linked through `companies.owner_user_id` and the staff through the
+     * manager column and the assignment rows, so none of the three appear in it.
+     * `/companies/:id` carries all of them in `teamMembers`, the same payload
+     * the detail screens stack as faces, and it is the only read that says which
+     * service line each specialist covers.
+     *
+     * `getOrNull` on the company: this page's reason to exist is the teammate
+     * roster, and a company read that 404s must leave it standing with our half
+     * missing rather than blanking the screen.
+     */
+    const [data, detail] = await Promise.all([
+      get<{ teammates: BackendTeammate[] }>(
+        `/teammates?companyId=${encodeURIComponent(workspaceId)}`,
+      ),
+      getOrNull<{ company: BackendCompany }>(
+        `/companies/${encodeURIComponent(workspaceId)}`,
+      ),
+    ]);
 
-    return data.teammates.map((t) => ({
-      name: fullName(t),
-      avatarUrl: t.avatarUrl ?? null,
-      jobTitle: t.jobTitle ?? "",
-      email: t.email,
-    }));
+    return toTeamRoster(detail?.company ?? null, data.teammates);
   },
 
   /**
