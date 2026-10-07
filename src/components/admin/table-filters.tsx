@@ -445,7 +445,7 @@ function Pane({
   return <TextPane field={field.header} filter={filter} onChange={onChange} />;
 }
 
-/** Free text: what it contains, or whether it is blank at all. */
+/** Free text: what the column contains. */
 function TextPane({
   field,
   filter,
@@ -455,44 +455,27 @@ function TextPane({
   filter: Filter | undefined;
   onChange: (filter: Filter | null) => void;
 }) {
-  const empty = filter?.op === "empty";
-
   return (
-    <div className="space-y-4">
-      <label className="block space-y-2">
-        <span className="text-xs text-muted-foreground">Contains</span>
-        <Input
-          autoFocus
-          value={empty ? "" : (filter?.values[0] ?? "")}
-          disabled={empty}
-          placeholder={`Search ${field.toLowerCase()}`}
-          onChange={(event) =>
-            onChange(
-              event.target.value
-                ? { field, op: "contains", values: [event.target.value] }
-                : null,
-            )
-          }
-          className="h-9 text-sm"
-        />
-      </label>
-
-      {/* Kept from the operator list this pane replaced: "has nothing in it"
-          is a real question about a column and nothing else here asks it. */}
-      <label className="flex items-center gap-2.5 text-sm">
-        <input
-          type="checkbox"
-          checked={empty}
-          onChange={(event) =>
-            onChange(
-              event.target.checked ? { field, op: "empty", values: [] } : null,
-            )
-          }
-          className="size-3.5 accent-primary"
-        />
-        Only rows with no {field.toLowerCase()}
-      </label>
-    </div>
+    <label className="block space-y-2">
+      <span className="text-xs text-muted-foreground">Contains</span>
+      <Input
+        autoFocus
+        // A URL can still carry `op: "empty"` on a text column — the checklist
+        // pane writes one, and a hand-edited `?f=` can say anything. It has no
+        // value to show, so the box comes up blank and the first keystroke
+        // replaces the filter with a `contains`.
+        value={filter?.values[0] ?? ""}
+        placeholder={`Search ${field.toLowerCase()}`}
+        onChange={(event) =>
+          onChange(
+            event.target.value
+              ? { field, op: "contains", values: [event.target.value] }
+              : null,
+          )
+        }
+        className="h-9 text-sm"
+      />
+    </label>
   );
 }
 
