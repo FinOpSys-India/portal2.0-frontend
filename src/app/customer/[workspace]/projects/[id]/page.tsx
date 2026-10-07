@@ -90,13 +90,13 @@ export default async function CustomerProjectPage({
 
         <section className="rounded-xl border border-border bg-card">
           <div className="border-b border-border p-6">
-            <h2 className="text-sm font-semibold">Task List</h2>
+            <h2 className="text-sm font-semibold">Tasks</h2>
           </div>
           <ProjectTaskTable tasks={tasks} from="customer" sort={sort} dir={dir} />
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-semibold">Attached Files</h2>
+          <h2 className="mb-3 text-sm font-semibold">Documents</h2>
           <DataTable<CustomerFile>
             page={page}
             size={size}

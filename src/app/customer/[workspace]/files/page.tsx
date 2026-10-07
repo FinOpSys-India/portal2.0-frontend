@@ -17,10 +17,10 @@ import { viewerId, withService } from "@/lib/portal";
 import { CustomerUploadFile } from "./upload-file";
 import { parseFilters } from "@/lib/table-filter";
 
-export const metadata: Metadata = { title: "Files" };
+export const metadata: Metadata = { title: "Documents" };
 
 /**
- * File Organizer — the same table the staff portals render, narrowed to one
+ * Documents — the same table the staff portals render, narrowed to one
  * workspace.
  *
  * One filter rather than their two: the company is the URL segment, so only
@@ -74,7 +74,7 @@ export default async function FilesPage({
         total={files.length}
         rows={withService(files, projects)}
         header={
-          <h1 className="text-lg font-bold tracking-tight">All Documents</h1>
+          <h1 className="text-lg font-bold tracking-tight">Documents</h1>
         }
         action={
           <CustomerUploadFile

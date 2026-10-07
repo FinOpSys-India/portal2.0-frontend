@@ -822,7 +822,7 @@ function EmojiPicker({
  * and left the reader in a downloads folder to find out what they had been
  * sent. The same extension chip the document lists use, the size under the
  * name, and the name itself opening the same preview dialog — so a file looks
- * and behaves the same whether it arrived in chat or in All Documents.
+ * and behaves the same whether it arrived in chat or in Documents.
  *
  * `useCallback` on the source, not an inline arrow: the dialog mints the URL
  * when it opens, and this thread re-renders on every arriving message.

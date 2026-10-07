@@ -17,10 +17,10 @@ import { companyScope, specialistApi } from "@/lib/specialist";
 import { SpecialistUploadFile } from "./upload-file";
 import { parseFilters } from "@/lib/table-filter";
 
-export const metadata: Metadata = { title: "Files" };
+export const metadata: Metadata = { title: "Documents" };
 
 /**
- * File Organizer — the files on the company this specialist is scoped to,
+ * Documents — the files on the company this specialist is scoped to,
  * newest upload first.
  *
  * Two filters, both in the URL: the header's company switcher and this page's
@@ -92,7 +92,7 @@ export default async function SpecialistDocumentsPage({
         total={documents.length}
         rows={withService(documents, allProjects)}
         header={
-          <h1 className="text-lg font-bold tracking-tight">All Documents</h1>
+          <h1 className="text-lg font-bold tracking-tight">Documents</h1>
         }
         action={
           <SpecialistUploadFile

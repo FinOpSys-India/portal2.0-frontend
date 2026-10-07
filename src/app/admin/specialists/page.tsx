@@ -50,7 +50,7 @@ export default async function SpecialistsPage({
           sortValue: (row) => row.name,
           cell: (row) => <PersonCell name={row.name} avatarUrl={row.avatarUrl} />,
         },
-        { header: "Service Speciality", cell: (row) => row.speciality },
+        { header: "Service Specialty", cell: (row) => row.speciality },
         {
           header: "Email",
           cell: (row) => (

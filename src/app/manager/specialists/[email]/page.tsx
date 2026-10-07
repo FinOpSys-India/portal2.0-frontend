@@ -36,7 +36,7 @@ const COLUMNS: SortableColumn<SpecialistTask>[] = [
 export const metadata: Metadata = { title: "Specialist" };
 
 /**
- * Specialists Detail — every task the specialist is carrying on the left,
+ * Specialist Details — every task the specialist is carrying on the left,
  * who they are on the right.
  *
  * SCOPED TO THE COMPANY IN VIEW, like the list that links here. A specialist
@@ -95,7 +95,7 @@ export default async function ManagerSpecialistPage({
     // Full height, so the two columns run the length of the page instead of
     // stopping wherever the shorter one happens to end.
     <div className="flex h-full flex-col">
-      <PageHeader title="Specialists Detail" description={specialist.name} />
+      <PageHeader title="Specialist Details" description={specialist.name} />
 
       <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="overflow-hidden rounded-xl border border-border bg-card">

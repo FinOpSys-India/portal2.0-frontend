@@ -16,10 +16,10 @@ import { viewerId, withService } from "@/lib/portal";
 import { ManagerUploadFile } from "./upload-file";
 import { parseFilters } from "@/lib/table-filter";
 
-export const metadata: Metadata = { title: "Files" };
+export const metadata: Metadata = { title: "Documents" };
 
 /**
- * All Documents — the file organiser, newest upload first.
+ * Documents — the file organiser, newest upload first.
  *
  * Two filters, both in the URL: the header's company switcher and this page's
  * project pill. The breadcrumb spells out the resulting scope, because two
@@ -90,7 +90,7 @@ export default async function ManagerDocumentsPage({
         total={documents.length}
         rows={withService(documents, allProjects)}
         header={
-          <h1 className="text-lg font-bold tracking-tight">All Documents</h1>
+          <h1 className="text-lg font-bold tracking-tight">Documents</h1>
         }
         action={
           <ManagerUploadFile

@@ -26,10 +26,12 @@ import {
  * is a promise about where it goes, and "File" opening "All Documents" is a
  * broken one.
  *
- * Documents is the one item shortened rather than matched: the page heads
- * itself "All Documents", but in a column of one-word labels the "All" reads as
- * a qualifier distinguishing it from some other documents screen there isn't
- * one of. Same rule, applied to the sidebar's own line width.
+ * No exceptions left. Documents used to be one: the page headed itself "All
+ * Documents" while the sidebar said "Documents", because in a column of
+ * one-word labels that "All" reads as a qualifier distinguishing it from some
+ * other documents screen there isn't one of. The pages dropped it instead —
+ * every screen that lists files now says Documents, the heading, the tab title
+ * and the project-detail section included.
  *
  * No Tasks board. A manager staffs the work and reads it per project; the
  * cross-book task list was this port's own addition and is gone again — tasks

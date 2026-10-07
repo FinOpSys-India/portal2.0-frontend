@@ -88,7 +88,7 @@ export default async function SpecialistProjectPage({
         <div className="grid gap-6">
           <section className="rounded-xl border border-border bg-card">
             <div className="flex items-center justify-between gap-4 border-b border-border p-6">
-              <h2 className="text-sm font-semibold">Task List</h2>
+              <h2 className="text-sm font-semibold">Tasks</h2>
               <AddTask
                 from="specialist"
                 projects={[
@@ -127,13 +127,13 @@ export default async function SpecialistProjectPage({
         </div>
 
         <section className="rounded-xl border border-border bg-card p-6 lg:self-start">
-          <h2 className="mb-4 text-sm font-semibold">Project Files</h2>
+          <h2 className="mb-4 text-sm font-semibold">Documents</h2>
 
           <div className="mb-4 flex gap-2">
             {/*
              * Upload was disabled behind "the backend does not have file
              * storage yet". It does — GET /api/health reports
-             * `storage: "supabase"`, and the File Organizer on the next tab has
+             * `storage: "supabase"`, and Documents on the next tab has
              * been uploading through the same three-step handshake all along.
              * The dialog is pre-scoped to this project, so there is nothing to
              * choose here that the page does not already know.

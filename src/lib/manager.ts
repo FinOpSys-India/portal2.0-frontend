@@ -154,7 +154,7 @@ export interface StaffingLine {
   options: { userId: number; name: string; email: string }[];
 }
 
-/** What the Specialists Detail screen shows beside the task list. */
+/** What the Specialist Details screen shows beside the task list. */
 export interface SpecialistDetail extends Specialist {
   /**
    * The company this detail was read under — see `specialist()`.
