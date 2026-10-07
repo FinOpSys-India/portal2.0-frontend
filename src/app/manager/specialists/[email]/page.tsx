@@ -25,6 +25,17 @@ const COLUMNS: SortableColumn<SpecialistTask>[] = [
   // The design labels this column "File Name" on a table of tasks. Named for
   // what it holds.
   { header: "Task", sortValue: (task) => task.name },
+  {
+    // Its own column, not a second line under the name. Stacked, the two read
+    // as one field and the description could not be sorted or sized — a
+    // space-less one ran the width of the card. This is also the column set the
+    // specialist's own Tasks page uses, so the two tables now match.
+    header: "Description",
+    // The free-text column, so the one that needs a width of its own: left to
+    // the auto layout it takes all the slack in a `w-full` table.
+    className: "w-[484px]",
+    sortValue: (task) => task.description,
+  },
   { header: "Project Name", sortValue: (task) => task.project },
   {
     header: "Deadline",
@@ -120,7 +131,7 @@ export default async function ManagerSpecialistPage({
               {tasks.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
                   <TableCell
-                    colSpan={4}
+                    colSpan={COLUMNS.length}
                     className="h-32 text-center text-sm text-muted-foreground"
                   >
                     No tasks assigned yet.
@@ -129,11 +140,9 @@ export default async function ManagerSpecialistPage({
               ) : (
                 sortRows(tasks, COLUMNS, sort, dir).map((task) => (
                   <TableRow key={task.id}>
-                    <TableCell>
-                      <span className="font-medium">{task.name}</span>
-                      <span className="mt-0.5 block text-sm text-muted-foreground">
-                        {task.description}
-                      </span>
+                    <TableCell className="font-medium">{task.name}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {task.description}
                     </TableCell>
                     <TableCell>{task.project}</TableCell>
                     <TableCell className="tabular-nums">
