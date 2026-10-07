@@ -91,7 +91,13 @@ export default async function SpecialistProjectPage({
               <h2 className="text-sm font-semibold">Task List</h2>
               <AddTask
                 from="specialist"
-                projects={[{ id: project.id, name: project.name }]}
+                projects={[
+                  {
+                    id: project.id,
+                    name: project.name,
+                    deadline: project.deadline,
+                  },
+                ]}
               />
             </div>
 

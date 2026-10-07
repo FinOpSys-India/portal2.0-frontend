@@ -105,7 +105,11 @@ export default async function ManagerSpecialistPage({
             {theirs.length > 0 ? (
               <AddTask
                 from="manager"
-                projects={theirs.map((p) => ({ id: p.id, name: p.name }))}
+                projects={theirs.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  deadline: p.deadline,
+                }))}
               />
             ) : null}
           </div>

@@ -55,7 +55,7 @@ export function AddTask({
   projects,
   from,
 }: {
-  projects: { id: string; name: string }[];
+  projects: { id: string; name: string; deadline: string }[];
   from: keyof typeof ADD;
 }) {
   const router = useRouter();
@@ -166,9 +166,16 @@ export function AddTask({
                   label="Project"
                   required
                   placeholder="Select a project"
+                  // The project's own deadline rides along in the label: a
+                  // task is due before the project it belongs to, and without
+                  // it the chooser is naming projects by name alone with no
+                  // way to tell which one is about to run out. Projects with
+                  // no deadline set keep the bare name.
                   options={projects.map((p) => ({
                     value: p.id,
-                    label: p.name,
+                    label: p.deadline
+                      ? `${p.name} · due ${p.deadline}`
+                      : p.name,
                   }))}
                 />
               )}

@@ -80,7 +80,13 @@ export default async function ManagerProjectPage({
               <h2 className="text-sm font-semibold">Task List</h2>
               <AddTask
                 from="manager"
-                projects={[{ id: project.id, name: project.name }]}
+                projects={[
+                  {
+                    id: project.id,
+                    name: project.name,
+                    deadline: project.deadline,
+                  },
+                ]}
               />
             </div>
 

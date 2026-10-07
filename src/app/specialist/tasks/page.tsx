@@ -55,7 +55,11 @@ export default async function SpecialistTasksPage({
       action={
         <AddTask
           from="specialist"
-          projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+          projects={projects.map((p) => ({
+            id: p.id,
+            name: p.name,
+            deadline: p.deadline,
+          }))}
         />
       }
       empty={
