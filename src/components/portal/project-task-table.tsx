@@ -34,19 +34,36 @@ import { parseDeadline, type ProjectTask } from "@/lib/manager";
  * project's page, so the cell would repeat that project's name down every row —
  * the same reason the file organisers dropped their Company column.
  */
+/*
+ * WIDTHS ON THREE OF THE FOUR. `w-*` lands on the header cell, which is what
+ * the column distribution is computed against — a cell `max-width` is not, and
+ * left to itself the auto layout gave Description all the slack in this
+ * `w-full` table and rendered it 1062px wide.
+ *
+ * Description is the free-text column and takes the space; Task and Deadline
+ * give up 50px each to pay for it. Status stays unpinned deliberately, so one
+ * column can still absorb whatever a wider screen leaves over rather than the
+ * table under-filling its card.
+ *
+ * ponytail: PIXELS, MEASURED AT ONE WIDTH. These are hints, not a fixed layout
+ * — the browser still shrinks them when the space is not there — but they were
+ * read off a 2560px viewport, so a much narrower screen divides what is left
+ * differently. Percentages are the fix if these ever need to hold across
+ * breakpoints.
+ */
 const COLUMNS: SortableColumn<ProjectTask>[] = [
-  { header: "Task", sortValue: (task) => task.name },
+  { header: "Task", className: "w-[435px]", sortValue: (task) => task.name },
   {
     header: "Description",
-    // The one free-text column, so the one that needs a width of its own: left
-    // to the auto layout it collects all the slack in a `w-full` table and
-    // renders 1062px wide, putting its ellipsis most of the way across the
-    // screen. `w-*` on the header is what the column distribution reads.
-    className: "w-96",
+    className: "w-[484px]",
     sortValue: (task) => task.description,
   },
   // M/DD/YY: "8/03/26" sorts before "7/28/26" as text.
-  { header: "Deadline", sortValue: (task) => parseDeadline(task.deadline).getTime() },
+  {
+    header: "Deadline",
+    className: "w-[521px]",
+    sortValue: (task) => parseDeadline(task.deadline).getTime(),
+  },
   { header: "Status", sortValue: (task) => task.status },
 ];
 
