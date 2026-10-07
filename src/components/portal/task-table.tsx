@@ -99,6 +99,9 @@ export function TaskTable({
           },
           {
             header: "Description",
+            // Off the filter rail: a sentence of free text is read, not
+            // narrowed by — the Task name is what anyone searches for.
+            filter: false,
             // Free text, so it carries its own width — see the project
             // detail's copy of this column.
             className: "w-96",

@@ -124,7 +124,11 @@ export default async function CompaniesPage({
         },
         {
           header: "Team Members",
-          filter: "number",
+          // Searched by NAME: the question asked of this column is "which
+          // companies is Dana on?", never "which have at least four faces".
+          // The cell is an avatar stack, so the names come over separately.
+          filter: "text",
+          filterValues: (row) => row.teamMembers.map((person) => person.name),
           // Faces carry no text to sort — how many there are is the one thing
           // the column says that can be ordered.
           sortValue: (row) => row.teamMembers.length,

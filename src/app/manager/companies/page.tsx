@@ -110,7 +110,11 @@ export default async function ManagerCompaniesPage({
         },
         {
           header: "Team Members",
-          filter: "number",
+          // Searched by NAME: the question asked of this column is "which
+          // companies is Dana on?", never "which have at least four faces".
+          // The cell is an avatar stack, so the names come over separately.
+          filter: "text",
+          filterValues: (row) => row.teamMembers.map((person) => person.name),
           sortValue: (row) => row.teamMembers.length,
           cell: (row) => <AvatarStack people={row.teamMembers} />,
         },
