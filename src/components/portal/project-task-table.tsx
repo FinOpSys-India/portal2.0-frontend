@@ -36,7 +36,15 @@ import { parseDeadline, type ProjectTask } from "@/lib/manager";
  */
 const COLUMNS: SortableColumn<ProjectTask>[] = [
   { header: "Task", sortValue: (task) => task.name },
-  { header: "Description", sortValue: (task) => task.description },
+  {
+    header: "Description",
+    // The one free-text column, so the one that needs a width of its own: left
+    // to the auto layout it collects all the slack in a `w-full` table and
+    // renders 1062px wide, putting its ellipsis most of the way across the
+    // screen. `w-*` on the header is what the column distribution reads.
+    className: "w-96",
+    sortValue: (task) => task.description,
+  },
   // M/DD/YY: "8/03/26" sorts before "7/28/26" as text.
   { header: "Deadline", sortValue: (task) => parseDeadline(task.deadline).getTime() },
   { header: "Status", sortValue: (task) => task.status },

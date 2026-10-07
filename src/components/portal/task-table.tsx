@@ -99,6 +99,9 @@ export function TaskTable({
           },
           {
             header: "Description",
+            // Free text, so it carries its own width — see the project
+            // detail's copy of this column.
+            className: "w-96",
             cell: (task) => (
               <span className="text-muted-foreground">{task.description}</span>
             ),

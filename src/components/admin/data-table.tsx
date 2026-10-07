@@ -49,6 +49,17 @@ export type Column<T> = {
   /** Cell contents. Return a string for plain text or a node for anything else. */
   cell: (row: T) => React.ReactNode;
   /**
+   * Header cell classes — in practice a `w-*`, for a column that must not be
+   * sized by its contents.
+   *
+   * A free-text column needs one. `TableCell`'s cap stops a long value breaking
+   * the page but does not set a width: under `table-layout: auto` the slack in
+   * a `w-full` table goes to whichever column has the largest max-content, so
+   * the description column took 1062px of 1910px and ellipsised there. The
+   * width on the header is what that distribution is computed against.
+   */
+  className?: string;
+  /**
    * What this column sorts on. Defaults to the text the cell renders, which is
    * what the reader sees and therefore what they expect to be sorted — EXCEPT
    * for dates: 1.0 writes them M/DD/YY, and "8/03/26" sorts before "7/28/26" as

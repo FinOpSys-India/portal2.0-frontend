@@ -88,8 +88,17 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
  * width as wide as the string, nothing in the layout may shrink below
  * min-content, and so one 200-character task description pushed a project page
  * 200px wider than the viewport and slid the 320px rail on top of the table.
- * `max-width` is honoured on a cell in auto table layout — measured on that
- * page: 2766px wide before, 2560px (exactly the viewport) after.
+ * With the cap that page measures 2560px — exactly the viewport.
+ *
+ * AN OVERFLOW GUARD, NOT A COLUMN WIDTH. These tables are `w-full` under
+ * `table-layout: auto`, and once the required widths are met the browser hands
+ * every remaining pixel to the column with the largest max-content — `max-width`
+ * on a cell does not bind during that distribution. The same description cell
+ * measured 1062px wide with this 384px cap in force. What the cap does is trim
+ * the column's preferred width enough that the table no longer demands more
+ * than the page has. A column that needs a real width says so with `w-*` in its
+ * `className`, which lands on the header cell and is what the distribution is
+ * computed against.
  *
  * The cap only bites what would have broken the layout anyway. 24rem is far
  * past the longest real value in the product — an email such as
