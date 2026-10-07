@@ -80,12 +80,39 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   )
 }
 
+/**
+ * A CEILING ON EVERY CELL, so no value can break the page it is drawn on.
+ *
+ * `whitespace-nowrap` is right for the names, dates and badges these tables
+ * hold, and catastrophic without a cap: text that cannot wrap has a min-content
+ * width as wide as the string, nothing in the layout may shrink below
+ * min-content, and so one 200-character task description pushed a project page
+ * 200px wider than the viewport and slid the 320px rail on top of the table.
+ * `max-width` is honoured on a cell in auto table layout — measured on that
+ * page: 2766px wide before, 2560px (exactly the viewport) after.
+ *
+ * The cap only bites what would have broken the layout anyway. 24rem is far
+ * past the longest real value in the product — an email such as
+ * `testuser1_bookkeepingspecialist@finopsys.ai` sits well inside it — so
+ * ordinary rows are untouched and the ellipsis appears only where the
+ * alternative was a broken page. The full text stays reachable: the task tables
+ * open a row in a dialog.
+ *
+ * NOT ON A SPANNING CELL. The empty-state row is one `colSpan` cell carrying a
+ * centred sentence across the whole table; capped, it would centre that
+ * sentence inside the first 24rem and leave the rest of the row blank.
+ *
+ * ponytail: ONE CAP FOR EVERY COLUMN, not a width per column. A table whose
+ * columns genuinely all run long could still total more than the screen — the
+ * container's `overflow-x-auto` is the backstop, and a per-column width is the
+ * fix if one table ever needs it.
+ */
 function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return (
     <td
       data-slot="table-cell"
       className={cn(
-        "px-4 py-4 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "max-w-96 overflow-hidden px-4 py-4 align-middle text-ellipsis whitespace-nowrap [&[colspan]]:max-w-none [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
