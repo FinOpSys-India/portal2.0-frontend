@@ -6,9 +6,9 @@ import {
   parsePageSize,
 } from "@/components/admin/data-table";
 import {
-  documentColumns,
+  fileColumns,
   ScopeBreadcrumb,
-  type DocumentRow,
+  type FileRow,
 } from "@/components/portal/file-list";
 import { ProjectFilter } from "@/components/portal/project-filter";
 import { companyScope, managerApi } from "@/lib/manager";
@@ -25,6 +25,11 @@ export const metadata: Metadata = { title: "Files" };
  * project pill. The breadcrumb spells out the resulting scope, because two
  * pills in two different places otherwise leave the reader guessing what the
  * list is showing.
+ *
+ * NO COMPANY COLUMN. `companyScope` resolves to exactly one company — the
+ * switcher's pick, or the first on the book — so the column repeated one name
+ * down every row, and the breadcrumb directly above the table already says it.
+ * The specialist's copy of this page lost it for the same reason.
  */
 export default async function ManagerDocumentsPage({
   searchParams,
@@ -76,7 +81,7 @@ export default async function ManagerDocumentsPage({
         <ScopeBreadcrumb company={companyName} project={project ?? null} />
       </div>
 
-      <DataTable<DocumentRow>
+      <DataTable<FileRow>
         page={page}
         size={size}
         sort={sort}
@@ -99,7 +104,7 @@ export default async function ManagerDocumentsPage({
         empty={
           project ? "No documents on this project yet." : "No documents yet."
         }
-        columns={documentColumns(viewer)}
+        columns={fileColumns(viewer)}
       />
     </>
   );

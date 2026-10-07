@@ -33,11 +33,14 @@ export interface FileRow {
 }
 
 /**
- * The file organiser's columns, shared by every portal's copy of that table —
- * the customer's included, so one file reads the same wherever it is looked at.
+ * The file organiser's columns, shared by every portal's copy of that table, so
+ * one file reads the same wherever it is looked at.
  *
- * Company is not among them: 1.0 is always scoped to one company, so it never
- * needs to say which.
+ * NO COMPANY COLUMN ANYWHERE NOW. 1.0 is always scoped to one company and the
+ * staff pages are no exception — `companyScope` resolves to a single id on both
+ * of them, and their breadcrumb names it above the table. The staff-only set
+ * that added the column (`documentColumns`, over a `DocumentRow` carrying
+ * `company`) is gone; the rows still carry the name, and nothing renders it.
  *
  * A FUNCTION, not a constant, because the last column depends on who is
  * looking: the delete control is offered on your own uploads only, and the
@@ -108,24 +111,6 @@ export const fileColumns = (viewer: string): Column<FileRow>[] => [
     cell: (row) => <DocumentActions doc={row} viewerId={viewer} />,
   },
 ];
-
-/** A staff portal's file row: a `FileRow` that also names its company. */
-export interface DocumentRow extends FileRow {
-  company: string;
-}
-
-/**
- * The staff lists span companies by default, so theirs name the company. A
- * customer's list cannot — it is one workspace — and uses `fileColumns`.
- */
-export const documentColumns = (viewer: string): Column<DocumentRow>[] => {
-  const [name, ...rest] = fileColumns(viewer);
-  return [
-    name,
-    { header: "Company", filter: "enum", cell: (row) => row.company },
-    ...rest,
-  ];
-};
 
 /**
  * What the file list is currently showing.

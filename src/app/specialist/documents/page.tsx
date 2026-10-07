@@ -6,9 +6,9 @@ import {
   parsePageSize,
 } from "@/components/admin/data-table";
 import {
-  documentColumns,
+  fileColumns,
   ScopeBreadcrumb,
-  type DocumentRow,
+  type FileRow,
 } from "@/components/portal/file-list";
 import { ProjectFilter } from "@/components/portal/project-filter";
 import { viewerId, withService } from "@/lib/portal";
@@ -20,13 +20,18 @@ import { parseFilters } from "@/lib/table-filter";
 export const metadata: Metadata = { title: "Files" };
 
 /**
- * File Organizer — every file on the companies this specialist works for,
+ * File Organizer — the files on the company this specialist is scoped to,
  * newest upload first.
  *
  * Two filters, both in the URL: the header's company switcher and this page's
  * project pill. The breadcrumb spells out the resulting scope, because two
  * pills in two different places otherwise leave the reader guessing what the
  * list is showing.
+ *
+ * NO COMPANY COLUMN. `companyScope` resolves to exactly one company — the
+ * switcher's pick, or the first they work — so the column repeated one name
+ * down every row, and the breadcrumb directly above the table already says it.
+ * The manager's copy of this page lost it for the same reason.
  */
 export default async function SpecialistDocumentsPage({
   searchParams,
@@ -78,7 +83,7 @@ export default async function SpecialistDocumentsPage({
         <ScopeBreadcrumb company={companyName} project={project ?? null} />
       </div>
 
-      <DataTable<DocumentRow>
+      <DataTable<FileRow>
         page={page}
         size={size}
         sort={sort}
@@ -101,7 +106,7 @@ export default async function SpecialistDocumentsPage({
         empty={
           project ? "No documents on this project yet." : "No documents yet."
         }
-        columns={documentColumns(viewer)}
+        columns={fileColumns(viewer)}
       />
     </>
   );
