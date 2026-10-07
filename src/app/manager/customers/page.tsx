@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import {
-  ChipsCell,
   DataTable,
   parsePage,
   parsePageSize,
@@ -48,13 +47,7 @@ export default async function ManagerCustomersPage({
   const page = parsePage(rawPage);
   const size = parsePageSize(rawSize);
   const company = await companyScope(picked);
-  // The checklist names every company this manager handles, not only the ones
-  // held by the customers on screen — same reason the admin list reads its
-  // company list separately.
-  const [customers, companies] = await Promise.all([
-    managerApi.customers(company),
-    managerApi.companies(),
-  ]);
+  const customers = await managerApi.customers(company);
 
   return (
     <DataTable<ManagerCustomer>
@@ -88,15 +81,6 @@ export default async function ManagerCustomersPage({
           cell: (row) => (
             <span className="text-muted-foreground">{row.email}</span>
           ),
-        },
-        {
-          // Multi-valued: 1.0 renders this as a comma list.
-          header: "Company",
-          sortValue: (row) => row.companies.join(", "),
-          filter: "list",
-          filterValues: (row) => row.companies,
-          filterOptions: companies.map((row) => row.name),
-          cell: (row) => <ChipsCell items={row.companies} />,
         },
       ]}
     />
