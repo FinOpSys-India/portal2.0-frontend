@@ -100,7 +100,7 @@ export default async function ManagerSpecialistPage({
       <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between gap-4 border-b border-border p-6">
-            <h2 className="text-sm font-semibold">All Tasks</h2>
+            <h2 className="text-sm font-semibold">Tasks</h2>
             {/* Nothing to attach a task to until the specialist has a project. */}
             {theirs.length > 0 ? (
               <AddTask

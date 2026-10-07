@@ -14,7 +14,7 @@ import { parseDeadline, type SpecialistTask } from "@/lib/manager";
 import type { Filter } from "@/lib/table-filter";
 
 /**
- * All Tasks, with the detail as a dialog rather than a page.
+ * The Tasks table, with the detail as a dialog rather than a page.
  *
  * A task is four short fields; a route for it would cost a navigation, a back
  * press and a second layout to keep in step with this one. The design agrees —

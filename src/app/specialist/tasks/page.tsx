@@ -9,7 +9,7 @@ import { parseFilters } from "@/lib/table-filter";
 export const metadata: Metadata = { title: "Tasks" };
 
 /**
- * All Tasks — every task on every project this specialist holds, which on a
+ * Tasks — every task on every project this specialist holds, which on a
  * single project page is the same table narrowed to one.
  *
  * Add New Task asks which project, because here there is more than one. A task
