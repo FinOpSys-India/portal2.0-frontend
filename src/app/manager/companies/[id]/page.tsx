@@ -75,7 +75,7 @@ export default async function ManagerCompanyPage({
           <DetailRow label="EIN" value={company.enNumber} />
         </DetailSection>
 
-        <DetailSection title="Full Address Information">
+        <DetailSection title="Address">
           <DetailRow label="Company Address" value={company.addressLine1} />
           <DetailRow label="City" value={company.city} />
           <DetailRow label="State" value={company.state} />

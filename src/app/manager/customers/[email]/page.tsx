@@ -57,7 +57,7 @@ export default async function ManagerCustomerPage({
 
         {/* Rendered even when empty — the customer fills these from their own
             portal, and a missing row reads as a missing field. */}
-        <DetailSection title="Full Address Information">
+        <DetailSection title="Address">
           <DetailRow label="User Address" value={customer.addressLine1} />
           <DetailRow label="City" value={customer.city} />
           <DetailRow label="State" value={customer.state} />

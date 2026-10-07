@@ -65,7 +65,7 @@ export default async function SpecialistCompanyPage({
             />
           </DetailSection>
 
-          <DetailSection title="Full Address Information">
+          <DetailSection title="Address">
             <DetailRow label="Company Address" value={company.addressLine1} />
             <DetailRow label="City" value={company.city} />
             <DetailRow label="State" value={company.state} />

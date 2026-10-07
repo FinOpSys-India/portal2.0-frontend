@@ -120,9 +120,7 @@ export function ProfileForm({
         </section>
 
         <section className="rounded-xl border border-border bg-card p-6">
-          <h2 className="mb-4 text-sm font-semibold">
-            Full Address Information
-          </h2>
+          <h2 className="mb-4 text-sm font-semibold">Address</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <TextField
