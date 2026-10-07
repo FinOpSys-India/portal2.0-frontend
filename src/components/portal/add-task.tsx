@@ -30,6 +30,20 @@ import { newTaskSchema, type NewTaskValues } from "@/lib/schemas";
 import { specialistApi } from "@/lib/specialist";
 
 /**
+ * How a project is named in this dialog: its name, and the day it is due.
+ *
+ * A task is due before the project it belongs to, so the deadline is the one
+ * other fact the person filling this in needs — and it has to read the same
+ * whether the field is a chooser over several projects or static text over the
+ * one the page is already on. It did not: the chooser said "shubh 2 · due
+ * 10/30/2026" and the project page's own dialog said "shubh 2".
+ *
+ * A project with no deadline set keeps the bare name.
+ */
+const projectLabel = (p: { name: string; deadline: string }) =>
+  p.deadline ? `${p.name} · due ${p.deadline}` : p.name;
+
+/**
  * Which portal is adding. Named rather than passed as a function: the callers
  * are Server Components, and a function cannot cross that boundary.
  */
@@ -158,7 +172,7 @@ export function AddTask({
               />
 
               {only ? (
-                <StaticField label="Project" value={only.name} />
+                <StaticField label="Project" value={projectLabel(only)} />
               ) : (
                 <SelectField
                   control={form.control}
@@ -166,16 +180,9 @@ export function AddTask({
                   label="Project"
                   required
                   placeholder="Select a project"
-                  // The project's own deadline rides along in the label: a
-                  // task is due before the project it belongs to, and without
-                  // it the chooser is naming projects by name alone with no
-                  // way to tell which one is about to run out. Projects with
-                  // no deadline set keep the bare name.
                   options={projects.map((p) => ({
                     value: p.id,
-                    label: p.deadline
-                      ? `${p.name} · due ${p.deadline}`
-                      : p.name,
+                    label: projectLabel(p),
                   }))}
                 />
               )}
