@@ -144,7 +144,11 @@ export default async function ManagerProjectsPage({
         },
         {
           header: "Project Progress",
-          filter: "number",
+          // A bar, not a number anyone types a range against — and sorting it
+          // already answers the one question it was asked ("which are behind").
+          // `false`, not a missing key: the default is a text filter, which is
+          // worse than the number one it would replace.
+          filter: false,
           sortValue: (row) => row.progress,
           cell: (row) => <ProgressBar value={row.progress} />,
         },
