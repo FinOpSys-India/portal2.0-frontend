@@ -140,6 +140,8 @@ export function FilePreview({
       <button
         type="button"
         aria-label={`Preview ${name}`}
+        // The name is truncated to its column; hover gives it back whole.
+        title={name}
         className={cn(
           "truncate text-left underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30",
           className,

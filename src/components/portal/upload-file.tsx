@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Upload, UploadCloud } from "lucide-react";
 
-import { SubmitButton } from "@/components/auth/fields";
+import { StaticField, SubmitButton } from "@/components/auth/fields";
 import { FormAlert } from "@/components/auth/form-alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +44,7 @@ export function UploadFile({
   companies,
   projects,
   projectRequired = false,
+  fixed = false,
   upload,
 }: {
   /** Company picker. Omit where the portal is already scoped to one. */
@@ -52,6 +53,16 @@ export function UploadFile({
   projects: { name: string; companyId?: string }[];
   /** Where a file cannot exist unattached — the customer's own file list. */
   projectRequired?: boolean;
+  /**
+   * Opened from INSIDE a project, where the company and project are context
+   * rather than questions.
+   *
+   * Not inferred from `projects.length === 1`: a documents page listing a
+   * company that happens to have one project is still free to leave a file
+   * unattached, and locking it there would take away a choice that exists.
+   * Only the caller knows which it is.
+   */
+  fixed?: boolean;
   upload: (file: File, meta: UploadMeta) => Promise<unknown>;
 }) {
   const router = useRouter();
@@ -60,7 +71,12 @@ export function UploadFile({
   const [companyId, setCompanyId] = React.useState(
     companies?.length === 1 ? companies[0].id : "",
   );
-  const [project, setProject] = React.useState("");
+  // Seeded, not left blank: the dialog opened from a project page, so leaving
+  // this empty filed the upload against no project at all while the form read
+  // as though a choice had been offered and declined.
+  const [project, setProject] = React.useState(
+    fixed ? (projects[0]?.name ?? "") : "",
+  );
   const [failure, setFailure] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
@@ -69,7 +85,7 @@ export function UploadFile({
   function reset() {
     setFile(null);
     setCompanyId(companies?.length === 1 ? companies[0].id : "");
-    setProject("");
+    setProject(fixed ? (projects[0]?.name ?? "") : "");
     setFailure(null);
   }
 
@@ -130,7 +146,9 @@ export function UploadFile({
       <DialogTrigger asChild>
         <Button
           disabled={
-            companies ? companies.length === 0 : projectRequired && projects.length === 0
+            companies
+              ? companies.length === 0
+              : projectRequired && projects.length === 0
           }
         >
           <Upload className="size-4" aria-hidden />
@@ -217,7 +235,9 @@ export function UploadFile({
             />
           </div>
 
-          {companies ? (
+          {companies && fixed ? (
+            <StaticField label="Company" value={companies[0]?.name ?? ""} />
+          ) : companies ? (
             <Field label="Company" required>
               <Select
                 value={companyId}
@@ -226,7 +246,10 @@ export function UploadFile({
                   setProject("");
                 }}
               >
-                <SelectTrigger aria-label="Company" className="h-11 w-full rounded-lg bg-card">
+                <SelectTrigger
+                  aria-label="Company"
+                  className="h-11 w-full rounded-lg bg-card"
+                >
                   <SelectValue placeholder="Select a company" />
                 </SelectTrigger>
                 <SelectContent>
@@ -242,35 +265,43 @@ export function UploadFile({
 
           {/* Optional in the staff portals, unlike the design's required Select
               Project: a file can arrive before there is a project to attach it
-              to, which is a case the data model already carries. */}
-          <Field label="Project" required={projectRequired}>
-            <Select
-              value={project}
-              onValueChange={setProject}
-              disabled={forCompany.length === 0}
-            >
-              <SelectTrigger aria-label="Project" className="h-11 w-full rounded-lg bg-card">
-                <SelectValue
-                  placeholder={
-                    companies && !companyId
-                      ? "Pick a company first"
-                      : forCompany.length === 0
-                        ? "No projects here yet"
-                        : projectRequired
-                          ? "Select a project"
-                          : "Leave unattached"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {forCompany.map((p) => (
-                  <SelectItem key={p.name} value={p.name}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+              to, which is a case the data model already carries. Opened from a
+              project, though, there is nothing to ask — same as Add Task. */}
+          {fixed ? (
+            <StaticField label="Project" value={project} />
+          ) : (
+            <Field label="Project" required={projectRequired}>
+              <Select
+                value={project}
+                onValueChange={setProject}
+                disabled={forCompany.length === 0}
+              >
+                <SelectTrigger
+                  aria-label="Project"
+                  className="h-11 w-full rounded-lg bg-card"
+                >
+                  <SelectValue
+                    placeholder={
+                      companies && !companyId
+                        ? "Select a company first"
+                        : forCompany.length === 0
+                          ? "No projects here yet"
+                          : projectRequired
+                            ? "Select a project"
+                            : "No project selected"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {forCompany.map((p) => (
+                    <SelectItem key={p.name} value={p.name}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
 
           <FormAlert>{failure}</FormAlert>
 

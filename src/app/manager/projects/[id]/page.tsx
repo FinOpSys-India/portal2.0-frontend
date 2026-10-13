@@ -3,13 +3,13 @@ import { notFound, redirect } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AddTask } from "@/components/portal/add-task";
-import { FilePreview } from "@/components/portal/file-preview";
+import { DocumentActions, FilePreview } from "@/components/portal/file-preview";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { managerApi, scopeSwitch, scoped } from "@/lib/manager";
-import { documentPath } from "@/lib/portal";
+import { formatFileSize, managerApi, scopeSwitch, scoped } from "@/lib/manager";
+import { documentPath, viewerId } from "@/lib/portal";
 
 import { ManagerUploadFile } from "../../documents/upload-file";
 
@@ -54,9 +54,10 @@ export default async function ManagerProjectPage({
   });
   if (elsewhere) redirect(elsewhere);
 
-  const [documents, tasks] = await Promise.all([
+  const [documents, tasks, viewer] = await Promise.all([
     managerApi.documents(project.companyId),
     managerApi.tasks(project.id),
+    viewerId(),
   ]);
 
   const attached = documents.filter((d) => d.project === project.name);
@@ -137,6 +138,7 @@ export default async function ManagerProjectPage({
             <ManagerUploadFile
               companies={[{ id: project.companyId, name: project.company }]}
               projects={[{ name: project.name, companyId: project.companyId }]}
+              fixed
             />
           </div>
 
@@ -145,13 +147,22 @@ export default async function ManagerProjectPage({
           ) : (
             <ul className="divide-y divide-border border-t border-border">
               {attached.map((doc) => (
-                <li key={doc.id} className="py-3 text-sm">
-                  <FilePreview
-                    name={doc.name}
-                    href={documentPath(doc)}
-                    size={doc.size}
-                    className="block max-w-full"
-                  />
+                <li key={doc.id} className="flex items-center gap-2 py-3">
+                  <span className="min-w-0 flex-1 text-sm">
+                    <FilePreview
+                      name={doc.name}
+                      href={documentPath(doc)}
+                      size={doc.size}
+                      className="block max-w-full"
+                    />
+                    {/* Who put it there and when — the two facts the file
+                        organiser's own columns carry, and the two a reader
+                        cannot get from the name. */}
+                    <span className="block text-xs text-muted-foreground">
+                      {doc.owner} · <span className="tabular-nums">{doc.uploadedAt} · {formatFileSize(doc.size)}</span>
+                    </span>
+                  </span>
+                  <DocumentActions doc={doc} viewerId={viewer} />
                 </li>
               ))}
             </ul>

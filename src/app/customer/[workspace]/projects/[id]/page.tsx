@@ -8,14 +8,14 @@ import {
 } from "@/components/admin/data-table";
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { PersonCell } from "@/components/admin/initials-avatar";
-import { FilePreview } from "@/components/portal/file-preview";
+import { DocumentActions, FilePreview } from "@/components/portal/file-preview";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { customerApi, type CustomerFile } from "@/lib/customer";
-import { dateKey, documentPath } from "@/lib/portal";
+import { dateKey, documentPath, viewerId } from "@/lib/portal";
 import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Project" };
@@ -49,9 +49,10 @@ export default async function CustomerProjectPage({
 
   if (!project) notFound();
 
-  const [tasks, files] = await Promise.all([
+  const [tasks, files, viewer] = await Promise.all([
     customerApi.tasks(project.id),
     customerApi.files(workspace, project.name),
+    viewerId(),
   ]);
 
   return (
@@ -134,6 +135,14 @@ export default async function CustomerProjectPage({
                     {row.uploadedAt}
                   </span>
                 ),
+              },
+              {
+                // Unheaded and unsortable, as on the file organiser: a header
+                // over two icons only takes width off the columns that say
+                // something.
+                header: "",
+                sortValue: false,
+                cell: (row) => <DocumentActions doc={row} viewerId={viewer} />,
               },
             ]}
           />

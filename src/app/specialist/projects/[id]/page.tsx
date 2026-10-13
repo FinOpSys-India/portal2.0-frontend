@@ -3,14 +3,14 @@ import { notFound, redirect } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AddTask } from "@/components/portal/add-task";
-import { FilePreview } from "@/components/portal/file-preview";
+import { DocumentActions, FilePreview } from "@/components/portal/file-preview";
 import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { ProjectDeadline } from "@/components/portal/project-deadline";
-import { fileKind, formatFileSize, scopeSwitch, scoped } from "@/lib/manager";
-import { documentPath } from "@/lib/portal";
+import { formatFileSize, scopeSwitch, scoped } from "@/lib/manager";
+import { documentPath, viewerId } from "@/lib/portal";
 import { specialistApi } from "@/lib/specialist";
 
 import { SpecialistUploadFile } from "../../documents/upload-file";
@@ -61,9 +61,10 @@ export default async function SpecialistProjectPage({
   });
   if (elsewhere) redirect(elsewhere);
 
-  const [tasks, documents] = await Promise.all([
+  const [tasks, documents, viewer] = await Promise.all([
     specialistApi.tasks(project.id),
     specialistApi.documents(project.companyId),
+    viewerId(),
   ]);
 
   const attached = documents.filter((d) => d.project === project.name);
@@ -145,6 +146,7 @@ export default async function SpecialistProjectPage({
             <SpecialistUploadFile
               companies={[{ id: project.companyId, name: project.company }]}
               projects={[{ name: project.name, companyId: project.companyId }]}
+              fixed
             />
           </div>
 
@@ -153,19 +155,22 @@ export default async function SpecialistProjectPage({
           ) : (
             <ul className="divide-y divide-border border-t border-border">
               {attached.map((doc) => (
-                <li key={doc.id} className="flex items-baseline gap-2 py-3">
-                  <FilePreview
-                    name={doc.name}
-                    href={documentPath(doc)}
-                    size={doc.size}
-                    className="min-w-0 flex-1 text-sm"
-                  />
-                  {/* The design carries a per-type icon and a size here. The
-                      size is the half that says something a reader cannot get
-                      from the file name. */}
-                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {fileKind(doc.name)} · {formatFileSize(doc.size)}
+                <li key={doc.id} className="flex items-center gap-2 py-3">
+                  <span className="min-w-0 flex-1 text-sm">
+                    <FilePreview
+                      name={doc.name}
+                      href={documentPath(doc)}
+                      size={doc.size}
+                      className="block max-w-full"
+                    />
+                    {/* Who put it there and when — the two facts the file
+                        organiser's own columns carry, and the two a reader
+                        cannot get from the name. */}
+                    <span className="block text-xs text-muted-foreground">
+                      {doc.owner} · <span className="tabular-nums">{doc.uploadedAt} · {formatFileSize(doc.size)}</span>
+                    </span>
                   </span>
+                  <DocumentActions doc={doc} viewerId={viewer} />
                 </li>
               ))}
             </ul>
