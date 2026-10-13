@@ -6,6 +6,7 @@ import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { InitialsAvatar } from "@/components/admin/initials-avatar";
 import { RoleBadge } from "@/components/admin/role-badge";
 import { adminApi } from "@/lib/admin";
+import { countryLabel } from "@/lib/company";
 
 export const metadata: Metadata = { title: "Customer" };
 
@@ -62,11 +63,11 @@ export default async function CustomerDetailPage({
         </DetailSection>
 
         <DetailSection title="Address">
-          <DetailRow label="User Address" value={customer.addressLine1} />
+          <DetailRow label="Address" value={customer.addressLine1} />
           <DetailRow label="City" value={customer.city} />
           <DetailRow label="State" value={customer.state} />
           <DetailRow label="ZIP Code" value={customer.zip} />
-          <DetailRow label="Country" value={customer.country} />
+          <DetailRow label="Country" value={countryLabel(customer.country)} />
         </DetailSection>
       </div>
     </>

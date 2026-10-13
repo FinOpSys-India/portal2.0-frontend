@@ -12,6 +12,7 @@ import {
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import type { CompanyPlan } from "@/lib/admin";
 import { managerApi, scopeSwitch, scoped } from "@/lib/manager";
+import { countryLabel, formatEin } from "@/lib/company";
 
 const PLAN_COLUMNS: SortableColumn<CompanyPlan>[] = [
   { header: "Service", sortValue: (plan) => plan.service },
@@ -72,15 +73,15 @@ export default async function ManagerCompanyPage({
         <DetailSection title="General Information">
           <DetailRow label="Company Name" value={company.name} />
           <DetailRow label="Company Email" value={company.email} />
-          <DetailRow label="EIN" value={company.enNumber} />
+          <DetailRow label="EIN" value={formatEin(company.enNumber)} />
         </DetailSection>
 
         <DetailSection title="Address">
-          <DetailRow label="Company Address" value={company.addressLine1} />
+          <DetailRow label="Address" value={company.addressLine1} />
           <DetailRow label="City" value={company.city} />
           <DetailRow label="State" value={company.state} />
           <DetailRow label="ZIP Code" value={company.zip} />
-          <DetailRow label="Country" value={company.country} />
+          <DetailRow label="Country" value={countryLabel(company.country)} />
         </DetailSection>
 
         <section className="rounded-xl border border-border bg-card p-6">

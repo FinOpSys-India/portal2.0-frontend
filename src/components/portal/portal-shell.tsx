@@ -181,11 +181,11 @@ function LogoutButton() {
     <SidebarMenuButton
       onClick={onLogout}
       disabled={pending}
-      tooltip="Logout"
-      aria-label="Logout"
+      tooltip="Log out"
+      aria-label="Log out"
     >
       <LogOut aria-hidden />
-      <span>{pending ? "Signing out…" : "Logout"}</span>
+      <span>{pending ? "Signing out…" : "Log out"}</span>
     </SidebarMenuButton>
   );
 }

@@ -28,7 +28,7 @@ const SECTIONS: {
 }[] = [
   {
     party: "customer",
-    title: "Connect With Your Customer",
+    title: "Connect with Your Customer",
     blurb:
       "Keep your customers in the loop. Chat for quick updates or email for detailed communication and document sharing.",
     chat: "Chat with customer",
@@ -36,7 +36,7 @@ const SECTIONS: {
   },
   {
     party: "specialist",
-    title: "Connect With Your Specialist",
+    title: "Connect with Your Specialist",
     blurb:
       "Reach your specialist via chat or email for quick updates, document sharing, and case support.",
     chat: "Chat with specialist",

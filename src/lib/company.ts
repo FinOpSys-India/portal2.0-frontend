@@ -235,3 +235,35 @@ export function applyCompanyFieldErrors(
   }
   return unplaced;
 }
+
+/* ------------------------------------------------------------- display -- */
+
+/**
+ * How a country READS, which is not always how it is stored.
+ *
+ * `COUNTRIES` spells the first entry "United States of America" because that is
+ * the string 1.0's records round-trip and the key `COUNTRY_CODES` looks `US` up
+ * under — renaming it there would orphan every stored address. Only the label
+ * was ever wrong, so only the label is fixed, and at the point it is read.
+ */
+const COUNTRY_LABELS: Record<string, string> = {
+  "United States of America": "United States",
+};
+
+export const countryLabel = (country: string): string =>
+  COUNTRY_LABELS[country] ?? country;
+
+/**
+ * An EIN, punctuated.
+ *
+ * Stored and validated as nine bare digits — see `enNumber` in `schemas.ts` —
+ * but written XX-XXXXXXX everywhere it matters, and "263734949" is not a number
+ * anyone recognises as their own. Punctuation is a reading aid, so it is added
+ * on the way out and never on the way in.
+ *
+ * Anything that is not nine digits is shown exactly as stored: a value that
+ * does not fit the shape is a data problem, and hyphenating it anyway would
+ * dress it up as one that does.
+ */
+export const formatEin = (ein: string): string =>
+  /^\d{9}$/.test(ein) ? `${ein.slice(0, 2)}-${ein.slice(2)}` : ein;

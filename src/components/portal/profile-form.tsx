@@ -126,7 +126,7 @@ export function ProfileForm({
               <TextField
                 control={form.control}
                 name="addressLine1"
-                label="User Address"
+                label="Address"
                 icon={MapPin}
                 autoComplete="address-line1"
                 placeholder="Street Address"

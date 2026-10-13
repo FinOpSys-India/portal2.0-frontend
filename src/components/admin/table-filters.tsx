@@ -276,7 +276,9 @@ export function FilterButton({
                 : "bg-muted text-muted-foreground",
             )}
           >
-            {drafted > 0 ? `${drafted} set` : "None set"}
+            {drafted > 0
+              ? `${drafted} filter${drafted === 1 ? "" : "s"} applied`
+              : "No filters applied"}
           </span>
           <button
             type="button"

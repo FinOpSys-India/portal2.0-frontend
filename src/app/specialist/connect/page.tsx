@@ -34,7 +34,7 @@ export default async function SpecialistConnectPage({
     <section className="rounded-xl border border-border bg-card px-6 py-10">
       <div className="mx-auto max-w-xl text-center">
         <h1 className="text-2xl font-bold tracking-tight">
-          Connect With Your Accounting Manager
+          Connect with Your Accounting Manager
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Chat for quick updates, or email for detailed communication and

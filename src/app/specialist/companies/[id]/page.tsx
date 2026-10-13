@@ -9,6 +9,7 @@ import {
 import { PageHeader } from "@/components/portal/portal-shell";
 import { scopeSwitch, scoped } from "@/lib/manager";
 import { specialistApi } from "@/lib/specialist";
+import { countryLabel, formatEin } from "@/lib/company";
 
 export const metadata: Metadata = { title: "Company" };
 
@@ -58,7 +59,7 @@ export default async function SpecialistCompanyPage({
           <DetailSection title="General Information">
             <DetailRow label="Company Name" value={company.name} />
             <DetailRow label="Company Email" value={company.email} />
-            <DetailRow label="EIN" value={company.enNumber} />
+            <DetailRow label="EIN" value={formatEin(company.enNumber)} />
             <DetailRow
               label="Active Services"
               value={company.activeServices.join(", ")}
@@ -66,11 +67,11 @@ export default async function SpecialistCompanyPage({
           </DetailSection>
 
           <DetailSection title="Address">
-            <DetailRow label="Company Address" value={company.addressLine1} />
+            <DetailRow label="Address" value={company.addressLine1} />
             <DetailRow label="City" value={company.city} />
             <DetailRow label="State" value={company.state} />
             <DetailRow label="ZIP Code" value={company.zip} />
-            <DetailRow label="Country" value={company.country} />
+            <DetailRow label="Country" value={countryLabel(company.country)} />
           </DetailSection>
         </div>
 

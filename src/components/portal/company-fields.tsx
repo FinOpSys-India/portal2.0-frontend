@@ -77,7 +77,7 @@ export function CompanyFields({
       <TextField
         control={control}
         name="addressLine1"
-        label="Company Address"
+        label="Address"
         icon={MapPin}
         required
         autoComplete="address-line1"

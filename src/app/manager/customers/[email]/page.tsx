@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { managerApi, scopeSwitch, scoped } from "@/lib/manager";
+import { countryLabel } from "@/lib/company";
 
 export const metadata: Metadata = { title: "Customer" };
 
@@ -58,11 +59,11 @@ export default async function ManagerCustomerPage({
         {/* Rendered even when empty — the customer fills these from their own
             portal, and a missing row reads as a missing field. */}
         <DetailSection title="Address">
-          <DetailRow label="User Address" value={customer.addressLine1} />
+          <DetailRow label="Address" value={customer.addressLine1} />
           <DetailRow label="City" value={customer.city} />
           <DetailRow label="State" value={customer.state} />
           <DetailRow label="ZIP Code" value={customer.zip} />
-          <DetailRow label="Country" value={customer.country} />
+          <DetailRow label="Country" value={countryLabel(customer.country)} />
         </DetailSection>
       </div>
     </>

@@ -637,7 +637,7 @@ export function DataTable<T>({
       {total > 0 ? (
         <div className="flex items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            Showing {first}–{last} of {count}
+            Showing {first === last ? first : `${first}–${last}`} of {count}
           </p>
 
           <div className="flex items-center gap-4">

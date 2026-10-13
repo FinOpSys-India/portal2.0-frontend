@@ -18,6 +18,8 @@ import {
   companyTypeLabel,
   companyTypeValue,
   companyValues,
+  countryLabel,
+  formatEin,
   REVENUE_BANDS,
 } from "./company";
 
@@ -191,3 +193,16 @@ assert.deepEqual(
   }),
   [],
 );
+
+// Stored nine digits, read as an EIN.
+assert.equal(formatEin("263734949"), "26-3734949");
+// Not nine digits is a data problem, shown as stored rather than hyphenated
+// into a shape it does not have.
+assert.equal(formatEin("2637349"), "2637349");
+assert.equal(formatEin(""), "");
+assert.equal(formatEin("26-3734949"), "26-3734949");
+
+// The stored country keeps the spelling the backend round-trips; only the
+// label the reader sees is shortened.
+assert.equal(countryLabel("United States of America"), "United States");
+assert.equal(countryLabel("India"), "India");
