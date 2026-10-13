@@ -378,7 +378,7 @@ export function FilterButton({
                   disabled={drafted === 0}
                 >
                   <RotateCcw className="size-3.5" aria-hidden />
-                  Reset all
+                  Reset All
                 </Button>
                 <Button
                   type="button"

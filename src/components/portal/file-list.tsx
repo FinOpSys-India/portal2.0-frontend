@@ -86,7 +86,7 @@ export const fileColumns = (viewer: string): Column<FileRow>[] => [
       row.service ?? <span className="text-muted-foreground">—</span>,
   },
   {
-    header: "Document Owner",
+    header: "Uploaded By",
     sortValue: (row) => row.owner,
     cell: (row) => (
       <PersonCell name={row.owner} avatarUrl={row.ownerAvatarUrl} />
@@ -112,39 +112,3 @@ export const fileColumns = (viewer: string): Column<FileRow>[] => [
   },
 ];
 
-/**
- * What the file list is currently showing.
- *
- * Two filters sit in two different places — the company switcher in the header,
- * the project pill on the page — so without this the reader has to assemble the
- * scope from opposite corners of the screen.
- *
- * No third crumb: there is no file detail view, so nothing is ever open below
- * the project.
- */
-export function ScopeBreadcrumb({
-  company,
-  project,
-}: {
-  company: string | null;
-  project: string | null;
-}) {
-  return (
-    <nav
-      aria-label="Breadcrumb"
-      className="flex min-w-0 flex-1 items-center rounded-xl border border-border bg-card px-5 py-3 text-sm"
-    >
-      <ol className="flex min-w-0 items-center gap-2">
-        <li className="truncate text-muted-foreground">
-          {company ?? "No company"}
-        </li>
-        <li aria-hidden className="text-muted-foreground">
-          /
-        </li>
-        <li aria-current="page" className="truncate font-medium">
-          {project ?? "All projects"}
-        </li>
-      </ol>
-    </nav>
-  );
-}

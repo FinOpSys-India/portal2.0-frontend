@@ -147,7 +147,7 @@ export function InviteDialog({
                 label="First Name"
                 icon={User}
                 required
-                placeholder="First name"
+                placeholder="First Name"
               />
               <TextField
                 control={form.control}
@@ -155,7 +155,7 @@ export function InviteDialog({
                 label="Last Name"
                 icon={User}
                 required
-                placeholder="Last name"
+                placeholder="Last Name"
               />
             </div>
 

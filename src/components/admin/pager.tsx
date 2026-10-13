@@ -133,7 +133,7 @@ export function PageSizeBox({ size }: { size: number }) {
 
   return (
     <label className="flex items-center gap-2 text-sm text-muted-foreground">
-      Rows per page
+      Rows per Page
       <Input
         id={id}
         // Uncontrolled, keyed by the count in the URL: the box holds whatever

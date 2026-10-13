@@ -171,7 +171,7 @@ export function PlanPicker({
             <div className="rounded-xl border border-border p-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-2">
-                  <Label htmlFor="employees">W-2 employees</Label>
+                  <Label htmlFor="employees">W-2 Employees</Label>
                   <Input
                     id="employees"
                     inputMode="numeric"
@@ -183,7 +183,7 @@ export function PlanPicker({
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="contractors">1099 contractors</Label>
+                  <Label htmlFor="contractors">1099 Contractors</Label>
                   <Input
                     id="contractors"
                     inputMode="numeric"
@@ -232,7 +232,7 @@ export function PlanPicker({
           </Section>
 
           <Section
-            title="Taxes"
+            title="Tax"
             description="Federal plus one state is included in every tier."
           >
             <div className="grid gap-3 sm:grid-cols-3">
@@ -292,7 +292,7 @@ export function PlanPicker({
                 ) : null}
                 {taxes ? (
                   <SummaryRow
-                    label="Taxes"
+                    label="Tax"
                     detail={taxes.name}
                     amount={taxes.priceMinor}
                     currency={catalog.currency}
@@ -302,7 +302,7 @@ export function PlanPicker({
             )}
 
             <div className="mt-5 flex items-baseline justify-between border-t border-border pt-4">
-              <span className="text-sm font-medium">Monthly total</span>
+              <span className="text-sm font-medium">Monthly Total</span>
               <span className="text-xl font-bold tabular-nums">
                 {formatMoney(total, catalog.currency)}
                 <span className="text-sm font-normal text-muted-foreground">

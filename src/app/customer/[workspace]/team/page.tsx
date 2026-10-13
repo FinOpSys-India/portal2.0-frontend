@@ -53,6 +53,7 @@ export default async function TeamPage({
   return (
     <DataTable<TeamMember>
       title="Team"
+      noun="team members"
       page={page}
       size={size}
       sort={sort}

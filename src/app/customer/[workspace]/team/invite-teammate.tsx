@@ -132,7 +132,7 @@ export function InviteTeammate({
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Invite a Team Member</DialogTitle>
+          <DialogTitle>Invite Team Member</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -160,7 +160,7 @@ export function InviteTeammate({
                 label="First Name"
                 icon={User}
                 required
-                placeholder="First name"
+                placeholder="First Name"
               />
               <TextField
                 control={form.control}
@@ -168,7 +168,7 @@ export function InviteTeammate({
                 label="Last Name"
                 icon={User}
                 required
-                placeholder="Last name"
+                placeholder="Last Name"
               />
             </div>
 
@@ -269,8 +269,8 @@ export function InviteTeammate({
                   </Popover>
 
                   <FormDescription>
-                    They will be able to open every company you tick. No role to
-                    pick — an invited team member joins as a member.
+                    They&apos;ll be able to see every company you select. Invited
+                    people join as team members.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

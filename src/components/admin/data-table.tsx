@@ -427,6 +427,7 @@ export function DataTable<T>({
   rowHref,
   header,
   title,
+  noun,
   action,
   exportCsv,
   empty,
@@ -461,6 +462,15 @@ export function DataTable<T>({
    * to the screen.
    */
   title?: string;
+  /**
+   * What the rows are called where the filter panel counts them.
+   *
+   * The heading is the default, which is right wherever it is the plural of a
+   * row ("Projects" over projects). Said here when it is not: a Documents
+   * screen has no `title` to lowercase and counted "rows", and "Team" counted
+   * "team" rather than team members.
+   */
+  noun?: string;
   /** The list's own button — New Project, Invite Customer, Upload File. */
   action?: React.ReactNode;
   /**
@@ -525,7 +535,7 @@ export function DataTable<T>({
     filters.length > 0 && matching.length !== rows.length
       ? {
           csv: toCsv(columns, matching),
-          filename: exportFilename(title, matching.length),
+          filename: exportFilename(title ?? noun, matching.length),
           count: matching.length,
         }
       : undefined;
@@ -546,9 +556,9 @@ export function DataTable<T>({
         filters={filters}
         count={count}
         // The page's own noun, so the panel's footer reads "16 customers"
-        // rather than a bare number. Nested tables have no heading of their
-        // own and say "rows".
-        noun={title?.toLowerCase() ?? "rows"}
+        // rather than a bare number. A list whose heading is not the plural of
+        // a row says what it holds itself; nested tables fall back to "rows".
+        noun={noun ?? title?.toLowerCase() ?? "rows"}
       />
       {exportCsv?.(narrowed)}
       {action}

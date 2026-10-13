@@ -4,7 +4,7 @@ import { ParamPill } from "@/components/portal/param-pill";
 import type { PillOption } from "@/components/portal/workspace-pill";
 
 /** Cleared filter. Empty id means "no ?project= on the URL". */
-const ALL: PillOption = { id: "", name: "All projects" };
+const ALL: PillOption = { id: "", name: "All Projects" };
 
 /**
  * Narrows the file list to one project.

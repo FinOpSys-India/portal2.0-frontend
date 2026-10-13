@@ -410,11 +410,11 @@ async function main() {
 
   /* --------------------------------------- filter: false, and name search */
 
-  // The customer's company list: Subscription Date sorts but offers no filter,
+  // The customer's company list: Next Billing Date sorts but offers no filter,
   // and Team Members is searched by a person's NAME over the avatar stack.
   type Company = { name: string; team: { name: string }[] };
   const companyColumns: Column<Company>[] = [
-    { header: "Subscription Date", filter: false, cell: (c) => c.name },
+    { header: "Next Billing Date", filter: false, cell: (c) => c.name },
     {
       header: "Team Members",
       filter: "text",

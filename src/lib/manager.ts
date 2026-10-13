@@ -1316,7 +1316,29 @@ export async function serviceOptions(
   const data = await get<{ services: ServiceOption[] }>(
     `/projects/services?companyId=${encodeURIComponent(companyId)}`,
   );
-  return data.services;
+  return orderServices(data.services);
+}
+
+/** Bookkeeping, Payroll, Tax — the order the plan step sells them in. */
+const SERVICE_ORDER = ["BOOKKEEPING", "PAYROLL", "TAX"];
+
+/**
+ * The services in the order every other screen names them.
+ *
+ * `/projects/services` answers in its own order — Bookkeeping, Tax, Payroll —
+ * so the project dialog offered a third reading of the same three services.
+ * Sorted HERE rather than in each dialog: both portals open projects through
+ * this one read.
+ *
+ * A code this app has never heard of keeps its place at the end rather than
+ * being dropped, because the list is what a company can actually be billed for.
+ */
+export function orderServices(services: ServiceOption[]): ServiceOption[] {
+  const rank = (s: ServiceOption) => {
+    const at = SERVICE_ORDER.indexOf(s.serviceCode);
+    return at === -1 ? SERVICE_ORDER.length : at;
+  };
+  return [...services].sort((a, b) => rank(a) - rank(b));
 }
 
 /**

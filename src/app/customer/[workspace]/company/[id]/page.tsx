@@ -48,7 +48,7 @@ export default async function CustomerCompanyPage({
    * The Company table sends an unpaid row to its plan step, so this page is
    * reached for one only by a typed URL, a bookmark, or a link from before the
    * bill. Saying so beats a panel of fields that look like a live account —
-   * Active Services and Subscription Date are both blank on a company that was
+   * Active Services and Next Billing Date are both blank on a company that was
    * never activated, which reads as missing data rather than an unpaid bill.
    */
   const owes = unpaidCompanyIds(status).includes(id);
@@ -81,7 +81,7 @@ export default async function CustomerCompanyPage({
             label="Active Services"
             value={company.activeServices.join(", ")}
           />
-          <DetailRow label="Subscription Date" value={company.billingDate} />
+          <DetailRow label="Next Billing Date" value={company.billingDate} />
         </DetailSection>
 
         <DetailSection title="Address">

@@ -7,7 +7,6 @@ import {
 } from "@/components/admin/data-table";
 import {
   fileColumns,
-  ScopeBreadcrumb,
   type FileRow,
 } from "@/components/portal/file-list";
 import { ProjectFilter } from "@/components/portal/project-filter";
@@ -71,14 +70,11 @@ export default async function ManagerDocumentsPage({
 
   // From the company list, not from the projects: a company with no projects
   // yet would otherwise leave the breadcrumb blank while scoped to it.
-  const companyName = companies.find((c) => c.id === company)?.name ?? null;
 
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <ProjectFilter projects={projects.map((p) => p.name)} />
-
-        <ScopeBreadcrumb company={companyName} project={project ?? null} />
       </div>
 
       <DataTable<FileRow>
@@ -87,11 +83,10 @@ export default async function ManagerDocumentsPage({
         sort={sort}
         dir={dir}
         filters={parseFilters(f)}
+        noun="documents"
         total={documents.length}
         rows={withService(documents, allProjects)}
-        header={
-          <h1 className="text-lg font-bold tracking-tight">Documents</h1>
-        }
+        title="Documents"
         action={
           <ManagerUploadFile
             companies={companies.map(({ id, name }) => ({ id, name }))}

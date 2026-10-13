@@ -4,7 +4,7 @@ import { AUTH_PANELS, AuthLink, AuthShell } from "@/components/auth/auth-shell";
 import { SignupForm } from "./signup-form";
 
 export const metadata: Metadata = {
-  title: "Create your account – FinOpSys",
+  title: "Create Your Account – FinOpSys",
 };
 
 /**

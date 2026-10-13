@@ -15,7 +15,7 @@ import { dateKey, withTeammates } from "@/lib/portal";
 import { AddCompany } from "./add-company";
 import { parseFilters } from "@/lib/table-filter";
 
-export const metadata: Metadata = { title: "Company" };
+export const metadata: Metadata = { title: "Companies" };
 
 export default async function CompanyPage({
   params,
@@ -49,7 +49,7 @@ export default async function CompanyPage({
 
   return (
     <DataTable<CustomerCompany>
-      title="Company"
+      title="Companies"
       page={page}
       size={size}
       sort={sort}
@@ -82,7 +82,7 @@ export default async function CompanyPage({
             <span className="flex items-center gap-2">
               <span className="font-medium">{row.name}</span>
               {unpaid.includes(row.id) && (
-                <Badge variant="destructive">Payment pending</Badge>
+                <Badge variant="destructive">Payment Pending</Badge>
               )}
             </span>
           ),
@@ -95,7 +95,7 @@ export default async function CompanyPage({
           cell: (row) => <ListCell items={row.activeServices} />,
         },
         {
-          header: "Subscription Date",
+          header: "Next Billing Date",
           // Sortable but not filterable: a customer reads their own handful of
           // companies, and nobody narrows that list by when they signed.
           filter: false,

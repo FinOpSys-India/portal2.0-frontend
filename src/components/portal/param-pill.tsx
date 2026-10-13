@@ -114,7 +114,7 @@ function Pill({
    * Rebuilt from `keep` rather than edited in place. Kept in place, a page
    * number, a filter set or a project name picked under the old scope rode
    * along into the new one, where it names nothing: Documents came up empty
-   * under a project pill reading "All projects", and page 3 of an eight-row
+   * under a project pill reading "All Projects", and page 3 of an eight-row
    * table came up blank.
    */
   function hrefFor(id: string) {

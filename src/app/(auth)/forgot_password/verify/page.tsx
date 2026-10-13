@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { AUTH_PANELS, AuthShell } from "@/components/auth/auth-shell";
 import { OtpForm } from "@/components/auth/otp-form";
 
-export const metadata: Metadata = { title: "Verify code – FinOpSys" };
+export const metadata: Metadata = { title: "Verify Code – FinOpSys" };
 
 /**
  * Step two of a password reset, and it did not exist.

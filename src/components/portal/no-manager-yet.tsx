@@ -28,7 +28,7 @@ export function NoManagerYet({ backHref }: { backHref: string }) {
         chat with them. Thank you for your patience.
       </p>
       <Button asChild variant="outline" className="mt-6">
-        <Link href={backHref}>Go back</Link>
+        <Link href={backHref}>Go Back</Link>
       </Button>
     </section>
   );

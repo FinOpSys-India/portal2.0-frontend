@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
  * thresholds if the real Bubble rule turns up.
  */
 const LEVELS = [
-  { label: "Too short", bars: 0, tone: "bg-border" },
+  { label: "Too Short", bars: 0, tone: "bg-border" },
   { label: "Weak", bars: 1, tone: "bg-destructive" },
   { label: "Medium", bars: 2, tone: "bg-amber-500" },
   { label: "Strong", bars: 3, tone: "bg-success" },

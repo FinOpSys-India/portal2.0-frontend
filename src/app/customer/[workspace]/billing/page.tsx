@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { subscription, type SubscriptionLine } from "@/lib/billing";
+import { planLabel, serviceLabel, subscription } from "@/lib/billing";
 import { formatMoney } from "@/lib/plans";
 import { usDate } from "@/lib/portal";
 
@@ -20,25 +20,6 @@ export const metadata: Metadata = { title: "Billing" };
 /** M/D/YYYY, the format every other date in this portal renders in. */
 function stamp(iso: string | null): string {
   return iso ? usDate(iso) : "—";
-}
-
-/**
- * The words for one line.
- *
- * A payroll subscription is THREE rows sharing one service — the base fee and
- * the two per-head prices — so the service name alone would print "Payroll"
- * three times against three different amounts. The component says which.
- */
-const COMPONENTS: Record<string, string> = {
-  base: "Base",
-  employees: "W-2 employees",
-  contractors: "1099 contractors",
-};
-
-function lineLabel(line: SubscriptionLine): string {
-  const service = line.service ?? "Service";
-  const part = COMPONENTS[line.component];
-  return part ? `${service} · ${part}` : service;
 }
 
 /** ACTIVE reads as normal; anything else is worth the reader's attention. */
@@ -91,7 +72,7 @@ export default async function BillingPage({
             href="/on_boarding_form_part_2"
             className="mt-2 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline"
           >
-            Choose a plan
+            Choose a Plan
           </Link>
         </div>
       </>
@@ -112,7 +93,7 @@ export default async function BillingPage({
                 {sub.status.toLowerCase().replace("_", " ")}
               </Badge>
             </Field>
-            <Field label="Current period">
+            <Field label="Current Period">
               <span className="text-sm font-medium tabular-nums">
                 {stamp(sub.currentPeriodStart)} – {stamp(sub.currentPeriodEnd)}
               </span>
@@ -138,15 +119,15 @@ export default async function BillingPage({
         </section>
 
         <section className="rounded-xl border border-border bg-card p-6">
-          <h2 className="mb-4 text-sm font-semibold">What you pay for</h2>
+          <h2 className="mb-4 text-sm font-semibold">Your Services</h2>
           <div className="overflow-hidden rounded-lg border border-border">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Service</TableHead>
                   <TableHead>Plan</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Unit</TableHead>
+                  <TableHead className="text-right">Quantity</TableHead>
+                  <TableHead className="text-right">Unit Price</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                 </TableRow>
               </TableHeader>
@@ -154,9 +135,9 @@ export default async function BillingPage({
                 {sub.lines.map((line) => (
                   <TableRow key={`${line.service}-${line.component}`}>
                     <TableCell className="font-medium capitalize">
-                      {lineLabel(line)}
+                      {serviceLabel(line)}
                     </TableCell>
-                    <TableCell>{line.planName ?? "—"}</TableCell>
+                    <TableCell>{planLabel(line)}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {line.quantity}
                     </TableCell>
@@ -173,7 +154,7 @@ export default async function BillingPage({
           </div>
 
           <div className="mt-5 flex items-baseline justify-between border-t border-border pt-4">
-            <span className="text-sm font-medium">Monthly total</span>
+            <span className="text-sm font-medium">Monthly Total</span>
             <span className="text-xl font-bold tabular-nums">
               {formatMoney(sub.recurringTotalAmountMinor, sub.currency)}
               <span className="text-sm font-normal text-muted-foreground">

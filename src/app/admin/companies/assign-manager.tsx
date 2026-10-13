@@ -109,7 +109,7 @@ export function AssignManager({
               This cannot be changed here once saved.
             </p>
 
-            <Label htmlFor="manager">Accounting manager</Label>
+            <Label htmlFor="manager">Accounting Manager</Label>
             <Select value={manager} onValueChange={setManager}>
               <SelectTrigger
                 id="manager"

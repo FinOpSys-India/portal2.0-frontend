@@ -42,8 +42,8 @@ export default async function CustomerConnectPage({
           Connect with Your Accounting Manager
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Start a conversation with your accounting team through chat or email
-          for support, updates, and document sharing.
+          Chat or email your accounting manager for support, updates, and
+          document sharing.
         </p>
       </div>
 

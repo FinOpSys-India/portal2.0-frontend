@@ -5,7 +5,7 @@ import { AUTH_PANELS, AuthShell } from "@/components/auth/auth-shell";
 
 import { NewPasswordForm } from "./new-password-form";
 
-export const metadata: Metadata = { title: "New password – FinOpSys" };
+export const metadata: Metadata = { title: "New Password – FinOpSys" };
 
 /**
  * Step three of a password reset. Reached only from the verify screen, which

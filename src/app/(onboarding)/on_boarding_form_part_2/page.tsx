@@ -7,7 +7,7 @@ import { planCatalog } from "@/lib/billing";
 import { PlanPicker } from "./plan-picker";
 
 export const metadata: Metadata = {
-  title: "Your plan – FinOpSys",
+  title: "Your Plan – FinOpSys",
 };
 
 /**

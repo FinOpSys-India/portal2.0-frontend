@@ -179,6 +179,62 @@ export interface SubscriptionLine {
   currency: string;
 }
 
+/**
+ * What each service is CALLED, which is not what billing keys it by.
+ *
+ * `line.service` is the subscription's own key — "taxes" — while the
+ * specialization name behind every other screen is singular, so a bill read
+ * "Taxes" against projects, documents and companies that all say "Tax". An
+ * unmapped key is returned as it came rather than vanishing.
+ */
+const SERVICES: Record<string, string> = {
+  bookkeeping: "Bookkeeping",
+  payroll: "Payroll",
+  taxes: "Tax",
+};
+
+export function serviceLabel(line: SubscriptionLine): string {
+  if (!line.service) return "Service";
+  return SERVICES[line.service] ?? line.service;
+}
+
+/** A payroll subscription's three lines, which share one service. */
+const COMPONENTS: Record<string, string> = {
+  base: "Base",
+  employees: "W-2 Employees",
+  contractors: "1099 Contractors",
+};
+
+/**
+ * The plan one line is on, said once.
+ *
+ * THE SERVICE IS THE COLUMN TO THE LEFT, so it is stripped from the front of a
+ * plan that repeats it: payroll's lines arrive named "Payroll Base" beside a
+ * Service cell already reading "Payroll", and tax's as "Tax - $500K to $2M
+ * Revenue". What is left is written the way the plan step writes a band —
+ * "$500K – $2M revenue" — because that is the same band under another name.
+ *
+ * ponytail: tidying the backend's string rather than looking the tier up in
+ * `/billing/plans`. The catalog is a second request and its names are written
+ * by the same hand; revisit if the shapes stop matching.
+ */
+export function planLabel(line: SubscriptionLine): string {
+  const component = COMPONENTS[line.component];
+  if (component) return component;
+
+  const name = line.planName?.trim();
+  if (!name) return "—";
+
+  const service = serviceLabel(line);
+  const rest = name.toLowerCase().startsWith(service.toLowerCase())
+    ? name.slice(service.length).replace(/^[\s-–·]+/, "").trim()
+    : name;
+
+  return (
+    rest.replace(/\s+to\s+/i, " – ").replace(/\bRevenue\b/g, "revenue") || name
+  );
+}
+
 export interface Subscription {
   status: string;
   currentPeriodStart: string | null;

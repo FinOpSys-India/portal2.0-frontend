@@ -7,7 +7,6 @@ import {
 } from "@/components/admin/data-table";
 import {
   fileColumns,
-  ScopeBreadcrumb,
   type FileRow,
 } from "@/components/portal/file-list";
 import { ProjectFilter } from "@/components/portal/project-filter";
@@ -47,22 +46,17 @@ export default async function FilesPage({
   const page = parsePage(raw);
   const size = parsePageSize(rawSize);
 
-  const [files, projects, workspaces, viewer] = await Promise.all([
+  const [files, projects, viewer] = await Promise.all([
     customerApi.files(workspace, project),
     customerApi.projects(workspace),
-    customerApi.workspaces(),
     // Who "delete" is offered to: the uploader of the row, nobody else.
     viewerId(),
   ]);
-
-  const companyName = workspaces.find((w) => w.id === workspace)?.name ?? null;
 
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <ProjectFilter projects={projects.map((p) => p.name)} />
-
-        <ScopeBreadcrumb company={companyName} project={project ?? null} />
       </div>
 
       <DataTable<FileRow>
@@ -71,11 +65,10 @@ export default async function FilesPage({
         sort={sort}
         dir={dir}
         filters={parseFilters(f)}
+        noun="documents"
         total={files.length}
         rows={withService(files, projects)}
-        header={
-          <h1 className="text-lg font-bold tracking-tight">Documents</h1>
-        }
+        title="Documents"
         action={
           <CustomerUploadFile
             workspace={workspace}

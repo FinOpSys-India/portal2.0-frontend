@@ -17,6 +17,7 @@ import {
   fileKind,
   formatFileSize,
   isOverdue,
+  orderServices,
   parseDeadline,
   scoped,
   scopeSwitch,
@@ -394,3 +395,34 @@ assert.ok(!isOverdue({ deadline: daysAway(0), status: "Not started" }));
 assert.ok(!isOverdue({ deadline: daysAway(-90), status: "Completed" }));
 // An undated task is never late.
 assert.ok(!isOverdue({ deadline: "", status: "In progress" }));
+
+/* ------------------------------------------------------- service order ---- */
+
+const opt = (serviceCode: string) => ({
+  servicePlanId: 1,
+  serviceName: serviceCode,
+  serviceCode,
+});
+
+// The endpoint's own order is Bookkeeping, Tax, Payroll; every screen says
+// Bookkeeping, Payroll, Tax.
+assert.deepEqual(
+  orderServices([opt("BOOKKEEPING"), opt("TAX"), opt("PAYROLL")]).map(
+    (s) => s.serviceCode,
+  ),
+  ["BOOKKEEPING", "PAYROLL", "TAX"],
+);
+// A company on one service is not reordered into a gap.
+assert.deepEqual(
+  orderServices([opt("TAX")]).map((s) => s.serviceCode),
+  ["TAX"],
+);
+// A service this app has never heard of lands last, and is never dropped.
+assert.deepEqual(
+  orderServices([opt("ADVISORY"), opt("TAX"), opt("BOOKKEEPING")]).map(
+    (s) => s.serviceCode,
+  ),
+  ["BOOKKEEPING", "TAX", "ADVISORY"],
+);
+
+console.log("manager api: service order ok");

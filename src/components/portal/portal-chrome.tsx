@@ -74,7 +74,7 @@ export function NotificationBell({ items = [] }: { items?: Notification[] }) {
 
       <DropdownMenuContent align="end" className="w-96 p-0">
         <DropdownMenuLabel className="flex items-baseline justify-between px-4 py-3">
-          <span>New messages</span>
+          <span>New Messages</span>
           {count > 0 ? (
             <span className="text-xs font-normal text-muted-foreground tabular-nums">
               {count} unread
@@ -211,7 +211,7 @@ export function AccountMenu({
         ) : null}
         <DropdownMenuItem onSelect={onLogout}>
           <LogOut className="size-4" aria-hidden />
-          Logout
+          Log Out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

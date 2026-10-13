@@ -4,7 +4,7 @@ import { AUTH_PANELS, AuthShell } from "@/components/auth/auth-shell";
 import { ForgotPasswordForm } from "./forgot-password-form";
 
 export const metadata: Metadata = {
-  title: "Password reset – FinOpSys",
+  title: "Password Reset – FinOpSys",
 };
 
 export default function ForgotPasswordPage() {

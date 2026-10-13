@@ -12,7 +12,7 @@ import { api, unpaidCompanyIds } from "@/lib/api";
 import { customerApi } from "@/lib/customer";
 import { myProfile } from "@/lib/portal";
 
-export const metadata: Metadata = { title: "Select workspace – FinOpSys" };
+export const metadata: Metadata = { title: "Select Workspace – FinOpSys" };
 
 /**
  * Workspace picker, the landing route after a verified OTP.
@@ -117,7 +117,7 @@ export default async function WorkspaceSelectPage() {
                   <span className="flex-1 text-sm font-medium">
                     {workspace.name}
                   </span>
-                  {owes && <Badge variant="destructive">Payment pending</Badge>}
+                  {owes && <Badge variant="destructive">Payment Pending</Badge>}
                   <ChevronRight
                     className="size-4 text-muted-foreground"
                     aria-hidden

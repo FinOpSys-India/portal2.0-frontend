@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Checkout cancelled – FinOpSys" };
+export const metadata: Metadata = { title: "Checkout Cancelled – FinOpSys" };
 
 /**
  * `config.billing.checkoutCancelUrl`. Stripe sends the customer here when they

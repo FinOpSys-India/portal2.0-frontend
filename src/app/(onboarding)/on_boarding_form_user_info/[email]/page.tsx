@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { UserInfoForm } from "./user-info-form";
 
 export const metadata: Metadata = {
-  title: "Your details – FinOpSys",
+  title: "Your Details – FinOpSys",
 };
 
 /**
