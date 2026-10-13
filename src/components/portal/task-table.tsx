@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { parseDeadline, type SpecialistTask } from "@/lib/manager";
 import type { Filter } from "@/lib/table-filter";
 
@@ -115,7 +116,7 @@ export function TaskTable({
             header: "Deadline",
             filter: "date",
             cell: (task) => (
-              <span className="tabular-nums">{task.deadline}</span>
+              <ProjectDeadline deadline={task.deadline} status={task.status} />
             ),
             // M/DD/YY: as text "8/03/26" sorts before "7/28/26".
             sortValue: (task) => parseDeadline(task.deadline).getTime(),
@@ -162,8 +163,11 @@ export function TaskTable({
                 </div>
                 <div>
                   <dt className="text-sm text-muted-foreground">Deadline</dt>
-                  <dd className="mt-0.5 text-sm font-medium tabular-nums">
-                    {open.deadline}
+                  <dd className="mt-0.5 text-sm font-medium">
+                    <ProjectDeadline
+                      deadline={open.deadline}
+                      status={open.status}
+                    />
                   </dd>
                 </div>
                 <div>

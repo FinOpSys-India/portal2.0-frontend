@@ -382,3 +382,15 @@ assert.equal(taggedSubject("Invoice question", undefined), "Invoice question");
 assert.equal(taggedSubject("Invoice question", "   "), "Invoice question");
 
 console.log("manager api: email subject tag ok");
+
+/* ------------------------------------------------------- overdue tasks ---- */
+
+// Tasks run the same rule as projects — same three states, same question.
+assert.ok(isOverdue({ deadline: daysAway(-1), status: "Not started" }));
+assert.ok(isOverdue({ deadline: daysAway(-14), status: "In progress" }));
+// Due today is due, not late.
+assert.ok(!isOverdue({ deadline: daysAway(0), status: "Not started" }));
+// Done is never late, however long it sat there.
+assert.ok(!isOverdue({ deadline: daysAway(-90), status: "Completed" }));
+// An undated task is never late.
+assert.ok(!isOverdue({ deadline: "", status: "In progress" }));

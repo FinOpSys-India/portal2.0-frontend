@@ -69,7 +69,7 @@ export function TaskStatusMenu({
         className="rounded-4xl focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 disabled:opacity-60"
         aria-label={`Status: ${status}. Change it.`}
       >
-        <StatusBadge status={status} />
+        <StatusBadge status={status} chevron />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end">

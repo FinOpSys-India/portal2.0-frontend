@@ -21,6 +21,7 @@ import {
   TableCell,
   TableRow,
 } from "@/components/ui/table";
+import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { parseDeadline, type ProjectTask } from "@/lib/manager";
 
 /*
@@ -134,7 +135,12 @@ export function ProjectTaskTable({
                 <TableCell className="text-muted-foreground">
                   {task.description}
                 </TableCell>
-                <TableCell className="tabular-nums">{task.deadline}</TableCell>
+                <TableCell>
+                  <ProjectDeadline
+                    deadline={task.deadline}
+                    status={task.status}
+                  />
+                </TableCell>
                 <TableCell>
                   {writable ? (
                     <TaskStatusMenu
