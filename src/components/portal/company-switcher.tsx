@@ -1,7 +1,7 @@
 "use client";
 
 import { ParamPill } from "@/components/portal/param-pill";
-import type { PillOption } from "@/components/portal/workspace-pill";
+import { SwitchLabel, type PillOption } from "@/components/portal/workspace-pill";
 
 /**
  * Company switcher in the manager's top bar.
@@ -19,18 +19,15 @@ export function CompanySwitcher({ companies }: { companies: PillOption[] }) {
   return (
     // A fragment, not a wrapper: the top bar is already `flex items-center
     // gap-3`, so the label spaces itself against the pill the way every other
-    // control in the bar does. Hidden below `sm` — the bar there is the menu
-    // trigger, the pill, the bell and the avatar, with no room for prose.
+    // control in the bar does.
     <>
-      <span className="hidden text-sm text-muted-foreground sm:inline">
-        Switch Company <span aria-hidden>&rarr;</span>
-      </span>
+      <SwitchLabel />
       <ParamPill
         param="company"
         all={first}
         options={rest}
         label="Company"
-        menuLabel="Scope to company"
+        menuLabel="Switch Company"
         // Sort is a column name and a page size is a preference, so both mean
         // the same under any company; `party` names which Connect inbox is
         // open, and is not a property of a company either. A page number, a

@@ -52,7 +52,6 @@ export function SpecialistShell(
     <ScopedPortalShell
       {...props}
       home="/specialist/projects"
-      groupLabel="Work"
       nav={NAV}
       profileHref="/specialist/profile"
     />

@@ -13,7 +13,7 @@ import {
 
 import { AccountMenu, NotificationBell } from "@/components/portal/portal-chrome";
 import { PortalShell, type NavItem } from "@/components/portal/portal-shell";
-import { WorkspacePill } from "@/components/portal/workspace-pill";
+import { SwitchLabel, WorkspacePill } from "@/components/portal/workspace-pill";
 import type { Workspace } from "@/lib/customer";
 
 /**
@@ -90,6 +90,7 @@ export function CustomerShell({
       nav={nav}
       headerRight={
         <>
+          <SwitchLabel />
           <WorkspacePill
             current={workspace}
             options={workspaces}

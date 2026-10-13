@@ -16,6 +16,25 @@ import {
 export type PillOption = { id: string; name: string };
 
 /**
+ * The words in front of the pill, in every portal that scopes to a company.
+ *
+ * Shared rather than written beside each pill: the bar reads the same whether
+ * the reader is a customer on their own companies or a manager on their book,
+ * and a pill with no label is a brand-coloured button that says a company name
+ * and nothing about what pressing it does.
+ *
+ * Hidden below `sm` — the bar there is the menu trigger, the pill, the bell and
+ * the avatar, with no room for prose.
+ */
+export function SwitchLabel() {
+  return (
+    <span className="hidden text-sm text-muted-foreground sm:inline">
+      Switch Company <span aria-hidden>&rarr;</span>
+    </span>
+  );
+}
+
+/**
  * Brand pill that switches the thing a portal is scoped to — a company for a
  * customer, a client company for a manager.
  *
@@ -28,7 +47,7 @@ export function WorkspacePill({
   options,
   onSelect,
   label = "Workspace",
-  menuLabel = "Switch workspace",
+  menuLabel = "Switch Company",
   variant = "default",
   unpaid = [],
 }: {

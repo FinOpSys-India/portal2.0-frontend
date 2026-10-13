@@ -79,9 +79,6 @@ export default async function SpecialistProjectsPage({
           header: "Project Name",
           cell: (row) => <span className="font-medium">{row.name}</span>,
         },
-        // Not a design column: the design is always scoped to one company, so
-        // it never needs to say which. This list is unscoped by default.
-        { header: "Company", filter: "enum", cell: (row) => row.company },
         {
           header: "Status",
           filter: "enum",
