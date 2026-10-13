@@ -14,6 +14,8 @@ import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
+
+import { CustomerUploadFile } from "../../files/upload-file";
 import { customerApi, type CustomerFile } from "@/lib/customer";
 import { dateKey, documentPath, viewerId } from "@/lib/portal";
 import { parseFilters } from "@/lib/table-filter";
@@ -97,8 +99,21 @@ export default async function CustomerProjectPage({
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-semibold">Documents</h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Documents</h2>
+            {/* Pre-scoped to this project, so the dialog asks nothing the page
+                already knows — the same in-project upload the manager and
+                specialist project pages have. Open to an invited team member
+                too: documents are company-scoped, and only Billing is
+                owner-only in this portal. */}
+            <CustomerUploadFile
+              workspace={workspace}
+              projects={[{ name: project.name }]}
+              fixed
+            />
+          </div>
           <DataTable<CustomerFile>
+            noun="documents"
             page={page}
             size={size}
             sort={sort}
