@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 
-import { TaskStatusBadge } from "@/components/portal/task-status-badge";
+import { StatusBadge } from "@/components/portal/status-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +16,7 @@ import { managerApi, type TaskStatus } from "@/lib/manager";
 import { specialistApi } from "@/lib/specialist";
 
 /** All three states 1.0 stores. The design's menu offers only two. */
-const STATUSES: TaskStatus[] = ["To do", "In progress", "Completed"];
+const STATUSES: TaskStatus[] = ["Not started", "In progress", "Completed"];
 
 /**
  * Which portal is moving the task. Named rather than passed as a function: the
@@ -69,7 +69,7 @@ export function TaskStatusMenu({
         className="rounded-4xl focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 disabled:opacity-60"
         aria-label={`Status: ${status}. Change it.`}
       >
-        <TaskStatusBadge status={status} />
+        <StatusBadge status={status} />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end">

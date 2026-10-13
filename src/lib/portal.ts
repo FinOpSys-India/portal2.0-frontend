@@ -106,33 +106,28 @@ export const toPortalPerson = (
 
 /**
  * The backend stores three states and spells them TODO / ACTIVE / COMPLETED.
- * The screens have said "Not started" / "In progress" / "Completed" since 1.0
- * for projects, and "To do" / "In progress" / "Completed" for tasks — the same
- * three states under two vocabularies, which is why the maps go both ways.
+ * One map, not one per entity: a task and a project are the same three states,
+ * and 1.0's two vocabularies ("To do" on a task, "Not started" on a project)
+ * only taught the reader that two words meant one thing. The map goes both
+ * ways because a status also travels back on a write.
  */
-const PROJECT_STATUS: Record<string, ProjectStatus> = {
+const STATUS: Record<string, ProjectStatus> = {
   TODO: "Not started",
   ACTIVE: "In progress",
   COMPLETED: "Completed",
 };
 
-const TASK_STATUS: Record<string, TaskStatus> = {
-  TODO: "To do",
-  ACTIVE: "In progress",
-  COMPLETED: "Completed",
-};
-
 const TASK_CODE: Record<TaskStatus, string> = {
-  "To do": "TODO",
+  "Not started": "TODO",
   "In progress": "ACTIVE",
   Completed: "COMPLETED",
 };
 
 export const toProjectStatus = (code: string): ProjectStatus =>
-  PROJECT_STATUS[code] ?? "Not started";
+  STATUS[code] ?? "Not started";
 
 export const toTaskStatus = (code: string): TaskStatus =>
-  TASK_STATUS[code] ?? "To do";
+  STATUS[code] ?? "Not started";
 
 export const taskStatusCode = (status: TaskStatus): string =>
   TASK_CODE[status] ?? "TODO";

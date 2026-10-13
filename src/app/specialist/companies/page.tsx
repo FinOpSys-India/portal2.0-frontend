@@ -70,7 +70,7 @@ export default async function SpecialistCompaniesPage({
       empty="You are not working for any company yet."
       columns={[
         {
-          header: "Company",
+          header: "Company Name",
           // A checklist, like every other place a list is narrowed by company:
           // picking three companies is one filter, where Contains can only ask
           // about one spelling at a time.

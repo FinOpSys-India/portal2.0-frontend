@@ -109,7 +109,7 @@ export default async function SpecialistProjectPage({
             />
           </section>
 
-          <DetailSection>
+          <DetailSection title="General Information">
             <DetailRow label="Created On" value={project.createdOn} />
             <DetailRow
               label="Deadline"

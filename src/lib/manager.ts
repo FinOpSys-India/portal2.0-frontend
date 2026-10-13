@@ -52,8 +52,13 @@ import {
 
 export type ProjectStatus = "Not started" | "In progress" | "Completed";
 
-/** Task states, verbatim from 1.0's project-detail task table. */
-export type TaskStatus = "To do" | "In progress" | "Completed";
+/**
+ * Tasks and projects run through the same three backend codes, so they say the
+ * same three words. 1.0 spelled the first one "To do" on a task table and "Not
+ * started" on a project table — one state, two vocabularies, which is a
+ * difference the reader has to learn means nothing.
+ */
+export type TaskStatus = ProjectStatus;
 
 export interface ClientCompany {
   id: string;

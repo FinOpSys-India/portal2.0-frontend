@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { TaskStatusBadge } from "@/components/portal/task-status-badge";
+import { StatusBadge } from "@/components/portal/status-badge";
 import { TaskStatusMenu } from "@/components/portal/task-status-menu";
 import {
   SortableHeadRow,
@@ -143,7 +143,7 @@ export function ProjectTaskTable({
                       from={from}
                     />
                   ) : (
-                    <TaskStatusBadge status={task.status} />
+                    <StatusBadge status={task.status} />
                   )}
                 </TableCell>
               </TableRow>
@@ -190,7 +190,7 @@ export function ProjectTaskTable({
                         from={from}
                       />
                     ) : (
-                      <TaskStatusBadge status={open.status} />
+                      <StatusBadge status={open.status} />
                     )}
                   </dd>
                 </div>

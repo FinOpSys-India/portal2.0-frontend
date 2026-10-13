@@ -43,17 +43,17 @@ import {
 assert.equal(toProjectStatus("TODO"), "Not started");
 assert.equal(toProjectStatus("ACTIVE"), "In progress");
 assert.equal(toProjectStatus("COMPLETED"), "Completed");
-assert.equal(toTaskStatus("TODO"), "To do");
+assert.equal(toTaskStatus("TODO"), "Not started");
 assert.equal(toTaskStatus("ACTIVE"), "In progress");
 
 // An unknown code must not render blank: a status cell with nothing in it reads
 // as a data problem, and "Not started" is the column's own default.
 assert.equal(toProjectStatus("SOMETHING_NEW"), "Not started");
-assert.equal(toTaskStatus("SOMETHING_NEW"), "To do");
+assert.equal(toTaskStatus("SOMETHING_NEW"), "Not started");
 
 // And back. PATCH /tasks/:id/status takes the code, never the label — sending
 // "In progress" is a 400 from the enum check.
-assert.equal(taskStatusCode("To do"), "TODO");
+assert.equal(taskStatusCode("Not started"), "TODO");
 assert.equal(taskStatusCode("In progress"), "ACTIVE");
 assert.equal(taskStatusCode("Completed"), "COMPLETED");
 
@@ -133,7 +133,7 @@ assert.deepEqual(toProjectTask(task), {
   projectId: "12",
   name: "Reconcile July",
   description: "Match the bank feed against the ledger.",
-  status: "To do",
+  status: "Not started",
   deadline: "8/15/2026",
 });
 
