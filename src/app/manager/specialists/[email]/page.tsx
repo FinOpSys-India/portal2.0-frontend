@@ -56,7 +56,7 @@ export const metadata: Metadata = { title: "Specialist" };
  * Projects list of the company the reader is standing in.
  *
  * "Their tasks" is then the tasks of this company's projects routed to them, and
- * Add New Task offers exactly those projects.
+ * Add Task offers exactly those projects.
  */
 export default async function ManagerSpecialistPage({
   params,

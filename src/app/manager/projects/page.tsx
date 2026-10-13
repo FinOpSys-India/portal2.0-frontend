@@ -78,7 +78,7 @@ export default async function ManagerProjectsPage({
           filtered={filtered}
         />
       )}
-      // Add New Task is gone from this screen. It stays on a project's own
+      // Add Task is gone from this screen. It stays on a project's own
       // page, where the task being added has an obvious project; here the
       // dropdown had to ask which one, on a list whose job is the projects
       // themselves.

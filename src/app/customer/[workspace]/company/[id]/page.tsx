@@ -72,7 +72,7 @@ export default async function CustomerCompanyPage({
           </Alert>
         )}
 
-        <DetailSection title="Basic Details">
+        <DetailSection title="General Information">
           <DetailRow label="Company Name" value={company.name} />
           <DetailRow label="Company Email" value={company.email} />
           <DetailRow label="EIN" value={company.enNumber} />

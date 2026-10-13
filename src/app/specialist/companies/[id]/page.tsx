@@ -55,7 +55,7 @@ export default async function SpecialistCompanyPage({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid gap-6">
-          <DetailSection title="Company Detail">
+          <DetailSection title="General Information">
             <DetailRow label="Company Name" value={company.name} />
             <DetailRow label="Company Email" value={company.email} />
             <DetailRow label="EIN" value={company.enNumber} />

@@ -14,7 +14,8 @@ export function DetailSection({
   children,
   className,
 }: {
-  title: string;
+  /** Omit where the page's own h1 already names the section. */
+  title?: string;
   children: React.ReactNode;
   /** For the caller that has to place it — a rail that fills the page, say. */
   className?: string;
@@ -26,7 +27,9 @@ export function DetailSection({
         className,
       )}
     >
-      <h2 className="mb-4 text-sm font-semibold">{title}</h2>
+      {title ? (
+        <h2 className="mb-4 text-sm font-semibold">{title}</h2>
+      ) : null}
       <dl className="grid gap-x-8 gap-y-4 @sm:grid-cols-2">{children}</dl>
     </section>
   );

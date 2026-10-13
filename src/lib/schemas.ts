@@ -153,7 +153,7 @@ export const managerProjectSchema = newProjectSchema.extend({
 export type ManagerProjectValues = z.infer<typeof managerProjectSchema>;
 
 /**
- * Add New Task, on the manager's project detail.
+ * Add Task, on the manager's project detail.
  *
  * All three fields are required in 1.0. No assignee — 1.0's modal has no such
  * field, so a task cannot be routed to anyone from here.

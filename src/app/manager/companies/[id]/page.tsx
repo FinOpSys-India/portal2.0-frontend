@@ -69,7 +69,7 @@ export default async function ManagerCompanyPage({
       <PageHeader title="Company Information" description={company.name} />
 
       <div className="grid gap-6">
-        <DetailSection title="Basic Details">
+        <DetailSection title="General Information">
           <DetailRow label="Company Name" value={company.name} />
           <DetailRow label="Company Email" value={company.email} />
           <DetailRow label="EIN" value={company.enNumber} />

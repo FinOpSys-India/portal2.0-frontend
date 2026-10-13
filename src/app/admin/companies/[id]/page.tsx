@@ -49,7 +49,7 @@ export default async function CompanyDetailPage({
       <PageHeader title={company.name} description={company.email} />
 
       <div className="grid gap-6">
-        <DetailSection title="Basic Details">
+        <DetailSection title="General Information">
           <DetailRow label="Company Name" value={company.name} />
           <DetailRow label="Company Email" value={company.email} />
           <DetailRow label="EIN" value={company.enNumber} />

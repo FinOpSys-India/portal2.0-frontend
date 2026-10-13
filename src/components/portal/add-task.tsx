@@ -53,7 +53,7 @@ const ADD = {
 };
 
 /**
- * Add New Task — 1.0's four fields: name, description, deadline, and the
+ * Add Task — 1.0's four fields: name, description, deadline, and the
  * project.
  *
  * One project in the list means the caller is a project page, where 1.0 shows
@@ -118,12 +118,12 @@ export function AddTask({
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">Add New Task</Button>
+        <Button size="sm">Add Task</Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add new task</DialogTitle>
+          <DialogTitle>Add Task</DialogTitle>
         </DialogHeader>
 
         {projects.length === 0 ? (
