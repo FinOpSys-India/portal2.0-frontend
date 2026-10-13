@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { EmailCompose } from "@/components/portal/email-compose";
 import { customerApi } from "@/lib/customer";
 
-export const metadata: Metadata = { title: "Email" };
+export const metadata: Metadata = { title: "Send Email" };
 
 /**
  * Compose. The manager's version opens with a recipient dropdown; here the

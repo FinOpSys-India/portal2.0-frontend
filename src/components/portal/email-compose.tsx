@@ -13,6 +13,8 @@ import {
   TextareaField,
 } from "@/components/auth/fields";
 import { FormAlert } from "@/components/auth/form-alert";
+import { Hint } from "@/components/portal/hint";
+import { PageHeader } from "@/components/portal/portal-shell";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { toast } from "@/components/ui/toast";
@@ -118,15 +120,11 @@ export function EmailCompose({
 
   return (
     <>
-      <div className="mb-6">
-        {/* The pill IS this page's title, so it is the h1 rather than a span —
-            compose is the whole screen and nothing above it names it.
-            inline-block keeps the h1's block display from stretching the
-            border across the column. */}
-        <h1 className="inline-block rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold">
-          Email
-        </h1>
-      </div>
+      {/* PageHeader, not the bordered pill this screen used to carry: a boxed
+          label beside no other box reads as a tab someone failed to select,
+          and compose is a whole page like any other. It is also what the page
+          DOES — "Email" named the section the sidebar already names. */}
+      <PageHeader title="Send Email" />
 
       <section className="rounded-xl border border-border bg-card p-6">
         <Form {...form}>
@@ -154,7 +152,7 @@ export function EmailCompose({
               name="subject"
               label="Subject"
               required
-              placeholder="Subject"
+              placeholder="What is this about?"
             />
 
             <TextareaField
@@ -163,7 +161,7 @@ export function EmailCompose({
               label="Message"
               required
               rows={8}
-              placeholder="Message"
+              placeholder="Write your message…"
             />
 
             {/*
@@ -242,7 +240,9 @@ export function EmailCompose({
                     key={`${file.name}:${file.size}`}
                     className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm"
                   >
-                    <span className="truncate font-medium">{file.name}</span>
+                    <span className="truncate font-medium" title={file.name}>
+                      {file.name}
+                    </span>
                     <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
                       {formatFileSize(file.size)}
                     </span>
@@ -275,16 +275,18 @@ export function EmailCompose({
                 Send
               </SubmitButton>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={discard}
-                aria-label="Discard this draft"
-                className="size-11"
-              >
-                <Trash2 className="size-4" aria-hidden />
-              </Button>
+              <Hint label="Discard">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={discard}
+                  aria-label="Discard this draft"
+                  className="size-11"
+                >
+                  <Trash2 className="size-4" aria-hidden />
+                </Button>
+              </Hint>
             </div>
           </form>
         </Form>

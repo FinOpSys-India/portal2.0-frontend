@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { EmailCompose } from "@/components/portal/email-compose";
 import { companyScope, managerApi, type Party } from "@/lib/manager";
 
-export const metadata: Metadata = { title: "Email" };
+export const metadata: Metadata = { title: "Send Email" };
 
 /**
  * Compose behind both Connect email cards — 1.0 splits it across

@@ -16,6 +16,7 @@ import {
   PreviewDialog,
   saveFile,
 } from "@/components/portal/file-preview";
+import { Hint } from "@/components/portal/hint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -89,6 +90,15 @@ export function ChatThread({
   onRead?: (unread: number) => void;
 }) {
   const [messages, setMessages] = React.useState<ChatMessage[] | null>(null);
+  /**
+   * Why the pane is empty, when it is empty for a reason.
+   *
+   * `null` messages means "still loading" and draws the spinner, so a REJECTED
+   * load left that spinner turning for ever — the thread looked like it was
+   * still working when it had already given up. The catch below resolves the
+   * pane either way; this says which of the two empties it is.
+   */
+  const [loadFailed, setLoadFailed] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [sending, setSending] = React.useState(false);
   const [failure, setFailure] = React.useState<string | null>(null);
@@ -134,9 +144,20 @@ export function ChatThread({
     Promise.all([
       load(),
       conversationId ? loadTombstones(conversationId) : [],
-    ]).then(([rows, tombstones]) => {
-      if (live) setMessages(mergeTombstones(rows, tombstones));
-    });
+    ])
+      .then(([rows, tombstones]) => {
+        if (!live) return;
+        setLoadFailed(false);
+        setMessages(mergeTombstones(rows, tombstones));
+      })
+      // An unhandled rejection here is the whole of SP-31: `messages` stayed
+      // null, so the spinner spun for as long as the tab was open and the
+      // reader had nothing to act on. A thread that cannot be read says so.
+      .catch(() => {
+        if (!live) return;
+        setLoadFailed(true);
+        setMessages([]);
+      });
     return () => {
       live = false;
     };
@@ -203,9 +224,14 @@ export function ChatThread({
      * the rows the page dropped from inside its own window.
      */
     const reload = () =>
-      load().then((rows) => {
-        if (live) setMessages((known) => keepTombstones(rows, known));
-      });
+      load()
+        .then((rows) => {
+          if (live) setMessages((known) => keepTombstones(rows, known));
+        })
+        // A background re-read, so a failure leaves what is on screen alone.
+        // Caught rather than left to reject: this runs every 8 seconds while
+        // the socket is down, and each failure was an unhandled rejection.
+        .catch(() => {});
 
     // The fallback, gated on the channel's health: it runs while the socket is
     // not delivering and at no other time.
@@ -416,6 +442,17 @@ export function ChatThread({
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-4">
         {messages === null ? (
           <Spinner className="mx-auto mt-4" />
+        ) : messages.length === 0 ? (
+          /* Nothing rendered here at all before: an empty thread and a thread
+             that failed to load were the same blank panel. */
+          <p
+            role={loadFailed ? "alert" : undefined}
+            className="mt-4 text-center text-sm text-muted-foreground"
+          >
+            {loadFailed
+              ? "Those messages could not be loaded. Try again shortly."
+              : "No messages yet."}
+          </p>
         ) : (
           messages.map((message, index) => (
             <React.Fragment key={message.id}>
@@ -438,16 +475,18 @@ export function ChatThread({
         <div className="flex items-center gap-1 rounded-lg border border-input bg-card pr-1 pl-1 transition-[border-color] duration-150 focus-within:border-primary focus-within:ring-1 focus-within:ring-ring">
           {sendFile ? (
             <>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                disabled={sending}
-                onClick={() => fileRef.current?.click()}
-              >
-                <Paperclip aria-hidden />
-                <span className="sr-only">Attach a file</span>
-              </Button>
+              <Hint label="Attach file">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={sending}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <Paperclip aria-hidden />
+                  <span className="sr-only">Attach a file</span>
+                </Button>
+              </Hint>
               <input
                 ref={fileRef}
                 type="file"
@@ -474,19 +513,21 @@ export function ChatThread({
           <Input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Type here..."
+            placeholder="Type a message…"
             aria-label={`Message ${contact}`}
             className="h-10 border-0 bg-transparent shadow-none focus-visible:border-0 focus-visible:ring-0"
           />
 
-          <Button
-            type="submit"
-            size="icon-sm"
-            disabled={!draft.trim() || sending}
-          >
-            <SendHorizontal aria-hidden />
-            <span className="sr-only">Send</span>
-          </Button>
+          <Hint label="Send">
+            <Button
+              type="submit"
+              size="icon-sm"
+              disabled={!draft.trim() || sending}
+            >
+              <SendHorizontal aria-hidden />
+              <span className="sr-only">Send</span>
+            </Button>
+          </Hint>
         </div>
 
         {failure ? (
@@ -784,12 +825,14 @@ function EmojiPicker({
 }) {
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" disabled={disabled}>
-          <Smile aria-hidden />
-          <span className="sr-only">Insert an emoji</span>
-        </Button>
-      </PopoverTrigger>
+      <Hint label="Emoji">
+        <PopoverTrigger asChild>
+          <Button type="button" variant="ghost" size="icon-sm" disabled={disabled}>
+            <Smile aria-hidden />
+            <span className="sr-only">Insert an emoji</span>
+          </Button>
+        </PopoverTrigger>
+      </Hint>
       <PopoverContent align="start" className="w-auto p-2">
         {/* Six wide and scrolling. Ninety-six at six across is sixteen rows,
             which is taller than a popover should be — so the box is capped and
@@ -871,7 +914,11 @@ function AttachmentLink({
             >
               <FileChip name={file.name} />
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium underline-offset-4 group-hover/file:underline">
+                <span
+                  // Truncated to the bubble; hover gives the name back whole.
+                  title={file.name}
+                  className="block truncate text-sm font-medium underline-offset-4 group-hover/file:underline"
+                >
                   {file.name}
                 </span>
                 <span className={cn("block text-xs tabular-nums", muted)}>

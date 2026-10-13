@@ -77,11 +77,16 @@ export function AssignCompanySpecialist({
           ),
         );
       })
-      .catch((err: unknown) =>
+      .catch((err: unknown) => {
+        if (!live) return;
         setFailure(
           err instanceof Error ? err.message : "Could not load the services.",
-        ),
-      );
+        );
+        // Resolved, not left null: null is what draws the spinner, so without
+        // this the dialog showed "Loading services…" turning for ever beneath
+        // the very message saying the load had failed.
+        setLines([]);
+      });
 
     return () => {
       live = false;
@@ -144,9 +149,14 @@ export function AssignCompanySpecialist({
             Loading services…
           </p>
         ) : lines.length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">
-            No active services on this company, so there is nothing to staff.
-          </p>
+          // Silent when the load failed: `FormAlert` below already says so, and
+          // "nothing to staff" would be a claim about the company made from an
+          // answer that never arrived.
+          failure ? null : (
+            <p className="py-2 text-sm text-muted-foreground">
+              No active services on this company, so there is nothing to staff.
+            </p>
+          )
         ) : (
           <div className="space-y-4">
             {lines.map((line) => {
