@@ -95,7 +95,7 @@ export default async function PaymentSuccessPage({
           href={settled ? "/company_select" : "/on_boarding_form_part_2"}
           className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
         >
-          {settled ? "Go to your workspace" : "Back to plans"}
+          {settled ? "Go to Your Workspace" : "Back to Plans"}
         </Link>
 
         {/* The link stays. The redirect is a convenience, and a page whose only

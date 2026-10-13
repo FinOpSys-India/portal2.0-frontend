@@ -148,7 +148,7 @@ function ContactList({
           <h1 className="font-semibold">Chat</h1>
           {/* 1.0 prints "N Chat found" at every count. Pluralised here. */}
           <p className="text-sm text-muted-foreground">
-            {contacts.length} {contacts.length === 1 ? "Chat" : "Chats"} found
+            {contacts.length} {contacts.length === 1 ? "chat" : "chats"} found
           </p>
         </div>
       </div>

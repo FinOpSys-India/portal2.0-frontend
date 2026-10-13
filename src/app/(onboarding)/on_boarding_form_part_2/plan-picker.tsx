@@ -225,7 +225,7 @@ export function PlanPicker({
                       : "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
                   )}
                 >
-                  {selection.payroll ? "Added" : "Add payroll"}
+                  {selection.payroll ? "Added" : "Add Payroll"}
                 </button>
               </div>
             </div>
