@@ -12,7 +12,6 @@ import {
   companyScope,
   managerApi,
   scoped,
-  scopeName,
   type ClientCompany,
 } from "@/lib/manager";
 import { dateKey, withTeammates } from "@/lib/portal";
@@ -65,7 +64,6 @@ export default async function ManagerCompaniesPage({
   return (
     <DataTable<ClientCompany>
       title="Companies"
-      scope={await scopeName(company)}
       page={page}
       size={size}
       sort={sort}

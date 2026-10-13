@@ -9,7 +9,7 @@ import {
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
 import { type ClientCompany, scoped } from "@/lib/manager";
 import { dateKey, withTeammates } from "@/lib/portal";
-import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
+import { companyScope, specialistApi } from "@/lib/specialist";
 import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Companies" };
@@ -56,7 +56,6 @@ export default async function SpecialistCompaniesPage({
   return (
     <DataTable<ClientCompany>
       title="Companies"
-      scope={await scopeName(company)}
       page={page}
       size={size}
       sort={sort}

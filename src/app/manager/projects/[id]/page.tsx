@@ -109,7 +109,7 @@ export default async function ManagerProjectPage({
                 />
               }
             />
-            <DetailRow label="Services Name" value={project.service} />
+            <DetailRow label="Service" value={project.service} />
             <DetailRow
               label="Specialist"
               value={project.specialist ?? "Unassigned"}

@@ -64,7 +64,6 @@ export default async function ManagerProjectsPage({
       // Not "All Projects". The portal reads one company at a time, so the
       // table below has never been all of anything — it is this company's.
       title="Projects"
-      scope={scope}
       page={page}
       size={size}
       sort={sort}

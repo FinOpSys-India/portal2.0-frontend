@@ -120,7 +120,7 @@ export default async function SpecialistProjectPage({
                 />
               }
             />
-            <DetailRow label="Services Name" value={project.service} />
+            <DetailRow label="Service" value={project.service} />
             <DetailRow label="Company Name" value={project.company} />
             <DetailRow label="Created By" value={project.createdBy} />
           </DetailSection>

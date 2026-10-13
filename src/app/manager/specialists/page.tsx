@@ -10,7 +10,6 @@ import {
   companyScope,
   managerApi,
   scoped,
-  scopeName,
   type Specialist,
 } from "@/lib/manager";
 import { parseFilters } from "@/lib/table-filter";
@@ -54,7 +53,6 @@ export default async function ManagerSpecialistsPage({
   return (
     <DataTable<Specialist>
       title="Specialists"
-      scope={await scopeName(company)}
       page={page}
       size={size}
       sort={sort}

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AddTask } from "@/components/portal/add-task";
 import { parsePage, parsePageSize } from "@/components/admin/data-table";
 import { TaskTable } from "@/components/portal/task-table";
-import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
+import { companyScope, specialistApi } from "@/lib/specialist";
 import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Tasks" };
@@ -44,7 +44,6 @@ export default async function SpecialistTasksPage({
   return (
     <TaskTable
       title="Tasks"
-      scope={await scopeName(company)}
       tasks={tasks}
       from="specialist"
       page={parsePage(params.page)}

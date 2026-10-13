@@ -41,7 +41,6 @@ export function TaskTable({
   filters,
   action,
   title,
-  scope,
   empty = "No tasks on your projects yet.",
 }: {
   tasks: SpecialistTask[];
@@ -55,7 +54,6 @@ export function TaskTable({
   action?: React.ReactNode;
   /** Passed through: this table is the whole Tasks page, so it owns the heading. */
   title?: string;
-  scope?: string;
   empty?: string;
 }) {
   const [openId, setOpenId] = React.useState<string | null>(null);
@@ -74,7 +72,6 @@ export function TaskTable({
         filters={filters}
         action={action}
         title={title}
-        scope={scope}
         total={tasks.length}
         rows={tasks}
         empty={empty}

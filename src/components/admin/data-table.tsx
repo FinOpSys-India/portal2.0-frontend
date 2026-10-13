@@ -427,7 +427,6 @@ export function DataTable<T>({
   rowHref,
   header,
   title,
-  scope,
   action,
   exportCsv,
   empty,
@@ -462,8 +461,6 @@ export function DataTable<T>({
    * to the screen.
    */
   title?: string;
-  /** The company the page is scoped to, named beside the title. */
-  scope?: string;
   /** The list's own button — New Project, Invite Customer, Upload File. */
   action?: React.ReactNode;
   /**
@@ -579,7 +576,7 @@ export function DataTable<T>({
   return (
     <div className="space-y-4">
       {title ? (
-        <PageHeader title={title} scope={scope} action={controls} />
+        <PageHeader title={title} action={controls} />
       ) : null}
 
       <div className="overflow-hidden rounded-xl border border-border bg-card">

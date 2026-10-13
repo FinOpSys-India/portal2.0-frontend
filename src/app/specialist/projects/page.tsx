@@ -53,7 +53,6 @@ export default async function SpecialistProjectsPage({
   return (
     <DataTable<ManagedProject>
       title="Projects"
-      scope={scope}
       page={page}
       size={size}
       sort={sort}
