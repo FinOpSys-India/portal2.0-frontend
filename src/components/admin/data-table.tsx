@@ -471,7 +471,7 @@ export function DataTable<T>({
    * "team" rather than team members.
    */
   noun?: string;
-  /** The list's own button — New Project, Invite Customer, Upload File. */
+  /** The list's own button — Add Project, Invite Customer, Upload File. */
   action?: React.ReactNode;
   /**
    * Renders a CSV export beside the filter button.

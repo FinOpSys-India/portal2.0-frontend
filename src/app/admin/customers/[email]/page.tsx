@@ -49,7 +49,7 @@ export default async function CustomerDetailPage({
         <DetailSection title="General Information">
           <DetailRow label="Full Name" value={customer.name} />
           <DetailRow label="Email Address" value={customer.email} />
-          <DetailRow label="Position" value={customer.position} />
+          <DetailRow label="Job Title" value={customer.position} />
           <DetailRow label="Phone Number" value={customer.phone} />
           {/* A customer can belong to more than one company. */}
           <div>

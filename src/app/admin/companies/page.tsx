@@ -100,7 +100,7 @@ export default async function CompaniesPage({
           cell: (row) => <ListCell items={row.activeServices} />,
         },
         {
-          header: "Billing Date",
+          header: "Next Billing Date",
           filter: "date",
           // M/D/YYYY on screen, which as text puts October before February.
           sortValue: (row) => dateKey(row.billingDate),

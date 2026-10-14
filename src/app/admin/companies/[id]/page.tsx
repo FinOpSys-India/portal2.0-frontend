@@ -59,7 +59,7 @@ export default async function CompanyDetailPage({
             label="Accounting Manager"
             value={company.accountingManager}
           />
-          <DetailRow label="Billing Date" value={company.billingDate} />
+          <DetailRow label="Next Billing Date" value={company.billingDate} />
         </DetailSection>
 
         <DetailSection title="Address">

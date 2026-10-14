@@ -46,13 +46,13 @@ export default async function ManagerCustomerPage({
 
   return (
     <>
-      <PageHeader title="Customer Information" description={customer.name} />
+      <PageHeader title="Customer Details" description={customer.name} />
 
       <div className="grid gap-6">
         <DetailSection title="General Information">
           <DetailRow label="Full Name" value={customer.name} />
           <DetailRow label="Email Address" value={customer.email} />
-          <DetailRow label="Position" value={customer.position} />
+          <DetailRow label="Job Title" value={customer.position} />
           <DetailRow label="Phone Number" value={customer.phone} />
         </DetailSection>
 

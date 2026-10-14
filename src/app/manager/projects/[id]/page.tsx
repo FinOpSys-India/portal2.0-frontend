@@ -16,7 +16,7 @@ import { ManagerUploadFile } from "../../documents/upload-file";
 export const metadata: Metadata = { title: "Project" };
 
 /**
- * Project Information — task list, project details, project files, in 1.0's
+ * Project Details — task list, project details, project files, in 1.0's
  * arrangement (am-11-project-detail.png): the first two stacked on the left,
  * files in a right rail.
  */
@@ -67,7 +67,7 @@ export default async function ManagerProjectPage({
       {/* No Assign control: the specialist follows the company's staffing for
           this project's service line, set on the Companies screen. */}
       <PageHeader
-        title="Project Information"
+        title="Project Details"
         description={project.name}
         action={
           <ExportProjectCsv projectId={project.id} projectName={project.name} />
@@ -115,7 +115,7 @@ export default async function ManagerProjectPage({
               label="Specialist"
               value={project.specialist ?? "Unassigned"}
             />
-            <DetailRow label="Company Legal Name" value={project.company} />
+            <DetailRow label="Company Name" value={project.company} />
             <DetailRow label="Created By" value={project.createdBy} />
           </DetailSection>
         </div>

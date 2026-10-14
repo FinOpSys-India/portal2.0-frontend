@@ -155,7 +155,7 @@ export function toManagedProject(p: BackendProject): ManagedProject {
     name: p.projectName,
     company: p.companyName ?? "",
     companyId: String(p.companyId),
-    // "Service Type" in the table. The specialization, not the plan tier.
+    // "Service" in the table. The specialization, not the plan tier.
     service: p.service?.serviceName ?? "",
     deadline: p.deadlineDate ? usDate(p.deadlineDate) : "",
     status: toProjectStatus(p.status),
@@ -524,7 +524,14 @@ export function dateKey(value: string | null | undefined): number {
   return value ? Date.parse(value) : NaN;
 }
 
-/** M/D/YYYY, matching the "Billing Date" column since 1.0. Blank before checkout. */
+/**
+ * The next invoice date, M/D/YYYY. Blank before checkout.
+ *
+ * `currentPeriodEnd` is the date the subscription next bills, which is what
+ * every portal's "Next Billing Date" column shows — 1.0 called the column
+ * "Billing Date" while rendering this same field, which is the only thing that
+ * changed here.
+ */
 export function billingDate(company: BackendCompany): string | null {
   const end = company.billing?.currentPeriodEnd;
   return end ? usDate(end) : null;
@@ -654,7 +661,7 @@ export async function withTeammates<
   );
 }
 
-/** Just the staffed specialists — the Action cell names them once they exist. */
+/** Just the staffed specialists — the Assigned Specialists cell names them once they exist. */
 export function specialistNames(company: BackendCompany): string[] {
   const team = company.teamMembers ?? company.members;
   return (team?.specialists ?? []).map(personName);

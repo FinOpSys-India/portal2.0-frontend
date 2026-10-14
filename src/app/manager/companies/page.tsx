@@ -99,7 +99,7 @@ export default async function ManagerCompaniesPage({
         },
         {
           // Blank until a subscription starts, same as 1.0.
-          header: "Billing Date",
+          header: "Next Billing Date",
           filter: "date",
           sortValue: (row) => dateKey(row.billingDate),
           cell: (row) => (
@@ -117,8 +117,9 @@ export default async function ManagerCompaniesPage({
           cell: (row) => <AvatarStack people={row.teamMembers} />,
         },
         {
-          header: "Action",
-          // A button per row. Nothing to order by.
+          header: "Assigned Specialists",
+          // Names once staffed, an Assign button until then. Nothing to order
+          // by either way.
           sortValue: false,
           cell: (row) => (
             <AssignCompanySpecialist

@@ -127,12 +127,12 @@ export function NewProject({
           trigger has to keep its own click target above the row links. */}
       <Button onClick={() => setOpen(true)}>
         <Plus className="size-4" aria-hidden />
-        New Project
+        Add Project
       </Button>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New Project</DialogTitle>
+          <DialogTitle>Add Project</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>

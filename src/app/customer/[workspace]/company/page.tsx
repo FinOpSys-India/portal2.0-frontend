@@ -97,7 +97,8 @@ export default async function CompanyPage({
         {
           header: "Next Billing Date",
           // Sortable but not filterable: a customer reads their own handful of
-          // companies, and nobody narrows that list by when they signed.
+          // companies, and nobody narrows that list by when the next invoice
+          // falls.
           filter: false,
           sortValue: (row) => dateKey(row.subscriptionDate),
           cell: (row) =>

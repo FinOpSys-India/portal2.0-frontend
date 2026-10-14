@@ -28,7 +28,7 @@ const PLAN_COLUMNS: SortableColumn<CompanyPlan>[] = [
 export const metadata: Metadata = { title: "Company" };
 
 /**
- * Company Information — Basic Details, Full Address, Current Plans, in 1.0's
+ * Company Details — Basic Details, Full Address, Current Plans, in 1.0's
  * order (am-09-company-detail.png).
  *
  * The EIN is the one field a manager can write in 1.0, and 1.0 gives it no
@@ -67,7 +67,7 @@ export default async function ManagerCompanyPage({
 
   return (
     <>
-      <PageHeader title="Company Information" description={company.name} />
+      <PageHeader title="Company Details" description={company.name} />
 
       <div className="grid gap-6">
         <DetailSection title="General Information">

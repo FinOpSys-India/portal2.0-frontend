@@ -52,7 +52,7 @@ export default async function SpecialistCompanyPage({
 
   return (
     <>
-      <PageHeader title="Company" description={company.name} />
+      <PageHeader title="Company Details" description={company.name} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid gap-6">

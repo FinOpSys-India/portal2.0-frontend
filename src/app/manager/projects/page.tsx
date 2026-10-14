@@ -96,7 +96,7 @@ export default async function ManagerProjectsPage({
           cell: (row) => <span className="font-medium">{row.name}</span>,
         },
         {
-          header: "Service Type",
+          header: "Service",
           filter: "enum",
           cell: (row) => row.service,
         },

@@ -95,7 +95,7 @@ const mapped = toManagedProject(project);
 assert.equal(mapped.id, "12", "ids are strings on this side — they are route params");
 assert.equal(mapped.companyId, "18");
 assert.equal(mapped.name, "Q3 Bookkeeping");
-// "Service Type" is the SPECIALIZATION, not the plan tier. Sending planName
+// "Service" is the SPECIALIZATION, not the plan tier. Sending planName
 // here would put "Starter" in a column that should read "Bookkeeping".
 assert.equal(mapped.service, "Bookkeeping");
 assert.equal(mapped.status, "In progress");
@@ -286,7 +286,7 @@ assert.deepEqual(account.teamMembers, [
   { name: "Nadia Haddad", avatarUrl: null },
 ]);
 assert.equal(account.ownerAvatarUrl, null);
-// Specialists alone — the Action cell names who is staffed, and the owner and
+// Specialists alone — the Assigned Specialists cell names who is staffed, and the owner and
 // the manager are not that.
 assert.deepEqual(account.specialists, ["Nadia Haddad"]);
 

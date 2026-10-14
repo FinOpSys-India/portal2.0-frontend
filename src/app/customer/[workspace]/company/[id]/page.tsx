@@ -14,7 +14,7 @@ import { countryLabel, formatEin } from "@/lib/company";
 export const metadata: Metadata = { title: "Company" };
 
 /**
- * Company Information, read-only — the row the customer clicks on the Company
+ * Company Details, read-only — the row the customer clicks on the Company
  * table, which had nowhere to go until now.
  *
  * Same field set the staff portals show (docs/functionality-matrix.md), minus
@@ -55,7 +55,7 @@ export default async function CustomerCompanyPage({
 
   return (
     <>
-      <PageHeader title="Company Information" description={company.name} />
+      <PageHeader title="Company Details" description={company.name} />
 
       <div className="grid gap-6">
         {owes && (

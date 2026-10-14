@@ -378,7 +378,7 @@ function toCompany(row: AccountRow): Company {
     ownerAvatarUrl: row.owner?.avatarUrl ?? null,
     activeServices: (row.activeServices ?? []).map((s) => s.specializationName),
     // `currentPeriodEnd` is when the next invoice is raised, which is what the
-    // "Billing Date" column has always meant. Null before the first checkout.
+    // "Next Billing Date" column means. Null before the first checkout.
     billingDate: row.billing?.currentPeriodEnd
       ? usDate(row.billing.currentPeriodEnd)
       : null,

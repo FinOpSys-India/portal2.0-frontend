@@ -107,13 +107,13 @@ export function NewProject({ workspaceId }: { workspaceId: string }) {
       <DialogTrigger asChild>
         <Button>
           <Plus className="size-4" aria-hidden />
-          New Project
+          Add Project
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New Project</DialogTitle>
+          <DialogTitle>Add Project</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>

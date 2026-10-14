@@ -102,7 +102,7 @@ export default async function SpecialistCompaniesPage({
         },
         {
           // Blank until a subscription starts, same as 1.0.
-          header: "Billing Date",
+          header: "Next Billing Date",
           filter: "date",
           sortValue: (row) => dateKey(row.billingDate),
           cell: (row) => (

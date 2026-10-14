@@ -71,11 +71,11 @@ export interface ClientCompany {
   billingDate: string | null;
   teamMembers: PortalPerson[];
   /** Staffed specialists, if any. The company list already carries them, so the
-   * Action cell can name who holds the lines without a second round trip. */
+   * Assigned Specialists cell can name who holds the lines without a second round trip. */
   specialists: string[];
 }
 
-/** Everything the Company Information screen shows. */
+/** Everything the Company Details screen shows. */
 export interface ClientCompanyDetail extends ClientCompany {
   email: string;
   /** Editable by the manager in 1.0, and by nobody else. */
