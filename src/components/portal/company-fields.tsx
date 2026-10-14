@@ -110,6 +110,9 @@ export function CompanyFields({
           label="ZIP Code"
           required
           autoComplete="postal-code"
+          inputMode="numeric"
+          numeric
+          maxLength={7}
           placeholder="Enter your ZIP code"
         />
         <SelectField

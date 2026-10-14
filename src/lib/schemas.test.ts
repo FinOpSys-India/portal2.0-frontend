@@ -106,6 +106,26 @@ const schema = companySchema("owner@example.com");
 assert.ok(schema.safeParse(validCompany).success);
 
 /*
+ * ZIP — digits only, seven at most. The same rule the profile form runs, which
+ * is why both are pinned: a letter typed here used to save.
+ */
+assert.ok(schema.safeParse({ ...validCompany, zip: "7" }).success);
+assert.ok(schema.safeParse({ ...validCompany, zip: "1403013" }).success);
+assert.equal(
+  errorFor(schema.safeParse({ ...validCompany, zip: "1403013rwf" }), "zip"),
+  "A ZIP code is up to seven digits.",
+);
+assert.equal(
+  errorFor(schema.safeParse({ ...validCompany, zip: "14030134" }), "zip"),
+  "A ZIP code is up to seven digits.",
+);
+// Blank keeps its own message rather than the digits one.
+assert.equal(
+  errorFor(schema.safeParse({ ...validCompany, zip: "" }), "zip"),
+  "Enter your ZIP code.",
+);
+
+/*
  * EIN — the field whose absence made this form unable to
  * save anything: the API requires it, so a blank one is a 400 naming no field.
  * Nine digits, refused blank.
@@ -256,6 +276,17 @@ const validProfile = {
 assert.ok(profileSchema.safeParse(validProfile).success);
 assert.ok(errorFor(profileSchema.safeParse({ ...validProfile, phone: "" }), "phone"));
 assert.ok(errorFor(profileSchema.safeParse({ ...validProfile, country: "" }), "country"));
+
+// ZIP: optional, but a ZIP code when given — same rule as the company form.
+assert.ok(profileSchema.safeParse({ ...validProfile, zip: "1403013" }).success);
+assert.equal(
+  errorFor(profileSchema.safeParse({ ...validProfile, zip: "1403013rwf" }), "zip"),
+  "A ZIP code is up to seven digits.",
+);
+assert.equal(
+  errorFor(profileSchema.safeParse({ ...validProfile, zip: "14030134" }), "zip"),
+  "A ZIP code is up to seven digits.",
+);
 
 /*
  * LENGTH IS NO LONGER CHECKED, and these assertions are the record of that.

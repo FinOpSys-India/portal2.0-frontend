@@ -151,6 +151,9 @@ export function ProfileForm({
               name="zip"
               label="ZIP Code"
               autoComplete="postal-code"
+              inputMode="numeric"
+              numeric
+              maxLength={7}
               placeholder="ZIP Code"
             />
             <SelectField

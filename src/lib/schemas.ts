@@ -61,6 +61,16 @@ export const forgotPasswordSchema = z.object({ email });
  */
 const phone = z.string().min(1, "Enter your phone number.");
 
+/*
+ * ZIP: digits, at most seven. Written once because the company form and the
+ * profile form hold the same field under the same name, and the two drifting
+ * apart is how one portal accepts what another refuses. The fields themselves
+ * carry `numeric` and `maxLength`, so this catches what the keyboard cannot —
+ * a value restored into the form, or a paste the browser lets through.
+ */
+const ZIP_MESSAGE = "A ZIP code is up to seven digits.";
+const isZip = (v: string) => /^\d{1,7}$/.test(v);
+
 /**
  * Onboarding step 1. Only phone and country are enterable — name, email and
  * job title arrive with the invite and are shown read-only, exactly as in 1.0.
@@ -103,7 +113,9 @@ export function companySchema(accountEmail: string) {
       }),
     addressLine1: z.string().min(1, "Enter your address."),
     city: z.string().min(1, "Enter your city."),
-    zip: z.string().min(1, "Enter your ZIP code."),
+    zip: z.string().min(1, "Enter your ZIP code.").refine(isZip, {
+      message: ZIP_MESSAGE,
+    }),
     state: z.string().min(1, "Enter your state."),
     country: z.string().min(1, "Select your country."),
     email: email.refine(
@@ -225,7 +237,8 @@ export const profileSchema = z.object({
   addressLine1: z.string(),
   city: z.string(),
   state: z.string(),
-  zip: z.string(),
+  // Optional here, unlike the company form — but still a ZIP code when given.
+  zip: z.string().refine((v) => v === "" || isZip(v), { message: ZIP_MESSAGE }),
   country: z.string().min(1, "Select your country."),
 });
 
