@@ -354,3 +354,19 @@ function startOfDay(value: string): number {
 function fold(value: string | number): string {
   return String(value).trim().toLowerCase();
 }
+
+/**
+ * The filter panel's row count, as prose: "1 customer", "2 customers".
+ *
+ * The noun arrives plural — a caller's own word, or the list's heading
+ * lowercased — because that is what it reads as at every count but one. Only
+ * the last word carries number ("team members" → "team member"), and a noun
+ * that is not plural to begin with ("team") is left alone.
+ *
+ * ponytail: two rules, -ies and -s, which covers every list in the portal.
+ * A noun pluralised with -es ("addresses") would need a third.
+ */
+export function countLabel(count: number, noun: string): string {
+  const one = noun.replace(/ies$/, "y").replace(/([^s])s$/, "$1");
+  return `${count} ${count === 1 ? one : noun}`;
+}

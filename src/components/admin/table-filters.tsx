@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/popover";
 import {
   byInitial,
+  countLabel,
   fromDateValue,
   operatorLabel,
   rangeFilter,
@@ -365,7 +366,7 @@ export function FilterButton({
 
             <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-3.5">
               <p className="text-xs text-muted-foreground tabular-nums">
-                {count === undefined ? null : `${count} ${noun}`}
+                {count === undefined ? null : countLabel(count, noun)}
               </p>
 
               <div className="flex items-center gap-2.5">

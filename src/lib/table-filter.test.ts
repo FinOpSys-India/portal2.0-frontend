@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 
 import {
   byInitial,
+  countLabel,
   matchesFilter,
   parseFilters,
   rangeFilter,
@@ -274,6 +275,19 @@ async function main() {
   for (const date of [new Date(2026, 2, 29), new Date(2026, 9, 25), new Date(2026, 11, 31)]) {
     assert.equal(fromDateValue(toDateValue(date))?.getTime(), date.getTime());
   }
+
+  // One row reads singular, every other count plural. The noun arrives as
+  // the caller's plural word or the list heading lowercased.
+  assert.equal(countLabel(1, "customers"), "1 customer");
+  assert.equal(countLabel(1, "companies"), "1 company");
+  assert.equal(countLabel(1, "documents"), "1 document");
+  assert.equal(countLabel(1, "rows"), "1 row");
+  assert.equal(countLabel(1, "team members"), "1 team member");
+  assert.equal(countLabel(2, "customers"), "2 customers");
+  assert.equal(countLabel(0, "companies"), "0 companies");
+  // Not plural to begin with: left alone at every count.
+  assert.equal(countLabel(1, "team"), "1 team");
+  assert.equal(countLabel(3, "team"), "3 team");
 
   console.log("table filters: all checks passed");
 }
