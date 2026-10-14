@@ -19,6 +19,7 @@ import {
   isOverdue,
   orderServices,
   parseDeadline,
+  sameName,
   scoped,
   scopeSwitch,
   sortByUnreadThenRecent,
@@ -426,3 +427,22 @@ assert.deepEqual(
 );
 
 console.log("manager api: service order ok");
+
+/* --------------------------------------------------- duplicate names ------ */
+
+// What counts as the same name when a project or a task is created. The rule
+// is what a reader would say, not what the column would say: typing a name
+// back in lower case, or with the trailing space a copy-paste leaves behind,
+// is the same name and must be refused.
+assert.equal(sameName("August payroll", "august payroll"), true);
+assert.equal(sameName("August payroll", "  August payroll  "), true);
+assert.equal(sameName("August payroll", "AUGUST PAYROLL"), true);
+// Different names stay different — including the ones a `contains` search
+// returns alongside the real match, which is exactly what this comparison is
+// there to sort out.
+assert.equal(sameName("August payroll", "August payroll run"), false);
+assert.equal(sameName("August payroll", "September payroll"), false);
+// Inner spacing is part of the name; only the edges are trimmed.
+assert.equal(sameName("August payroll", "Augustpayroll"), false);
+
+console.log("manager api: duplicate names ok");

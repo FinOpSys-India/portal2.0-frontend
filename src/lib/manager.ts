@@ -916,6 +916,18 @@ export const managerApi = {
     projectId: string,
     task: { name: string; description: string; deadline: string },
   ): Promise<void> {
+    // The company, read off the project: a task names no company of its own
+    // (project_tasks has no company column), and the company is the scope the
+    // name has to be unique in.
+    const { companyId } = await get<BackendProject>(
+      `/projects/${encodeURIComponent(projectId)}`,
+    );
+    if (await nameTaken("/tasks", companyId, task.name)) {
+      throw new Error(
+        `This company already has a task named “${task.name.trim()}”. Give this one a different name.`,
+      );
+    }
+
     await post("/tasks", {
       projectId: Number(projectId),
       taskName: task.name,
@@ -1341,6 +1353,63 @@ export function orderServices(services: ServiceOption[]): ServiceOption[] {
   return [...services].sort((a, b) => rank(a) - rank(b));
 }
 
+/* -------------------------------------------------------------------------- */
+/* names must not repeat inside a company                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Two names are the same name when a reader would say so: case and the spaces
+ * around the edges do not distinguish "August payroll" from "august payroll ".
+ */
+export const sameName = (a: string, b: string) =>
+  a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
+
+/**
+ * Is `name` already on the books at this company?
+ *
+ * THE DATABASE DOES NOT STOP THIS. Neither `projects.project_name` nor
+ * `project_tasks.task_name` carries a unique index, and no validator checks
+ * either, so two projects called "August payroll" on one account are written
+ * without complaint — and from then on every screen that names one of them
+ * names both. The portal is where the duplicate is caught until the backend
+ * grows the constraint that should own it.
+ *
+ * SCOPED TO THE COMPANY, never wider. A name belongs to the account that uses
+ * it: two clients both running an "August payroll" is normal, and refusing the
+ * second would be the portal inventing a rule across a boundary it must not
+ * cross. For tasks that means the whole company and not the one project, which
+ * matches how the task board is read — company-wide, see `managerApi.tasks`.
+ *
+ * `search` is the backend's case-insensitive `contains` on the name column, so
+ * the server narrows the list and the exact comparison is settled here. It is
+ * capped at 120 characters where a name may run to 255; a prefix still returns
+ * any row that contains it, so the longer name is matched on the short query
+ * and compared in full.
+ *
+ * ponytail: the search page is capped at 100 rows, so a name sharing its text
+ * with more than 100 others on one company could slip past. A unique index on
+ * the backend is the real fix — this closes the case a person can actually hit.
+ */
+async function nameTaken(
+  path: "/projects" | "/tasks",
+  companyId: string | number,
+  name: string,
+): Promise<boolean> {
+  const query =
+    `?companyId=${encodeURIComponent(String(companyId))}` +
+    `&search=${encodeURIComponent(name.trim().slice(0, 120))}&limit=100`;
+
+  if (path === "/tasks") {
+    const { tasks } = await get<{ tasks: BackendTask[] }>(`/tasks${query}`);
+    return tasks.some((t) => sameName(t.taskName, name));
+  }
+
+  const { projects } = await get<{ projects: BackendProject[] }>(
+    `/projects${query}`,
+  );
+  return projects.some((p) => sameName(p.projectName, name));
+}
+
 /**
  * `POST /projects`, for whichever portal is opening it.
  *
@@ -1360,6 +1429,14 @@ export async function createProjectOn(
   const service = services.find((s) => s.serviceName === input.service);
   if (!service) {
     throw new Error(`${input.service} is not active on this company.`);
+  }
+
+  // Before the write, not after: a duplicate rejected by POST would still have
+  // been written, since nothing on that side refuses one.
+  if (await nameTaken("/projects", companyId, input.name)) {
+    throw new Error(
+      `This company already has a project named “${input.name.trim()}”. Give this one a different name.`,
+    );
   }
 
   const project = await post<BackendProject>("/projects", {
