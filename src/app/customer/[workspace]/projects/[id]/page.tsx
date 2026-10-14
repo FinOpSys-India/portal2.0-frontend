@@ -60,7 +60,8 @@ export default async function CustomerProjectPage({
   return (
     <>
       <PageHeader
-        title={project.name}
+        title="Project Details"
+        description={project.name}
         /* A DIV, not a fragment: PageHeader's row is `justify-between`, so two
            bare children would be pushed to opposite ends of it with the title
            stranded between them. These two are a pair on the right. */
@@ -73,7 +74,7 @@ export default async function CustomerProjectPage({
       />
 
       <div className="grid gap-6">
-        <DetailSection title="Details">
+        <DetailSection title="General Information">
           <DetailRow label="Service" value={project.service} />
           <DetailRow
             label="Deadline"
