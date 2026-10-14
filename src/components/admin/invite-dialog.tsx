@@ -43,13 +43,20 @@ type Values = z.infer<typeof baseSchema>;
 export function InviteDialog({
   trigger,
   title,
-  emailLabel = "Email Address",
+  staff,
   roles,
   onInvite,
 }: {
   trigger: string;
   title: string;
-  emailLabel?: string;
+  /**
+   * The person being invited works at FinOpSys — a specialist or an accounting
+   * manager — rather than at a customer company. One flag rather than a label
+   * and a placeholder passed separately: the two always say the same thing,
+   * and split in two they drifted, which is how the specialist dialog came to
+   * hint `name@company.com` at someone who needs a `@finopsys.ai` address.
+   */
+  staff?: boolean;
   /** Adds a required role select. Specialists only. */
   roles?: readonly string[];
   onInvite: (input: InviteInput) => Promise<InviteResult>;
@@ -131,13 +138,13 @@ export function InviteDialog({
             <TextField
               control={form.control}
               name="email"
-              label={emailLabel}
+              label={staff ? "FinOpSys Email Address" : "Email Address"}
               icon={Mail}
               required
               type="email"
               inputMode="email"
               autoFocus
-              placeholder="name@company.com"
+              placeholder={staff ? "name@finopsys.ai" : "name@company.com"}
             />
 
             <div className="grid gap-4 sm:grid-cols-2">

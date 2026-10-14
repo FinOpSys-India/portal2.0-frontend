@@ -8,6 +8,7 @@ export function InviteSpecialist() {
     <InviteDialog
       trigger="Invite Specialist"
       title="Invite a Specialist"
+      staff
       roles={SPECIALIST_ROLES}
       onInvite={adminApi.inviteSpecialist}
     />
