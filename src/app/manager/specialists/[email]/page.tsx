@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { InitialsAvatar } from "@/components/admin/initials-avatar";
 import { AddTask } from "@/components/portal/add-task";
+import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { TaskStatusMenu } from "@/components/portal/task-status-menu";
 import { PageHeader } from "@/components/portal/portal-shell";
 import {
@@ -145,8 +146,11 @@ export default async function ManagerSpecialistPage({
                       {task.description}
                     </TableCell>
                     <TableCell>{task.project}</TableCell>
-                    <TableCell className="tabular-nums">
-                      {task.deadline}
+                    <TableCell>
+                      <ProjectDeadline
+                        deadline={task.deadline}
+                        status={task.status}
+                      />
                     </TableCell>
                     <TableCell>
                       <TaskStatusMenu
