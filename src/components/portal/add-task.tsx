@@ -162,7 +162,7 @@ export function AddTask({
               <DateField
                 control={form.control}
                 name="deadline"
-                label="Deadline Date"
+                label="Deadline"
                 required
                 // The same floor the project forms use: 1.0 blocks today as
                 // well as the past, so the first selectable day is tomorrow.
