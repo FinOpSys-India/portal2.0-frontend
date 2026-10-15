@@ -56,7 +56,18 @@ export default async function CompanyPage({
       dir={dir}
       filters={parseFilters(f)}
       total={companies.length}
-      action={<AddCompany accountEmail={profile.email} />}
+      /*
+       * ADDING A COMPANY IS THE OWNER'S, and `isOwner` is the same test the
+       * landing route runs: `POST /onboarding/company` is owner-gated, so for
+       * a teammate the button opened a form whose submit could only 403. They
+       * belong to an account someone else owns.
+       *
+       * Read from the status already fetched above for `unpaidCompanyIds`, so
+       * this costs no extra request.
+       */
+      action={
+        status.isOwner ? <AddCompany accountEmail={profile.email} /> : undefined
+      }
       rows={companies}
       // The frame stays on the open workspace — a company is read from
       // wherever you stand, the switcher is what moves you.
