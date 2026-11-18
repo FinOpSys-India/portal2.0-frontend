@@ -7,6 +7,8 @@ import {
   parsePageSize,
 } from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
+import { CompanyRowActions } from "@/components/portal/record-controls";
+import { NeedsReassignment } from "@/components/portal/reassignment";
 import { Badge } from "@/components/ui/badge";
 import { listWindow, adminApi, type Company, type CompanyStatus } from "@/lib/admin";
 import { dateKey, withTeammates } from "@/lib/portal";
@@ -23,6 +25,7 @@ export const metadata: Metadata = { title: "Companies" };
 const STATUS_STYLES: Record<CompanyStatus, string> = {
   Active: "bg-[#dcfce7] text-[#16a34a]",
   Onboarded: "bg-[#fef3c7] text-[#d97706]",
+  Inactive: "bg-muted text-muted-foreground",
 };
 
 export default async function CompaniesPage({
@@ -139,11 +142,12 @@ export default async function CompaniesPage({
           filter: "enum",
           sortValue: (row) => row.accountingManager ?? "",
           /*
-           * Assignment is a one-way door: the control shows only where a
-           * company has no manager yet. Once one is set the cell is plain
-           * text — no change, no removal from this screen.
+           * Admin owns this assignment, replacement included (Sir, Q15; 17
+           * Nov): Assign on a company without a manager, Reassign on every
+           * company that has one. An Inactive manager keeps their name,
+           * marked, with Needs Reassignment until the admin reassigns.
            *
-           * AND ONLY ON A LIVE COMPANY. `Active` is the paid, subscribed state;
+           * FIRST ASSIGNMENT ONLY ON A LIVE COMPANY. `Active` is the paid, subscribed state;
            * everything else — mid-onboarding, lapsed, archived — folds into
            * `Onboarded` (see `toCompany`), and staffing a manager onto an
            * account that may never pay commits a person to work that does not
@@ -155,14 +159,41 @@ export default async function CompaniesPage({
            * status, so this is the portal's rule and the API will still accept
            * the write from anywhere else.
            */
-          cell: (row) =>
-            row.accountingManager ?? (
+          cell: (row) => {
+            if (!row.accountingManager) {
+              return (
+                <AssignManager
+                  companyId={row.id}
+                  companyName={row.name}
+                  managers={managers}
+                  disabled={row.status !== "Active"}
+                />
+              );
+            }
+            const reassign = (
               <AssignManager
                 companyId={row.id}
+                companyName={row.name}
                 managers={managers}
-                disabled={row.status !== "Active"}
+                replacing={row.accountingManager}
+                replacingAvatarUrl={row.managerAvatarUrl}
               />
-            ),
+            );
+            return row.managerInactive ? (
+              <NeedsReassignment>{reassign}</NeedsReassignment>
+            ) : (
+              reassign
+            );
+          },
+        },
+        {
+          // Make Inactive / Active and Delete (17 Nov). The admin's Make
+          // Active leaves a payment due with the owner — see
+          // `CompanyActiveSwitch`.
+          header: "Actions",
+          filter: false,
+          sortValue: false,
+          cell: (row) => <CompanyRowActions company={row} admin />,
         },
       ]}
     />

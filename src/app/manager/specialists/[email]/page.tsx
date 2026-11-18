@@ -21,6 +21,7 @@ import {
   scoped,
   type SpecialistTask,
 } from "@/lib/manager";
+import { isOpenProject, outsideInactive } from "@/lib/portal";
 
 const COLUMNS: SortableColumn<SpecialistTask>[] = [
   // The design labels this column "File Name" on a table of tasks. Named for
@@ -96,12 +97,13 @@ export default async function ManagerSpecialistPage({
   // `specialist.companyId`, not the page's own scope: an address that arrived
   // without `?company=` resolves to the first company on the book, and reading
   // their tasks under THAT would pair one company's roster with another's work.
-  const [tasks, projects] = await Promise.all([
+  const [allTasks, projects] = await Promise.all([
     managerApi.specialistTasks(specialist.email, specialist.companyId ?? company),
     managerApi.projects(specialist.companyId ?? company),
   ]);
 
   const theirs = projects.filter((p) => p.specialist === specialist.name);
+  const tasks = outsideInactive(allTasks, projects);
 
   return (
     // Full height, so the two columns run the length of the page instead of
@@ -117,7 +119,7 @@ export default async function ManagerSpecialistPage({
             {theirs.length > 0 ? (
               <AddTask
                 from="manager"
-                projects={theirs.map((p) => ({
+                projects={theirs.filter(isOpenProject).map((p) => ({
                   id: p.id,
                   name: p.name,
                   deadline: p.deadline,

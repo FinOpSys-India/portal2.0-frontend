@@ -14,9 +14,10 @@
  * field name fails silently rather than loudly.
  */
 
+import type { Notification } from "@/components/portal/portal-chrome";
 import type { CompanyPlan } from "@/lib/admin";
 import { countryCode } from "@/lib/countries";
-import { fullName } from "@/lib/directory";
+import { fullName, isInactive } from "@/lib/directory";
 import { del, get, patch } from "@/lib/http";
 import { withDialCode } from "@/lib/phone";
 import type {
@@ -61,6 +62,11 @@ export interface BackendPerson {
    * the two are shown together (see `companyTitle`).
    */
   jobTitle?: string | null;
+  /**
+   * `UserStatus`. NOT SENT YET — `projectDto.toPerson` needs it (Pratibha #5).
+   * `HIBERNATED` renders the name as "Name (inactive)" (see `fullName`).
+   */
+  status?: string | null;
 }
 
 export const personName = (p: BackendPerson | null | undefined): string =>
@@ -147,6 +153,66 @@ export interface BackendProject {
   status: string;
   progressBar: number;
   createdAt: string;
+  /**
+   * When the creator switched the project off, or null. NOT SENT BY ANY ROUTE
+   * TODAY — Pratibha's list. A date rather than a status, so a project keeps
+   * whether it was In progress or Completed, and so the keep-for-N-days rule
+   * (Abhinav, undecided) has something to count from. Absent reads as active.
+   */
+  inactiveAt?: string | null;
+  /**
+   * The earlier project this one follows on from, picked when it was opened. A
+   * mention only — nothing is copied or shared. NOT SENT BY ANY ROUTE TODAY
+   * (Pratibha's list #4).
+   */
+  previousProject?: { id: number; projectName: string } | null;
+}
+
+/** A link back to the project this one follows on from. */
+export interface PreviousProject {
+  id: string;
+  name: string;
+}
+
+export function toPreviousProject(p: BackendProject): PreviousProject | null {
+  return p.previousProject
+    ? { id: String(p.previousProject.id), name: p.previousProject.projectName }
+    : null;
+}
+
+/**
+ * Completed is final: no new tasks, uploads or status moves until the
+ * accounting manager reopens it. Inactive is frozen (16 Nov). Pickers that file
+ * work against a project leave both out.
+ */
+export const isOpenProject = (p: { status: string; inactive: boolean }): boolean =>
+  p.status !== "Completed" && !p.inactive;
+
+/**
+ * Drop the rows (documents, tasks) that sit in an inactive project: frozen
+ * means its name shows on the Inactive tab and nothing inside it opens
+ * (16 Nov). A row whose project isn't in `projects` stays.
+ */
+export function outsideInactive<T extends { projectId: string | null }>(
+  rows: T[],
+  projects: { id: string; inactive: boolean }[],
+): T[] {
+  const frozen = new Set(projects.filter((p) => p.inactive).map((p) => p.id));
+  return rows.filter((r) => !r.projectId || !frozen.has(r.projectId));
+}
+
+/**
+ * Mark Completed / Reopen — the accounting manager's call alone (15 Nov). The
+ * route already exists; today it also admits the creator and the specialist,
+ * which Pratibha's list #4 narrows.
+ */
+export async function setProjectStatus(
+  projectId: string,
+  status: ProjectStatus,
+): Promise<void> {
+  await patch(`/projects/${encodeURIComponent(projectId)}`, {
+    status: taskStatusCode(status),
+  });
 }
 
 export function toManagedProject(p: BackendProject): ManagedProject {
@@ -164,6 +230,9 @@ export function toManagedProject(p: BackendProject): ManagedProject {
     specialist: p.specialist ? personName(p.specialist) : null,
     specialistAvatarUrl: personAvatarUrl(p.specialist),
     createdBy: personName(p.createdBy),
+    creatorId: personId(p.createdBy),
+    inactive: !!p.inactiveAt,
+    previousProject: toPreviousProject(p),
     progress: p.progressBar ?? 0,
     createdOn: usDate(p.createdAt),
   };
@@ -273,6 +342,256 @@ export async function deleteDocument(
   documentId: string,
 ): Promise<void> {
   await del(`/projects/${projectId}/documents/${documentId}`);
+}
+
+/**
+ * Delete a project with its tasks and documents, never the company (Sir, Q4).
+ * Creator only (Q2).
+ *
+ * Today's route is a soft delete and still lets the company's accounting
+ * manager in too; Pratibha's list #1 makes it permanent and creator-only.
+ */
+export async function deleteProject(projectId: string): Promise<void> {
+  await del(`/projects/${encodeURIComponent(projectId)}`);
+}
+
+/**
+ * The creator's Active switch on a project. Inactive keeps everything and moves
+ * the project to the Inactive tab.
+ *
+ * ponytail: PLACEHOLDER ROUTE. Portal-backend has no project active endpoint
+ * yet (Pratibha's list), so this fails until it lands.
+ */
+export async function setProjectActive(
+  projectId: string,
+  active: boolean,
+): Promise<void> {
+  await patch(`/projects/${encodeURIComponent(projectId)}/active`, { active });
+}
+
+/** The tabs over every Projects list, in order. */
+export const PROJECT_TABS = [
+  { tab: "active", label: "Active" },
+  { tab: "completed", label: "Completed" },
+  { tab: "inactive", label: "Inactive" },
+] as const;
+
+export type ProjectTab = (typeof PROJECT_TABS)[number]["tab"];
+
+/** `?tab=` off the URL. Anything else is the default tab. */
+export function parseProjectTab(raw: string | undefined): ProjectTab {
+  return PROJECT_TABS.some((t) => t.tab === raw) ? (raw as ProjectTab) : "active";
+}
+
+/** A Projects list link on `tab`, keeping any query `path` already has. */
+export function tabHref(path: string, tab: ProjectTab): string {
+  if (tab === "active") return path;
+  return `${path}${path.includes("?") ? "&" : "?"}tab=${tab}`;
+}
+
+/** Which tab a project sits on. Switched off beats its status. */
+export function projectTab(p: { status: string; inactive: boolean }): ProjectTab {
+  if (p.inactive) return "inactive";
+  return p.status === "Completed" ? "completed" : "active";
+}
+
+/**
+ * The services the customer's Projects and Documents lists are split by, in
+ * the order every other screen names them. Each is a group in the customer's
+ * sidebar and rides in `?service=`. Other holds a service with no group of its
+ * own (FP&A, 1099) and a document on no project; All is the unsplit list, shown
+ * only when a company has no groups at all.
+ */
+export const SERVICE_TABS = [
+  { tab: "all", label: "All" },
+  { tab: "bookkeeping", label: "Bookkeeping" },
+  { tab: "payroll", label: "Payroll" },
+  { tab: "tax", label: "Tax" },
+  { tab: "other", label: "Other" },
+] as const;
+
+export type ServiceTab = (typeof SERVICE_TABS)[number]["tab"];
+
+/** `?service=` off the URL. Anything else is All. */
+export function parseServiceTab(raw: string | undefined): ServiceTab {
+  return SERVICE_TABS.some((t) => t.tab === raw) ? (raw as ServiceTab) : "all";
+}
+
+/** A list link on `tab`, keeping any query `path` already has. */
+export function serviceHref(path: string, tab: ServiceTab): string {
+  if (tab === "all") return path;
+  return `${path}${path.includes("?") ? "&" : "?"}service=${tab}`;
+}
+
+/** Which service tab a service line sits on, by the name the backend sends. */
+export function serviceTab(service: string | null): ServiceTab {
+  const key = service?.trim().toLowerCase();
+  return key === "bookkeeping" || key === "payroll" || key === "tax"
+    ? key
+    : "other";
+}
+
+/** Whether a row belongs on `tab`. Everything is on All. */
+export const onServiceTab = (
+  row: { service: string | null },
+  tab: ServiceTab,
+): boolean => tab === "all" || serviceTab(row.service) === tab;
+
+/**
+ * The service groups in a customer's sidebar, in nav order: every service the
+ * company pays for, and any it still has a project on. The second half is what
+ * keeps a lapsed subscription from stranding the work done under it. Other
+ * appears only when something sits on it.
+ *
+ * ponytail: a document on no project lives under Other, and does not by itself
+ * make Other appear. The customer's upload requires a project, so only a file
+ * staff attached to none can hit this; add the document list here if one does.
+ */
+export function serviceGroups(
+  subscribed: string[],
+  projects: { service: string }[],
+): ServiceTab[] {
+  const present = new Set(
+    [...subscribed, ...projects.map((p) => p.service)].map(serviceTab),
+  );
+  return SERVICE_TABS.map((t) => t.tab).filter((tab) => present.has(tab));
+}
+
+/**
+ * How many rows reached a list after the reader last opened it, from someone
+ * else: the number beside a sidebar row. Their own uploads are not news.
+ * ISO instants, so the comparison is a text one.
+ */
+export function newSince(
+  rows: { createdAt: string; by: string | null }[],
+  seen: string,
+  viewer: string,
+): number {
+  return rows.filter((row) => row.by !== viewer && row.createdAt > seen).length;
+}
+
+/**
+ * The owner's Active switch on a company (4 Nov decision). Inactive hides it
+ * from the switcher and keeps every record.
+ *
+ * ponytail: PLACEHOLDER ROUTE. Portal-backend has no company status endpoint
+ * yet (Pratibha's list #3), so this fails until it lands.
+ */
+export async function setCompanyActive(
+  companyId: string,
+  active: boolean,
+): Promise<void> {
+  await patch(`/companies/${encodeURIComponent(companyId)}/status`, {
+    status: active ? "ACTIVE" : "INACTIVE",
+  });
+}
+
+/**
+ * Delete a company and everything under it. Owner or admin.
+ *
+ * Today's route is a soft archive, refused (409) while a subscription is
+ * active; Pratibha's list #1 makes it permanent. The call itself won't change.
+ */
+export async function deleteCompany(companyId: string): Promise<void> {
+  await del(`/companies/${encodeURIComponent(companyId)}`);
+}
+
+/**
+ * Whether turning an inactive company back on needs a payment first.
+ *
+ * Only when nothing covers today: never paid, or the period paid for has run
+ * out while it was off. Inside a paid period it goes straight back on — going
+ * Inactive never creates a bill by itself (12 Nov decision).
+ */
+export function mustPayToReactivate(
+  paidUntil: string | null,
+  unpaid: boolean,
+  now = Date.now(),
+): boolean {
+  return unpaid || !paidUntil || Date.parse(paidUntil) <= now;
+}
+
+/**
+ * Move one document to the archive: a separate folder, kept with no time limit
+ * (16 Nov — replaces the 4 Nov 365-day purge).
+ *
+ * ponytail: PLACEHOLDER ROUTE. Portal-backend has no archive yet (Pratibha's
+ * list #9), so this answers 404 until it lands.
+ * Point it at the real route then; nothing above this function changes.
+ */
+export async function archiveDocument(
+  projectId: string,
+  documentId: string,
+): Promise<void> {
+  await patch(`/projects/${projectId}/documents/${documentId}/archive`);
+}
+
+/** Back out of the archive into Documents. Same placeholder caveat as `archiveDocument`. */
+export async function unarchiveDocument(
+  projectId: string,
+  documentId: string,
+): Promise<void> {
+  await del(`/projects/${projectId}/documents/${documentId}/archive`);
+}
+
+/**
+ * The archived documents a Documents page lists under its Archive tab.
+ *
+ * ponytail: ALWAYS EMPTY until Portal-backend can list archived documents
+ * (backend item 9). Not a call to `?archived=true` today: the API ignores
+ * unknown params, so that would return the live documents and show them as
+ * archived. Replace with the real fetch when the endpoint lands.
+ */
+export async function archivedDocuments<T>(): Promise<T[]> {
+  return [];
+}
+
+/**
+ * Run `action` on several documents, one request each, and say which went.
+ *
+ * SETTLED, NOT ALL-OR-NOTHING: each request is its own act on the server, so a
+ * refusal on the third file does not undo the first two. Reporting both lists
+ * is the only honest answer, and the caller keeps the failures selected so they
+ * can be tried again.
+ *
+ * ponytail: N requests for N files. Swap for a bulk endpoint if Portal-backend
+ * grows one; the return shape stays.
+ */
+export async function eachDocument(
+  docs: { id: string; projectId: string | null }[],
+  action: (projectId: string, documentId: string) => Promise<void>,
+): Promise<{ done: string[]; failed: string[] }> {
+  const settled = await Promise.allSettled(
+    docs.map((doc) =>
+      doc.projectId
+        ? action(doc.projectId, doc.id)
+        : Promise.reject(new Error("No project")),
+    ),
+  );
+  const done: string[] = [];
+  const failed: string[] = [];
+  settled.forEach((result, i) =>
+    (result.status === "fulfilled" ? done : failed).push(docs[i].id),
+  );
+  return { done, failed };
+}
+
+/**
+ * The toast after `eachDocument`, naming files when there are few enough to
+ * read. `verb` is the past tense the toast uses — "deleted", "archived".
+ */
+export function documentsMessage(
+  verb: string,
+  done: string[],
+  failed: string[],
+): string {
+  const files = (n: number) => `${n} ${n === 1 ? "document" : "documents"}`;
+  if (failed.length === 0) {
+    return done.length === 1 ? `${done[0]} ${verb}.` : `${files(done.length)} ${verb}.`;
+  }
+  const which = failed.length <= 3 ? `: ${failed.join(", ")}` : "";
+  const lead = done.length > 0 ? `${files(done.length)} ${verb}. ` : "";
+  return `${lead}${files(failed.length)} could not be ${verb}${which}.`;
 }
 
 /**
@@ -480,6 +799,11 @@ export interface BackendCompany {
    */
   activeServices: { specializationName: string; planName?: string | null }[];
   billing: { currentPeriodEnd: string | null } | null;
+  /**
+   * `CompanyStatus`. NOT SENT BY ANY ROUTE TODAY, and `INACTIVE` is not a value
+   * yet — both are on Pratibha's list (#3). Absent reads as active.
+   */
+  status?: string;
   teamMembers?: BackendTeam;
   members?: BackendTeam;
   servicePlans?: {
@@ -661,6 +985,54 @@ export async function withTeammates<
   );
 }
 
+/**
+ * A company that Needs Reassignment (17 Nov): its accounting manager or a
+ * specialist on it was made Inactive. `detail` says who, worded once for the
+ * popup, the bell and the company page alike.
+ */
+export interface Reassignment {
+  companyId: string;
+  company: string;
+  detail: string;
+  /** Who left the slot, for the faces on the reminder popup. */
+  people: PortalPerson[];
+}
+
+/**
+ * The bell's rows for companies that Need Reassignment. Each counts as one
+ * unread item until it is reassigned, and opens the company.
+ */
+export function reassignmentNotifications(
+  items: Reassignment[],
+  hrefBase: string,
+): Notification[] {
+  return items.map((r) => ({
+    id: `reassign-${r.companyId}`,
+    href: hrefBase + r.companyId,
+    company: r.company,
+    contact: "Needs Reassignment",
+    preview: r.detail,
+    unread: 1,
+    when: "",
+  }));
+}
+
+/**
+ * The company's Inactive specialists, one line each with the services they
+ * held: "Bookkeeping, Payroll · Jane Doe (inactive)". The accounting manager
+ * reassigns per company, and the line says which services need someone.
+ */
+export function inactiveSpecialists(company: BackendCompany): string[] {
+  const team = company.teamMembers ?? company.members;
+  return (team?.specialists ?? []).filter(isInactive).map((p) => {
+    const services = (p.specializations ?? [])
+      .map((s) => s.specializationName)
+      .filter(Boolean)
+      .join(", ");
+    return services ? `${services} · ${personName(p)}` : personName(p);
+  });
+}
+
 /** Just the staffed specialists — the Assigned Specialists cell names them once they exist. */
 export function specialistNames(company: BackendCompany): string[] {
   const team = company.teamMembers ?? company.members;
@@ -675,8 +1047,14 @@ export function toClientCompany(c: BackendCompany): ClientCompany {
     ownerAvatarUrl: personAvatarUrl(c.owner),
     activeServices: (c.activeServices ?? []).map((s) => s.specializationName),
     billingDate: billingDate(c),
+    paidUntil: c.billing?.currentPeriodEnd ?? null,
+    inactive: c.status === "INACTIVE",
     teamMembers: teamPeople(c),
     specialists: specialistNames(c),
+    inactiveSpecialists: inactiveSpecialists(c),
+    inactivePeople: (c.teamMembers ?? c.members)?.specialists
+      .filter(isInactive)
+      .map(toPortalPerson) ?? [],
   };
 }
 

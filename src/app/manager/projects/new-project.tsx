@@ -3,7 +3,14 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Building2, CalendarDays, FolderKanban, Plus, Wrench } from "lucide-react";
+import {
+  Building2,
+  CalendarDays,
+  FolderKanban,
+  Link2,
+  Plus,
+  Wrench,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 
 import {
@@ -38,9 +45,12 @@ import { managerProjectSchema, type ManagerProjectValues } from "@/lib/schemas";
  */
 export function NewProject({
   companies,
+  projects,
   defaultCompanyId,
 }: {
   companies: { id: string; name: string }[];
+  /** Candidates for Previous Project, narrowed to the chosen company below. */
+  projects: { id: string; name: string; companyId: string }[];
   /** The header switcher's selection, when it has one. */
   defaultCompanyId?: string;
 }) {
@@ -55,12 +65,21 @@ export function NewProject({
 
   const form = useForm<ManagerProjectValues>({
     resolver: zodResolver(managerProjectSchema),
-    defaultValues: { companyId: only, name: "", service: "", deadline: "" },
+    defaultValues: {
+      companyId: only,
+      name: "",
+      service: "",
+      deadline: "",
+      previousProjectId: "",
+    },
     mode: "onSubmit",
     reValidateMode: "onChange",
   });
 
   const companyId = form.watch("companyId");
+  const earlier = projects
+    .filter((p) => p.companyId === companyId)
+    .map((p) => ({ value: p.id, label: p.name }));
 
   /*
    * The service list follows the company. Reset alongside it — a service picked
@@ -80,6 +99,7 @@ export function NewProject({
     // leaving the old selection in place submits a name the new company does
     // not have — a 400 from a form that looked filled in.
     form.setValue("service", "");
+    form.setValue("previousProjectId", "");
     managerApi
       .availableServices(companyId)
       .then((rows) => {
@@ -95,7 +115,13 @@ export function NewProject({
   }, [open, companyId, form]);
 
   function reset() {
-    form.reset({ companyId: only, name: "", service: "", deadline: "" });
+    form.reset({
+      companyId: only,
+      name: "",
+      service: "",
+      deadline: "",
+      previousProjectId: "",
+    });
     setFailure(null);
     setServices(null);
   }
@@ -196,6 +222,19 @@ export function NewProject({
               // is tomorrow.
               min={tomorrow()}
             />
+
+            {/* Optional, and only a mention: links back to the earlier job
+                so it's easy to find again (15 Nov). Nothing is copied. */}
+            {earlier.length > 0 && (
+              <SelectField
+                control={form.control}
+                name="previousProjectId"
+                label="Previous Project"
+                icon={Link2}
+                placeholder="None"
+                options={[{ value: "none", label: "None" }, ...earlier]}
+              />
+            )}
 
             <FormAlert>{failure}</FormAlert>
 

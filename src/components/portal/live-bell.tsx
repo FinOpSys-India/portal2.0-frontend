@@ -3,7 +3,7 @@
 import * as React from "react";
 
 import { NotificationBell } from "@/components/portal/portal-chrome";
-import { unreadThreads } from "@/lib/chat";
+import { unreadThreads, type UnreadThread } from "@/lib/chat";
 import { dayLabel } from "@/lib/manager";
 
 /**
@@ -46,10 +46,17 @@ const MIN_GAP_MS = 20_000;
 export function LiveBell({
   companies,
   hrefFor,
+  onLoad,
 }: {
   companies: { id: string; name: string }[];
   /** Built here rather than passed as a function: a portal decides its own URL shape. */
   hrefFor: "customer" | "specialist";
+  /**
+   * Each sweep's result, for a shell that shows numbers of its own. It rides
+   * this clock instead of running a second one: the customer's sidebar counts
+   * refresh when the bell does, and only while the tab is watched.
+   */
+  onLoad?: (threads: UnreadThread[]) => void;
 }) {
   const [items, setItems] = React.useState<
     React.ComponentProps<typeof NotificationBell>["items"]
@@ -61,6 +68,13 @@ export function LiveBell({
    * thing this component exists to stop.
    */
   const key = companies.map((c) => c.id).join(",");
+
+  // The latest `onLoad`, read at sweep time: the effect below is keyed on the
+  // company ids alone and would otherwise keep calling the first one it saw.
+  const onLoadRef = React.useRef(onLoad);
+  React.useEffect(() => {
+    onLoadRef.current = onLoad;
+  });
 
   React.useEffect(() => {
     let live = true;
@@ -88,6 +102,7 @@ export function LiveBell({
               when: t.at ? dayLabel(t.at) : "",
             })),
           );
+          onLoadRef.current?.(threads);
         })
         // Swallowed: a bell that cannot load is empty, not an error boundary.
         // An unpaid account 402s here and the rest of the portal is fine.

@@ -106,10 +106,15 @@ export default async function WorkspaceSelectPage() {
             return (
               <li key={workspace.id}>
                 <Link
+                  // An inactive company stays pickable — otherwise an owner
+                  // whose companies are all off could never reach the switch
+                  // that turns one back on — but it opens on that switch.
                   href={
                     owes
                       ? `/on_boarding_form_part_2?compID=${encodeURIComponent(workspace.id)}`
-                      : `/customer/${workspace.id}/projects`
+                      : workspace.inactive
+                        ? `/customer/${workspace.id}/company/${workspace.id}`
+                        : `/customer/${workspace.id}/projects`
                   }
                   className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors duration-150 hover:border-primary/25 hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
                 >
@@ -117,6 +122,7 @@ export default async function WorkspaceSelectPage() {
                   <span className="flex-1 text-sm font-medium">
                     {workspace.name}
                   </span>
+                  {workspace.inactive && <Badge variant="secondary">Inactive</Badge>}
                   {owes && <Badge variant="destructive">Payment Pending</Badge>}
                   <ChevronRight
                     className="size-4 text-muted-foreground"

@@ -429,6 +429,7 @@ export function DataTable<T>({
   title,
   noun,
   action,
+  tabs,
   exportCsv,
   empty,
   sort,
@@ -448,7 +449,7 @@ export function DataTable<T>({
   /** Active filters, parsed from `?f=` by the page. */
   filters?: Filter[];
   /** Makes a row clickable. Omit for lists with no detail view. */
-  rowHref?: (row: T) => string;
+  rowHref?: (row: T) => string | undefined;
   /** Title rendered inside the card, at the left of the toolbar. */
   header?: React.ReactNode;
   /**
@@ -473,6 +474,8 @@ export function DataTable<T>({
   noun?: string;
   /** The list's own button — Add Project, Invite Customer, Upload File. */
   action?: React.ReactNode;
+  /** A tab strip between the page heading and the card, e.g. `ProjectTabs`. */
+  tabs?: React.ReactNode;
   /**
    * Renders a CSV export beside the filter button.
    *
@@ -588,6 +591,7 @@ export function DataTable<T>({
       {title ? (
         <PageHeader title={title} action={controls} />
       ) : null}
+      {tabs}
 
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         {applied}

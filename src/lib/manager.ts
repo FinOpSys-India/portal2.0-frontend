@@ -6,7 +6,7 @@
  * am-01…am-15. Where 1.0 and this port differ the deviation is commented.
  */
 
-import type { PortalPerson } from "@/lib/portal";
+import type { PortalPerson, PreviousProject, Reassignment } from "@/lib/portal";
 import { cache } from "react";
 
 import { withDialCode } from "@/lib/phone";
@@ -24,7 +24,7 @@ import {
   uploadViaSignedUrls,
   type UploadTicket,
 } from "@/lib/http";
-import { fullName } from "@/lib/directory";
+import { fullName, isInactive } from "@/lib/directory";
 // Re-exported below, so a screen rendering a thread keeps one import for its
 // whole shape — the same courtesy `ChatAttachment` gets by being declared here.
 import type { MessageReaction } from "@/lib/reactions";
@@ -69,10 +69,18 @@ export interface ClientCompany {
   activeServices: string[];
   /** M/DD/YY. Absent until a subscription starts — 1.0 renders the cell blank. */
   billingDate: string | null;
+  /** The raw `currentPeriodEnd` behind `billingDate`, for comparing against today. */
+  paidUntil: string | null;
+  /** Switched off by the owner. Hidden from the switcher, records kept. */
+  inactive: boolean;
   teamMembers: PortalPerson[];
   /** Staffed specialists, if any. The company list already carries them, so the
    * Assigned Specialists cell can name who holds the lines without a second round trip. */
   specialists: string[];
+  /** Specialists made Inactive, as `inactiveSpecialists` words them. Any at all: Needs Reassignment. */
+  inactiveSpecialists: string[];
+  /** The same people, as faces for the Reassign Specialists popup. */
+  inactivePeople: PortalPerson[];
 }
 
 /** Everything the Company Details screen shows. */
@@ -119,6 +127,12 @@ export interface ManagedProject {
   /** Their picture, when they have one. Null is initials, not a missing field. */
   specialistAvatarUrl: string | null;
   createdBy: string;
+  /** Only the creator may delete the project. Null once their account is gone. */
+  creatorId: string | null;
+  /** Switched off by the creator: on the Inactive tab, everything kept. */
+  inactive: boolean;
+  /** The project this one follows on from, if the opener picked one. */
+  previousProject: PreviousProject | null;
   /** 0–100. 1.0 renders a bar plus the number. */
   progress: number;
   createdOn: string;
@@ -156,7 +170,12 @@ export interface StaffingLine {
   name: string;
   /** The specialist holding this line, or null when nobody does. */
   assigned: number | null;
-  options: { userId: number; name: string; email: string }[];
+  /** The holder, as "Name (inactive)", when the admin made them Inactive: the line needs someone new. */
+  replacing: string | null;
+  /** The holder's picture; `toPerson` sends it. */
+  holderAvatarUrl: string | null;
+  /** `avatarUrl` is null until `toDirectoryUser` sends one (Pratibha #5). */
+  options: { userId: number; name: string; email: string; avatarUrl: string | null }[];
 }
 
 /** What the Specialist Details screen shows beside the task list. */
@@ -195,6 +214,8 @@ export interface NewProjectInput {
   name: string;
   service: string;
   deadline: string;
+  /** An earlier project on the same company this one follows on from. */
+  previousProjectId?: string;
 }
 
 /**
@@ -552,7 +573,9 @@ export function scopeSwitch({
 export async function companyScope(
   companyId?: string,
 ): Promise<string | undefined> {
-  return companyId ?? (await managerApi.companies())[0]?.id;
+  return (
+    companyId ?? (await managerApi.companies()).find((c) => !c.inactive)?.id
+  );
 }
 
 /**
@@ -615,10 +638,16 @@ const fetchCompanyRows = cache(async (): Promise<BackendCompany[]> => {
   return data.companies;
 });
 
+/**
+ * Which companies a read covers. An inactive company is frozen (16 Nov): its
+ * name stays on the Companies list, and nothing under it — projects, tasks,
+ * documents, chat — is read, even when the URL names it.
+ */
 async function scopeIds(companyId?: string): Promise<string[]> {
-  if (companyId) return [companyId];
   const companies = await managerApi.companies();
-  return companies.map((c) => c.id);
+  const frozen = new Set(companies.filter((c) => c.inactive).map((c) => c.id));
+  if (companyId) return frozen.has(companyId) ? [] : [companyId];
+  return companies.filter((c) => !c.inactive).map((c) => c.id);
 }
 
 /**
@@ -732,6 +761,8 @@ interface DirectoryRow {
   specificRole: string | null;
   specificRoleName?: string | null;
   serviceSpeciality?: string | null;
+  /** `UserStatus`; `toDirectoryUser` sends it. `HIBERNATED` is Inactive. */
+  status?: string;
   phone?: string | null;
   /**
    * `companyDto.toSpecialistDetail` and `toCustomerDetail` build one; the
@@ -748,13 +779,21 @@ interface BackendStaffingService {
   specializationCode: string;
   specializationName: string;
   /** At most one, and `userId` is absent when the person record was dropped. */
-  assigned: { assignmentId: number | null; userId?: number }[];
+  assigned: {
+    assignmentId: number | null;
+    userId?: number;
+    firstName?: string;
+    lastName?: string;
+    status?: string | null;
+    avatarUrl?: string | null;
+  }[];
   eligibleSpecialists: {
     userId: number;
     email: string;
     firstName: string;
     lastName: string;
     status: string;
+    avatarUrl?: string | null;
   }[];
 }
 
@@ -810,6 +849,22 @@ export const managerApi = {
    */
   async companies(): Promise<ClientCompany[]> {
     return (await fetchCompanyRows()).map(toClientCompany);
+  },
+
+  /**
+   * The manager's companies with a specialist made Inactive, for the Reassign
+   * Specialists popup, bell and banner. An Inactive company is frozen, so it
+   * waits until its owner switches it back on.
+   */
+  async reassignments(): Promise<Reassignment[]> {
+    return (await managerApi.companies())
+      .filter((c) => !c.inactive && c.inactiveSpecialists.length > 0)
+      .map((c) => ({
+        companyId: c.id,
+        company: c.name,
+        detail: c.inactiveSpecialists.join("; "),
+        people: c.inactivePeople,
+      }));
   },
 
   /**
@@ -994,11 +1049,14 @@ export const managerApi = {
     companyId?: string,
   ): Promise<{ name: string; email: string; speciality: string }[]> {
     const rows = await directory("specialists", companyId);
-    return rows.map((row) => ({
-      name: fullName(row),
-      email: row.email,
-      speciality: row.serviceSpeciality ?? "",
-    }));
+    // An Inactive specialist is never offered (17 Nov).
+    return rows
+      .filter((row) => !isInactive(row))
+      .map((row) => ({
+        name: fullName(row),
+        email: row.email,
+        speciality: row.serviceSpeciality ?? "",
+      }));
   },
 
   async specialists(companyId?: string): Promise<Specialist[]> {
@@ -1153,12 +1211,18 @@ export const managerApi = {
       // `assigned` is at most one per line — it is read from the company's
       // standing specialist column, which is what "exactly one" means there.
       assigned: service.assigned[0]?.userId ?? null,
+      replacing:
+        service.assigned[0] && isInactive(service.assigned[0])
+          ? fullName(service.assigned[0])
+          : null,
+      holderAvatarUrl: service.assigned[0]?.avatarUrl ?? null,
       options: service.eligibleSpecialists
         .filter((user) => user.status === "ACTIVE")
         .map((user) => ({
           userId: user.userId,
           name: fullName(user),
           email: user.email,
+          avatarUrl: user.avatarUrl ?? null,
         })),
     }));
   },
@@ -1394,6 +1458,8 @@ async function nameTaken(
   path: "/projects" | "/tasks",
   companyId: string | number,
   name: string,
+  /** A project being renamed: its own current name isn't a clash. */
+  except?: string,
 ): Promise<boolean> {
   const query =
     `?companyId=${encodeURIComponent(String(companyId))}` +
@@ -1407,7 +1473,32 @@ async function nameTaken(
   const { projects } = await get<{ projects: BackendProject[] }>(
     `/projects${query}`,
   );
-  return projects.some((p) => sameName(p.projectName, name));
+  return projects.some(
+    (p) => String(p.id) !== except && sameName(p.projectName, name),
+  );
+}
+
+/**
+ * Edit Project — name and deadline, for the project's creator (15 Nov; the
+ * page decides who). Only what changed is sent, so an overdue project can be
+ * renamed without its past deadline being re-checked.
+ */
+export async function editProject(
+  project: { id: string; companyId: string },
+  changes: { name?: string; deadline?: string },
+): Promise<void> {
+  if (
+    changes.name !== undefined &&
+    (await nameTaken("/projects", project.companyId, changes.name, project.id))
+  ) {
+    throw new Error(
+      `This company already has a project named “${changes.name.trim()}”. Give this one a different name.`,
+    );
+  }
+  await patch(`/projects/${encodeURIComponent(project.id)}`, {
+    ...(changes.name !== undefined && { projectName: changes.name.trim() }),
+    ...(changes.deadline !== undefined && { deadlineDate: changes.deadline }),
+  });
 }
 
 /**
@@ -1444,6 +1535,12 @@ export async function createProjectOn(
     projectName: input.name,
     deadlineDate: input.deadline,
     servicePlanId: service.servicePlanId,
+    // Only when one was picked — the form's "None" isn't a number and drops out.
+    // ponytail: POST /projects rejects unknown fields, so picking one is a 400
+    // until Pratibha's list #4 adds `previousProjectId`.
+    ...(Number(input.previousProjectId) > 0 && {
+      previousProjectId: Number(input.previousProjectId),
+    }),
   });
 
   /*

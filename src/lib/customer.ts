@@ -5,6 +5,8 @@
  * calls against the backend.
  */
 
+import { cache } from "react";
+
 import {
   get,
   getOrNull,
@@ -47,11 +49,19 @@ import {
   type BackendProject,
   type BackendTask,
   type BackendTeammate,
+  type PreviousProject,
+  toPreviousProject,
+  serviceGroups,
+  type ServiceTab,
 } from "@/lib/portal";
 
 export interface Workspace {
   id: string;
   name: string;
+  /** Switched off by the owner: left out of the switcher, still openable. */
+  inactive?: boolean;
+  /** The services it pays for, by name: the sidebar's service groups. */
+  services?: string[];
 }
 
 export type ProjectStatus = "Not started" | "In progress" | "Completed";
@@ -65,6 +75,14 @@ export interface Project {
   specialist: string | null;
   /** Their picture, when they have one. */
   specialistAvatarUrl: string | null;
+  /** See ManagedProject.creatorId. */
+  creatorId: string | null;
+  /** See ManagedProject.inactive. */
+  inactive: boolean;
+  /** See ManagedProject.previousProject. */
+  previousProject: PreviousProject | null;
+  /** ISO instant. What the sidebar counts "new since your last visit" from. */
+  createdAt: string;
 }
 
 export interface CustomerFile {
@@ -79,6 +97,8 @@ export interface CustomerFile {
   /** See ManagerDocument.ownerId. */
   ownerId: string | null;
   uploadedAt: string;
+  /** The same moment as an ISO instant, for the sidebar's count of new files. */
+  createdAt: string;
   /** Bytes. Rendered beneath the file name, as in the staff portals. */
   size: number;
 }
@@ -88,6 +108,9 @@ export interface CustomerCompany {
   name: string;
   activeServices: string[];
   subscriptionDate: string | null;
+  /** End of the period paid for — see `mustPayToReactivate`. */
+  paidUntil: string | null;
+  inactive: boolean;
   teamMembers: PortalPerson[];
 }
 
@@ -95,10 +118,9 @@ export interface TeamMember {
   name: string;
   /** Their picture, when the row carries one. Null draws their initials. */
   avatarUrl: string | null;
-  /**
-   * Their role where we assign one, their own job title otherwise — see
-   * `toTeamRoster`. Not `jobTitle` any more: half these rows no longer show one.
-   */
+  /** What they are on this account: Owner, Team Member, or our role for staff. */
+  role: string;
+  /** The customer's side's own job title. Empty for staff — see `toTeamRoster`. */
   title: string;
   /** Who they work for: the customer's own company, or `FINOPSYS`. */
   company: string;
@@ -112,18 +134,14 @@ export const FINOPSYS = "FinOpSys";
  * Everyone on an account, from both sides of it: the customer's own people and
  * the FinOpSys staff serving them.
  *
- * THE ROLE OUTRANKS THE JOB TITLE, for us. An accounting manager is "Accounting
- * Manager" and a specialist is "Bookkeeping Specialist" however they filled in
- * the onboarding form, because the reader is asking what this person does on
- * THEIR account and the assignment is the answer. `jobTitle` is what someone
- * typed about their career; it would have a tax specialist reading "Senior
- * Associate" on the one screen whose job is telling a customer who handles their
- * taxes.
- *
- * The customer's side is the other way round — their job title first, the
- * catalog role only as a fallback. Every teammate is invited as CUSTOMER / TEAM,
- * so the role is one shared string there and the typed title is the only thing
+ * ROLE AND TITLE ARE SEPARATE COLUMNS (17 Nov). Role is what the person is on
+ * THIS account: Owner, Team Member, "Accounting Manager", "Bookkeeping
+ * Specialist". Title is the job title the customer's side typed, the only thing
  * that distinguishes an office manager from a controller.
+ *
+ * STAFF HAVE NO TITLE HERE. `jobTitle` is what someone typed about their
+ * career; it would have a tax specialist reading "Senior Associate" on the one
+ * screen whose job is telling a customer who handles their taxes.
  *
  * Owner and staff come from `teamMembers`; the teammates are their own read,
  * because no company read carries `company_members` rows at all. Separated from
@@ -138,11 +156,13 @@ export function toTeamRoster(
 
   const row = (
     p: BackendPerson,
+    role: string,
     title: string,
     employer: string,
   ): TeamMember => ({
     name: personName(p),
     avatarUrl: personAvatarUrl(p),
+    role,
     title,
     company: employer,
     email: p.email ?? "",
@@ -150,20 +170,21 @@ export function toTeamRoster(
 
   return [
     // Their side: the one customer who signed up, then everyone they invited.
-    ...(team?.owner ? [row(team.owner, team.owner.jobTitle ?? "", companyName)] : []),
+    ...(team?.owner ? [row(team.owner, "Owner", team.owner.jobTitle ?? "", companyName)] : []),
     ...teammates.map((t) => ({
       name: fullName(t),
       avatarUrl: t.avatarUrl ?? null,
-      title: t.jobTitle ?? t.specificRoleName ?? "",
+      role: t.specificRoleName ?? "Team Member",
+      title: t.jobTitle ?? "",
       company: companyName,
       email: t.email,
     })),
     // Ours.
     ...(team?.accountingManager
-      ? [row(team.accountingManager, "Accounting Manager", FINOPSYS)]
+      ? [row(team.accountingManager, "Accounting Manager", "", FINOPSYS)]
       : []),
     ...(team?.specialists ?? []).map((p) =>
-      row(p, specialistTitle(p) || "Specialist", FINOPSYS),
+      row(p, specialistTitle(p) || "Specialist", "", FINOPSYS),
     ),
   ];
 }
@@ -215,23 +236,57 @@ export const customerApi = {
    * to fix this screen would have handed a teammate an invite form the endpoint
    * rejects.
    *
-   * Only id and name are read here; the rows carry a whole company account each
-   * (services, billing, roster) and the picker draws two fields.
+   * Only id, name and the services paid for are read here; the rows carry a
+   * whole company account each (billing, roster) and the picker draws two
+   * fields.
+   *
+   * Memoized for the render, like `projects` below: the layout reads both for
+   * the sidebar's service groups and the page under it reads them again. See
+   * `fetchCompanyRows` in lib/manager for why `cache` is safe across users.
    */
-  async workspaces(): Promise<Workspace[]> {
+  workspaces: cache(async (): Promise<Workspace[]> => {
     // ponytail: 100 is the server's own maxLimit and the picker does not page.
     // Someone on more than a hundred companies loses the remainder silently —
     // move to `?limit=&offset=` if that ever stops being absurd.
     const data = await get<{
-      companies: { id: number; companyName: string }[];
+      companies: {
+        id: number;
+        companyName: string;
+        status?: string;
+        activeServices?: { specializationName: string }[];
+      }[];
     }>("/companies?limit=100");
     return data.companies.map((c) => ({
       id: String(c.id),
       name: c.companyName,
+      inactive: c.status === "INACTIVE",
+      services: (c.activeServices ?? []).map((s) => s.specializationName),
     }));
+  }),
+
+  /**
+   * The service groups in this workspace's sidebar, in nav order. The layout
+   * draws them; a list page asks again to send a URL with no `?service=` to
+   * the first one.
+   *
+   * The two reads run together rather than the project read waiting to learn
+   * whether the company is inactive. A frozen company's projects are dropped
+   * here, and a refused read leaves the subscribed services: a frame that
+   * renders beats a frame that throws.
+   */
+  async serviceGroups(workspaceId: string): Promise<ServiceTab[]> {
+    const [workspaces, projects] = await Promise.all([
+      customerApi.workspaces(),
+      customerApi.projects(workspaceId).catch(() => []),
+    ]);
+    const workspace = workspaces.find((w) => w.id === workspaceId);
+    return serviceGroups(
+      workspace?.services ?? [],
+      workspace?.inactive ? [] : projects,
+    );
   },
 
-  async projects(workspaceId: string): Promise<Project[]> {
+  projects: cache(async (workspaceId: string): Promise<Project[]> => {
     // ponytail: 100 is the server's own maxLimit, and the whole set is fetched
     // in one request so the table can page it locally. Past 100 rows the
     // remainder is silently absent — move to `?limit=&offset=` per page (as the
@@ -240,7 +295,7 @@ export const customerApi = {
       `/projects?companyId=${encodeURIComponent(workspaceId)}&limit=100`,
     );
     return data.projects.map(toProject);
-  },
+  }),
 
   /**
    * Services a project can be opened against.
@@ -315,6 +370,7 @@ export const customerApi = {
       owner: personName(d.uploadedBy),
       ownerId: personId(d.uploadedBy),
       uploadedAt: usDate(d.createdAt),
+      createdAt: d.createdAt,
       size: d.sizeBytes,
     }));
 
@@ -359,6 +415,7 @@ export const customerApi = {
       owner: personName(doc.uploadedBy),
       ownerId: personId(doc.uploadedBy),
       uploadedAt: usDate(doc.createdAt),
+      createdAt: doc.createdAt,
       size: doc.sizeBytes,
     };
   },
@@ -376,6 +433,8 @@ export const customerApi = {
       name: c.companyName,
       activeServices: (c.activeServices ?? []).map((s) => s.specializationName),
       subscriptionDate: billingDate(c),
+      paidUntil: c.billing?.currentPeriodEnd ?? null,
+      inactive: c.status === "INACTIVE",
       teamMembers: teamPeople(c),
     }));
   },
@@ -530,5 +589,9 @@ function toProject(p: BackendProject): Project {
     status: toProjectStatus(p.status),
     specialist: p.specialist ? personName(p.specialist) : null,
     specialistAvatarUrl: personAvatarUrl(p.specialist),
+    creatorId: personId(p.createdBy),
+    inactive: !!p.inactiveAt,
+    previousProject: toPreviousProject(p),
+    createdAt: p.createdAt,
   };
 }

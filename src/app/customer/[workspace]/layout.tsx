@@ -2,9 +2,15 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { CustomerShell } from "@/components/customer/customer-shell";
-import { LiveBell } from "@/components/portal/live-bell";
+import { PageHeader } from "@/components/portal/portal-shell";
+import {
+  CompanyActiveSwitch,
+  DeleteCompany,
+  FrozenNotice,
+} from "@/components/portal/record-controls";
 import { api, unpaidCompanyIds } from "@/lib/api";
 import { customerApi } from "@/lib/customer";
+import { mustPayToReactivate } from "@/lib/portal";
 
 export const metadata: Metadata = {
   title: { default: "FinOpSys", template: "%s – FinOpSys" },
@@ -27,30 +33,79 @@ export default async function CustomerLayout({
   // The onboarding read fails closed alongside the owned-company one: it only
   // decides whether a switcher row carries a payment tag, and a frame that
   // renders beats a frame that throws.
-  const [workspaces, profile, owned, status] = await Promise.all([
+  // The service groups are the sidebar itself. They ride on the workspace read
+  // above plus the project list, and both are memoized: a Projects or
+  // Documents page under this layout reads them again for nothing.
+  const [workspaces, profile, owned, status, services] = await Promise.all([
     customerApi.workspaces(),
     customerApi.profile(),
     api.ownedCompanies().catch(() => []),
     api.onboardingStatus().catch(() => null),
+    customerApi.serviceGroups(id),
   ]);
   const workspace = workspaces.find((w) => w.id === id);
 
   // An unknown workspace is a 404, not an empty portal — otherwise a typo in
   // the URL renders a working-looking page with nobody's data in it.
   if (!workspace) notFound();
+  const owner = owned.some((c) => String(c.companyId) === id);
+
+  /*
+   * An inactive company is frozen (16 Nov): every page under it — projects,
+   * tasks, documents, chat — is replaced by its name and a notice. The owner
+   * keeps the two things they can still do here, turn it back on or delete it.
+   * The paid-until date is read only then, for the Complete Payment rule.
+   */
+  const company =
+    workspace.inactive && owner ? await customerApi.company(id) : null;
+  const body = workspace.inactive ? (
+    <div className="grid gap-6">
+      <PageHeader
+        title="Company Details"
+        description={workspace.name}
+        action={
+          company ? (
+            <span className="flex flex-wrap items-center gap-4">
+              <CompanyActiveSwitch
+                companyId={id}
+                name={workspace.name}
+                inactive
+                mustPay={mustPayToReactivate(
+                  company.paidUntil,
+                  !!status && unpaidCompanyIds(status).includes(id),
+                )}
+              />
+              <DeleteCompany
+                companyId={id}
+                name={workspace.name}
+                after="/company_select"
+              />
+            </span>
+          ) : undefined
+        }
+      />
+      <FrozenNotice>
+        {owner
+          ? "This company is inactive, so nothing under it can be opened. Make it active to open it again."
+          : "This company is inactive, so nothing under it can be opened until its owner makes it active again."}
+      </FrozenNotice>
+    </div>
+  ) : (
+    children
+  );
 
   return (
     <CustomerShell
       workspace={workspace}
-      workspaces={workspaces}
+      // Inactive companies leave the switcher (4 Nov decision) — except the
+      // one being read, or the pill would have nothing to name.
+      workspaces={workspaces.filter((w) => !w.inactive || w.id === id)}
       user={{ name: profile.fullName, email: profile.email, avatarUrl: profile.avatarUrl }}
-      owner={owned.some((c) => String(c.companyId) === id)}
+      owner={owner}
+      services={services}
       unpaid={status ? unpaidCompanyIds(status) : []}
-      // A client component, so it mounts once and survives every navigation
-      // under this layout instead of sweeping again on each one. See LiveBell.
-      notifications={<LiveBell companies={workspaces} hrefFor="customer" />}
     >
-      {children}
+      {body}
     </CustomerShell>
   );
 }

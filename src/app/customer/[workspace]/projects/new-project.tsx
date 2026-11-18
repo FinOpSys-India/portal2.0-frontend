@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarDays, FolderKanban, Plus, Wrench } from "lucide-react";
+import { CalendarDays, FolderKanban, Link2, Plus, Wrench } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 import {
@@ -25,9 +25,24 @@ import {
 import { Form } from "@/components/ui/form";
 import { toast } from "@/components/ui/toast";
 import { customerApi } from "@/lib/customer";
+import { serviceTab, type ServiceTab } from "@/lib/portal";
 import { newProjectSchema, type NewProjectValues } from "@/lib/schemas";
 
-export function NewProject({ workspaceId }: { workspaceId: string }) {
+export function NewProject({
+  workspaceId,
+  service,
+  projects,
+}: {
+  workspaceId: string;
+  /**
+   * The sidebar service this was opened under. Preselected, so the project
+   * lands on the list the reader is looking at rather than vanishing to
+   * another service's.
+   */
+  service?: ServiceTab;
+  /** Candidates for Previous Project: this workspace's own. */
+  projects: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [failure, setFailure] = React.useState<string | null>(null);
@@ -73,10 +88,22 @@ export function NewProject({ workspaceId }: { workspaceId: string }) {
 
   const form = useForm<NewProjectValues>({
     resolver: zodResolver(newProjectSchema),
-    defaultValues: { name: "", service: "", deadline: "" },
+    defaultValues: { name: "", service: "", deadline: "", previousProjectId: "" },
     mode: "onSubmit",
     reValidateMode: "onChange",
   });
+
+  /*
+   * The sidebar's service, once the list is in. Matched on the tab rather than
+   * the label, because the option's value is whatever the backend names it.
+   *
+   * In an effect of its own, after the options have rendered: a Radix Select
+   * handed its value in the same commit as its items clears it again.
+   */
+  React.useEffect(() => {
+    const preset = services?.find((row) => serviceTab(row) === service);
+    if (preset && !form.getValues("service")) form.setValue("service", preset);
+  }, [services, service, form]);
 
   async function onSubmit(values: NewProjectValues) {
     setFailure(null);
@@ -153,6 +180,22 @@ export function NewProject({ workspaceId }: { workspaceId: string }) {
               // is tomorrow.
               min={tomorrow()}
             />
+
+            {/* Optional, and only a mention: links back to the earlier job
+                so it's easy to find again (15 Nov). Nothing is copied. */}
+            {projects.length > 0 && (
+              <SelectField
+                control={form.control}
+                name="previousProjectId"
+                label="Previous Project"
+                icon={Link2}
+                placeholder="None"
+                options={[
+                  { value: "none", label: "None" },
+                  ...projects.map((p) => ({ value: p.id, label: p.name })),
+                ]}
+              />
+            )}
 
             <FormAlert>{failure}</FormAlert>
 

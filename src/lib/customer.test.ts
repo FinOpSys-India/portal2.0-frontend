@@ -1,10 +1,10 @@
 /**
  * The customer portal's row adapters. Run: npx tsx src/lib/customer.test.ts
  *
- * `toTeamRoster` is the one with a rule in it rather than a rename: which of two
- * titles a row shows depends on which side of the account the person is on, and
- * getting it backwards would print a specialist's career history where a
- * customer looks to find out who does their books.
+ * `toTeamRoster` is the one with a rule in it rather than a rename: the role
+ * comes from the person's seat on the account, the title only from the
+ * customer's side, and getting it backwards would print a specialist's career
+ * history where a customer looks to find out who does their books.
  */
 import assert from "node:assert/strict";
 
@@ -76,14 +76,14 @@ const roster = toTeamRoster(COMPANY, TEAMMATES);
 
 // Both sides, customer's people first.
 assert.deepEqual(
-  roster.map((r) => [r.name, r.title, r.company]),
+  roster.map((r) => [r.name, r.role, r.title, r.company]),
   [
-    ["Ada Byron", "Founder", "Northwind Trading"],
-    ["Ivo Novak", "Office Manager", "Northwind Trading"],
-    ["Mina Reyes", "Team Member", "Northwind Trading"],
-    ["Grace Hopper", "Accounting Manager", FINOPSYS],
-    ["Alan Turing", "Bookkeeping Specialist, Tax Specialist", FINOPSYS],
-    ["Edsger Dijkstra", "Specialist", FINOPSYS],
+    ["Ada Byron", "Owner", "Founder", "Northwind Trading"],
+    ["Ivo Novak", "Team Member", "Office Manager", "Northwind Trading"],
+    ["Mina Reyes", "Team Member", "", "Northwind Trading"],
+    ["Grace Hopper", "Accounting Manager", "", FINOPSYS],
+    ["Alan Turing", "Bookkeeping Specialist, Tax Specialist", "", FINOPSYS],
+    ["Edsger Dijkstra", "Specialist", "", FINOPSYS],
   ],
 );
 
@@ -91,7 +91,8 @@ assert.deepEqual(
 assert.deepEqual(roster[3], {
   name: "Grace Hopper",
   avatarUrl: "https://cdn.test/grace.png",
-  title: "Accounting Manager",
+  role: "Accounting Manager",
+  title: "",
   company: FINOPSYS,
   email: "grace@finopsys.ai",
 });
@@ -100,10 +101,10 @@ assert.equal(roster[5].email, "");
 // A company read that 404s leaves the teammate roster standing, with no company
 // name to put beside them — the page's own reason to exist still renders.
 assert.deepEqual(
-  toTeamRoster(null, TEAMMATES).map((r) => [r.name, r.title, r.company]),
+  toTeamRoster(null, TEAMMATES).map((r) => [r.name, r.role, r.title, r.company]),
   [
-    ["Ivo Novak", "Office Manager", ""],
-    ["Mina Reyes", "Team Member", ""],
+    ["Ivo Novak", "Team Member", "Office Manager", ""],
+    ["Mina Reyes", "Team Member", "", ""],
   ],
 );
 

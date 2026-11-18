@@ -7,6 +7,7 @@ import {
   parsePageSize,
 } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
+import { StaffActiveSwitch } from "@/components/portal/record-controls";
 import {
   listWindow,
   adminApi,
@@ -80,6 +81,20 @@ export default async function AccountingManagersPage({
           filterValues: (row) => row.companies,
           filterOptions: companies.rows.map((company) => company.name),
           cell: (row) => <ChipsCell items={row.companies} />,
+        },
+        {
+          // Inactive, never deleted (Sir, Q17). Last, like every Actions column.
+          header: "Status",
+          filter: "enum",
+          sortValue: (row) => (row.inactive ? "Inactive" : "Active"),
+          cell: (row) => (
+            <StaffActiveSwitch
+              userId={row.userId}
+              name={row.name}
+              inactive={row.inactive}
+              manager={true}
+            />
+          ),
         },
       ]}
     />

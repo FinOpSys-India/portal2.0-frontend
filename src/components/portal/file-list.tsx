@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { PersonCell } from "@/components/admin/initials-avatar";
 import type { Column } from "@/components/admin/data-table";
 import {
@@ -5,8 +7,10 @@ import {
   FileChip,
   FilePreview,
 } from "@/components/portal/file-preview";
+import { SelectBox } from "@/components/portal/delete-documents";
 import { formatFileSize } from "@/lib/manager";
-import { dateKey, documentPath } from "@/lib/portal";
+import { dateKey, documentPath, usDate } from "@/lib/portal";
+import { cn } from "@/lib/utils";
 
 /** What the columns below read. Every portal's file rows satisfy it. */
 export interface FileRow {
@@ -30,10 +34,12 @@ export interface FileRow {
   ownerAvatarUrl?: string | null;
   uploadedAt: string;
   size: number;
+  /** Set on an archived row: when it went into the archive. */
+  archivedAt?: string | null;
 }
 
 /**
- * The file organiser's columns, shared by every portal's copy of that table, so
+ * The file organizer's columns, shared by every portal's copy of that table, so
  * one file reads the same wherever it is looked at.
  *
  * NO COMPANY COLUMN ANYWHERE NOW. 1.0 is always scoped to one company and the
@@ -54,6 +60,8 @@ export const fileColumns = (viewer: string): Column<FileRow>[] => [
     sortValue: (row) => row.name,
     cell: (row) => (
       <span className="flex items-center gap-3">
+        {/* Renders only inside a DocumentSelection — see SelectBox. */}
+        <SelectBox doc={row} viewerId={viewer} />
         <FileChip name={row.name} />
         <span className="min-w-0">
           <FilePreview
@@ -112,3 +120,76 @@ export const fileColumns = (viewer: string): Column<FileRow>[] => [
   },
 ];
 
+
+/**
+ * The Archive tab's columns: the file organizer's, plus the day each file was
+ * archived, with Unarchive in place of Archive on the row's controls.
+ */
+export const archiveColumns = (viewer: string): Column<FileRow>[] => [
+  ...fileColumns(viewer).slice(0, -1),
+  {
+    header: "Archived On",
+    filter: "date",
+    sortValue: (row) => dateKey(row.archivedAt),
+    cell: (row) => (
+      <span className="text-muted-foreground tabular-nums">
+        {row.archivedAt ? usDate(row.archivedAt) : "—"}
+      </span>
+    ),
+  },
+  {
+    header: "",
+    sortValue: false,
+    cell: (row) => <DocumentActions doc={row} viewerId={viewer} archived />,
+  },
+];
+
+/** Which list a Documents page shows, off `?view=`. */
+export type DocumentsView = "documents" | "archive";
+
+export function parseDocumentsView(raw: string | undefined): DocumentsView {
+  return raw === "archive" ? "archive" : "documents";
+}
+
+/**
+ * Documents · Archive over a Documents page. Links, like `ProjectTabs`, so the
+ * tab survives a shared link and the back button; `href` keeps the portal's own
+ * scope on each one.
+ */
+export function DocumentTabs({
+  current,
+  href,
+}: {
+  current: DocumentsView;
+  href: (view: DocumentsView) => string;
+}) {
+  const tabs: { view: DocumentsView; label: string }[] = [
+    { view: "documents", label: "Documents" },
+    { view: "archive", label: "Archive" },
+  ];
+  return (
+    <nav aria-label="Documents or archive" className="flex gap-1 border-b border-border">
+      {tabs.map(({ view, label }) => (
+        <Link
+          key={view}
+          href={href(view)}
+          aria-current={view === current ? "page" : undefined}
+          className={cn(
+            "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors duration-150",
+            view === current
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/** A Documents page link on `view`, keeping any query `path` already has. */
+export function viewHref(path: string, view: DocumentsView): string {
+  if (view === "documents") return path;
+  return `${path}${path.includes("?") ? "&" : "?"}view=archive`;
+}

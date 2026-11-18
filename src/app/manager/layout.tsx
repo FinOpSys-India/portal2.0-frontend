@@ -3,7 +3,9 @@ import { Suspense } from "react";
 
 import { ManagerShell } from "@/components/manager/manager-shell";
 import { NotificationBell } from "@/components/portal/portal-chrome";
+import { ReassignNotice } from "@/components/portal/reassignment";
 import { dayLabel, managerApi, unreadConversations } from "@/lib/manager";
+import { reassignmentNotifications } from "@/lib/portal";
 
 export const metadata: Metadata = {
   title: { default: "Manager – FinOpSys", template: "%s – Manager – FinOpSys" },
@@ -27,25 +29,32 @@ async function UnreadBell() {
    * whose own project, task and document reads had all returned 200. A list
    * nobody can read is worth zero, so it renders empty.
    */
-  const conversations = await managerApi.conversations().catch(() => []);
+  const [conversations, pending] = await Promise.all([
+    managerApi.conversations().catch(() => []),
+    managerApi.reassignments().catch(() => []),
+  ]);
 
   return (
     <NotificationBell
-      items={unreadConversations(conversations).map((c) => ({
-        id: c.id,
-        /*
-         * Company AND party AND thread. The manager's inbox is scoped by both —
-         * `/chat/contacts/...` is per company and per side of the account — so a
-         * link carrying less than all three lands on a roster the message is not
-         * in. The inbox reads `?conversation=` and opens that row.
-         */
-        href: `/manager/connect/chat?company=${encodeURIComponent(c.companyId)}&party=${c.party}&conversation=${encodeURIComponent(c.id)}`,
-        company: c.company,
-        contact: c.contact,
-        preview: c.lastMessage,
-        unread: c.unread,
-        when: c.lastMessageAt ? dayLabel(c.lastMessageAt) : "",
-      }))}
+      items={[
+        // Needs Reassignment first (17 Nov): it is work, not a message.
+        ...reassignmentNotifications(pending, "/manager/companies/"),
+        ...unreadConversations(conversations).map((c) => ({
+          id: c.id,
+          /*
+           * Company AND party AND thread. The manager's inbox is scoped by both —
+           * `/chat/contacts/...` is per company and per side of the account — so a
+           * link carrying less than all three lands on a roster the message is not
+           * in. The inbox reads `?conversation=` and opens that row.
+           */
+          href: `/manager/connect/chat?company=${encodeURIComponent(c.companyId)}&party=${c.party}&conversation=${encodeURIComponent(c.id)}`,
+          company: c.company,
+          contact: c.contact,
+          preview: c.lastMessage,
+          unread: c.unread,
+          when: c.lastMessageAt ? dayLabel(c.lastMessageAt) : "",
+        })),
+      ]}
     />
   );
 }
@@ -57,21 +66,33 @@ export default async function ManagerLayout({
 }) {
   // Only what the frame cannot be drawn without: the reader's name for the
   // account menu, and the companies for the switcher.
-  const [profile, companies] = await Promise.all([
+  const [profile, companies, reassignments] = await Promise.all([
     managerApi.profile(),
     managerApi.companies(),
+    // Built from the same cached company rows, so no extra request.
+    managerApi.reassignments().catch(() => []),
   ]);
 
   return (
     <ManagerShell
       user={{ name: profile.fullName, email: profile.email, avatarUrl: profile.avatarUrl }}
-      companies={companies.map(({ id, name }) => ({ id, name }))}
+      // Inactive companies are frozen (16 Nov): off the switcher, name kept
+      // on the Companies list.
+      companies={companies
+        .filter((c) => !c.inactive)
+        .map(({ id, name }) => ({ id, name }))}
       notifications={
         <Suspense fallback={<NotificationBell />}>
           <UnreadBell />
         </Suspense>
       }
     >
+      <ReassignNotice
+        title="Reassign Specialists"
+        description="A specialist on these companies is inactive. Choose a new specialist for each service; the company’s open projects move to them."
+        items={reassignments}
+        hrefBase="/manager/companies/"
+      />
       {children}
     </ManagerShell>
   );

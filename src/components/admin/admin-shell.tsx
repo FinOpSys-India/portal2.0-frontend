@@ -22,9 +22,15 @@ const NAV: NavItem[] = [
   { href: "/admin/companies", label: "Companies", icon: Building2 },
 ];
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export function AdminShell({
+  notifications,
+  children,
+}: {
+  notifications?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <PortalShell home="/admin/customers" nav={NAV}>
+    <PortalShell home="/admin/customers" nav={NAV} headerRight={notifications}>
       {children}
     </PortalShell>
   );

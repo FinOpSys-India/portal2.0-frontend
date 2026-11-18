@@ -2,18 +2,27 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
 
 import { FormAlert } from "@/components/auth/form-alert";
+import {
+  CHOOSE_TRIGGER,
+  EmptyFace,
+  Face,
+  Handover,
+  Settle,
+  Side,
+  splitInactive,
+} from "@/components/portal/handover";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -34,11 +43,17 @@ import { managerApi, type StaffingLine } from "@/lib/manager";
  * that EVERY active line must be filled in one submission — a form built on the
  * client's own reading of those rules offered choices the save then refused, and
  * refused them wholesale, so nothing was written at all.
+ *
+ * EVERY LINE IS A PICKER (17 Nov): the manager changes a specialist whenever
+ * the work calls for it, and must when the admin made one Inactive. Per
+ * company, never per project — the company's open projects follow.
  */
 export function AssignCompanySpecialist({
   companyId,
   companyName,
   assigned,
+  label,
+  previewLines,
 }: {
   companyId: string;
   companyName: string;
@@ -46,11 +61,17 @@ export function AssignCompanySpecialist({
    * staffed company should say WHO, not offer the verb again — while staying
    * the dialog's trigger, so restaffing is still one click. */
   assigned: string[];
+  /** Overrides the trigger's text, e.g. "Reassign" on the Needs Reassignment banner. */
+  label?: string;
+  /** TEMPORARY, for /reassign-preview: sample lines instead of the server's, and Save writes nothing. */
+  previewLines?: StaffingLine[];
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [lines, setLines] = React.useState<StaffingLine[] | null>(null);
   const [picked, setPicked] = React.useState<Record<string, number>>({});
+  // The option highlighted in an open list: that line's avatar follows it.
+  const [browsing, setBrowsing] = React.useState<{ code: string; id: number } | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
   const [failure, setFailure] = React.useState<string | null>(null);
@@ -61,18 +82,18 @@ export function AssignCompanySpecialist({
     if (!open) return;
     let live = true;
 
-    managerApi
-      .staffing(companyId)
+    (previewLines ? Promise.resolve(previewLines) : managerApi.staffing(companyId))
       .then((rows) => {
         if (!live) return;
         setLines(rows);
         // Whoever holds each line today, so the form opens showing the current
         // staffing rather than three empty selects over a company that is
-        // already staffed.
+        // already staffed. An Inactive holder is not offered, so their line
+        // opens empty and has to be filled before Save.
         setPicked(
           Object.fromEntries(
             rows
-              .filter((row) => row.assigned !== null)
+              .filter((row) => row.assigned !== null && row.replacing === null)
               .map((row) => [row.code, row.assigned as number]),
           ),
         );
@@ -91,18 +112,15 @@ export function AssignCompanySpecialist({
     return () => {
       live = false;
     };
-  }, [open, companyId]);
+  }, [open, companyId, previewLines]);
 
-  // Only the lines nobody holds yet are up for staffing — a staffed line is a
-  // one-way door here, same as admin's accounting-manager assignment.
-  const openLines = (lines ?? []).filter((line) => line.assigned === null);
-  const missing = openLines.some((line) => !picked[line.code]);
+  const missing = (lines ?? []).some((line) => !picked[line.code]);
 
   async function save() {
     setFailure(null);
     setSaving(true);
     try {
-      await managerApi.assignCompanySpecialists(companyId, picked);
+      if (!previewLines) await managerApi.assignCompanySpecialists(companyId, picked);
       setSaved(true);
       router.refresh();
       // Long enough to read the confirmation, short enough not to be a wait.
@@ -129,18 +147,48 @@ export function AssignCompanySpecialist({
     >
       <DialogTrigger asChild>
         {/* relative z-10 keeps the trigger above the row's own click target. */}
-        <Button
-          variant={assigned.length > 0 ? "ghost" : "outline"}
-          size="sm"
-          className="relative z-10"
-        >
-          {assigned.length > 0 ? assigned.join(", ") : "Assign Specialist"}
-        </Button>
+        {assigned.length > 0 && !label ? (
+          // The names ARE the control, with ⇕ — the same as admin's
+          // Accounting Manager cell (17 Nov).
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Reassign specialists, now ${assigned.join(", ")}`}
+            title="Reassign Specialists"
+            className="relative z-10 font-normal"
+          >
+            {assigned.join(", ")}
+            <ChevronsUpDown className="size-3.5 text-muted-foreground" aria-hidden />
+          </Button>
+        ) : (
+          <Button
+            variant={label ? "outline" : "ghost"}
+            size="sm"
+            className={
+              label ? "relative z-10" : "relative z-10 text-primary hover:text-primary"
+            }
+          >
+            {label ?? (
+              <>
+                <Plus className="size-3.5" aria-hidden />
+                Assign
+              </>
+            )}
+          </Button>
+        )}
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign specialists to {companyName}</DialogTitle>
+          <DialogTitle>
+            {assigned.length > 0
+              ? `Reassign Specialists for ${companyName}`
+              : `Assign Specialists to ${companyName}`}
+          </DialogTitle>
+          <DialogDescription>
+            The company’s open projects move to whoever you choose. Completed
+            projects keep their specialist.
+          </DialogDescription>
         </DialogHeader>
 
         {lines === null ? (
@@ -160,76 +208,109 @@ export function AssignCompanySpecialist({
         ) : (
           <div className="space-y-4">
             {lines.map((line) => {
-              /*
-               * A STAFFED LINE IS NOT A PICKER. Assignment is a one-way door —
-               * the same rule admin's accounting-manager cell follows — so a
-               * line that already has someone renders as who holds it. The id
-               * still rides along in `picked`: `PUT` restates the WHOLE
-               * staffing or refuses the submission outright.
-               *
-               * The name comes from the line's own eligible list, the only
-               * place this endpoint spells one out; `assigned` carries a bare
-               * user id.
-               */
-              const held =
-                line.assigned === null
-                  ? null
-                  : (line.options.find((o) => o.userId === line.assigned)
-                      ?.name ?? "Assigned");
-
+              // Before → after per service (17 Nov). The holder is named from
+              // the line's own options, or `replacing` when they are Inactive.
+              const holder =
+                line.replacing ??
+                line.options.find((o) => o.userId === line.assigned)?.name ??
+                null;
+              const was = holder ? splitInactive(holder) : null;
+              const chosen = picked[line.code];
+              const changed = chosen !== undefined && chosen !== line.assigned;
+              const shownId =
+                browsing?.code === line.code ? browsing.id : chosen;
+              const shown = line.options.find((o) => o.userId === shownId);
               return (
                 <div key={line.code} className="space-y-2">
-                  <Label htmlFor={held ? undefined : `staff-${line.code}`}>
-                    {line.name} Specialist
-                  </Label>
-
-                  {held ? (
-                    <p className="rounded-lg border bg-muted/40 px-3.5 py-2.5 text-sm">
-                      {held}
-                    </p>
-                  ) : (
-                    <Select
-                      value={picked[line.code]?.toString() ?? ""}
-                      onValueChange={(value) =>
-                        setPicked((prev) => ({
-                          ...prev,
-                          [line.code]: Number(value),
-                        }))
-                      }
-                      disabled={line.options.length === 0 || saving}
-                    >
-                      <SelectTrigger id={`staff-${line.code}`} className="w-full">
-                        <SelectValue
-                          placeholder={
-                            line.options.length === 0
-                              ? `No ${line.name.toLowerCase()} specialist available`
-                              : "Select your specialist"
+                  <p className="text-center text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    {line.name}
+                  </p>
+                  <Handover
+                    compact
+                    ready={changed}
+                    from={
+                      <Side
+                        compact
+                        avatar={
+                          was ? (
+                            <Face
+                              compact
+                              name={was.name}
+                              src={line.holderAvatarUrl}
+                              dimmed={changed}
+                            />
+                          ) : (
+                            <EmptyFace compact />
+                          )
+                        }
+                      >
+                        <span className="max-w-full truncate text-sm font-medium">
+                          {was?.name ?? "Nobody yet"}
+                        </span>
+                        {was?.inactive ? (
+                          <span className="text-xs text-destructive">(inactive)</span>
+                        ) : null}
+                      </Side>
+                    }
+                    to={
+                      <Side
+                        compact
+                        avatar={
+                          <Settle key={shown?.userId ?? "nobody"}>
+                            {shown ? (
+                              <Face
+                                compact
+                                name={shown.name}
+                                src={shown.avatarUrl}
+                                ringed={changed && browsing?.code !== line.code}
+                              />
+                            ) : (
+                              <EmptyFace compact />
+                            )}
+                          </Settle>
+                        }
+                      >
+                        <Select
+                          value={chosen?.toString() ?? ""}
+                          onValueChange={(value) =>
+                            setPicked((prev) => ({
+                              ...prev,
+                              [line.code]: Number(value),
+                            }))
                           }
-                        />
-                      </SelectTrigger>
-
-                      <SelectContent>
-                        {line.options.map((option) => (
-                          <SelectItem
-                            key={option.userId}
-                            value={String(option.userId)}
+                          onOpenChange={(next) => !next && setBrowsing(null)}
+                          disabled={line.options.length === 0 || saving}
+                        >
+                          <SelectTrigger
+                            aria-label={`${line.name} specialist`}
+                            className={CHOOSE_TRIGGER}
                           >
-                            {option.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                            <SelectValue
+                              placeholder={
+                                line.options.length === 0 ? "None available" : "Choose"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent position="popper" align="center">
+                            {line.options.map((option) => (
+                              <SelectItem
+                                key={option.userId}
+                                value={String(option.userId)}
+                                onFocus={() =>
+                                  setBrowsing({ code: line.code, id: option.userId })
+                                }
+                              >
+                                {option.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Side>
+                    }
+                  />
                 </div>
               );
             })}
-
-            {openLines.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Every active service is staffed. Assignments cannot be changed
-                here.
-              </p>
-            ) : null}
           </div>
         )}
 
@@ -245,9 +326,7 @@ export function AssignCompanySpecialist({
           </p>
         ) : null}
 
-        {/* Nothing to save on a fully staffed company — there is no line left
-            to fill, and the ones that are filled do not change from here. */}
-        {lines !== null && openLines.length > 0 ? (
+        {lines !== null && lines.length > 0 ? (
           <Button
             type="button"
             onClick={save}

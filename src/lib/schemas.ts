@@ -146,6 +146,8 @@ export const newProjectSchema = z.object({
     .refine((value) => value > new Date().toISOString().slice(0, 10), {
       message: "Pick a date after today.",
     }),
+  /** Optional link back to an earlier project — see PreviousProject. */
+  previousProjectId: z.string().optional(),
 });
 
 export type NewProjectValues = z.infer<typeof newProjectSchema>;
@@ -163,6 +165,18 @@ export const managerProjectSchema = newProjectSchema.extend({
 });
 
 export type ManagerProjectValues = z.infer<typeof managerProjectSchema>;
+
+/**
+ * Edit Project. No after-today rule on the deadline: an overdue project keeps
+ * its date when only the name changes, and the picker's `min` stops a new one
+ * being set in the past.
+ */
+export const editProjectSchema = z.object({
+  name: z.string().trim().min(1, "Enter a project name."),
+  deadline: z.string().min(1, "Pick a deadline."),
+});
+
+export type EditProjectValues = z.infer<typeof editProjectSchema>;
 
 /**
  * Add Task, on the manager's project detail.

@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AddTask } from "@/components/portal/add-task";
+import {
+  DocumentSelection,
+  SelectBox,
+  SelectionBar,
+} from "@/components/portal/delete-documents";
 import { DocumentActions, FilePreview } from "@/components/portal/file-preview";
 import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
+import { FrozenProject } from "@/components/portal/record-controls";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { ProjectDeadline } from "@/components/portal/project-deadline";
@@ -61,6 +68,22 @@ export default async function SpecialistProjectPage({
   });
   if (elsewhere) redirect(elsewhere);
 
+  // Frozen (16 Nov): name only. The specialist never holds the switch.
+  const companyInactive =
+    (await specialistApi.companies()).find((c) => c.id === project.companyId)
+      ?.inactive ?? false;
+  if (companyInactive || project.inactive) {
+    return (
+      <>
+        <PageHeader
+          title="Project Details"
+          description={`${project.name} · ${project.company}`}
+        />
+        <FrozenProject companyInactive={companyInactive} creator={false} />
+      </>
+    );
+  }
+
   const [tasks, documents, viewer] = await Promise.all([
     specialistApi.tasks(project.id),
     specialistApi.documents(project.companyId),
@@ -68,6 +91,8 @@ export default async function SpecialistProjectPage({
   ]);
 
   const attached = documents.filter((d) => d.project === project.name);
+  // Completed is final until the accounting manager reopens it.
+  const completed = project.status === "Completed";
 
   return (
     <>
@@ -90,16 +115,18 @@ export default async function SpecialistProjectPage({
           <section className="rounded-xl border border-border bg-card">
             <div className="flex items-center justify-between gap-4 border-b border-border p-6">
               <h2 className="text-sm font-semibold">Tasks</h2>
-              <AddTask
-                from="specialist"
-                projects={[
-                  {
-                    id: project.id,
-                    name: project.name,
-                    deadline: project.deadline,
-                  },
-                ]}
-              />
+              {!completed && (
+                <AddTask
+                  from="specialist"
+                  projects={[
+                    {
+                      id: project.id,
+                      name: project.name,
+                      deadline: project.deadline,
+                    },
+                  ]}
+                />
+              )}
             </div>
 
             <ProjectTaskTable
@@ -107,6 +134,7 @@ export default async function SpecialistProjectPage({
               from="specialist"
               sort={sort}
               dir={dir}
+              locked={completed}
             />
           </section>
 
@@ -124,58 +152,80 @@ export default async function SpecialistProjectPage({
             <DetailRow label="Service" value={project.service} />
             <DetailRow label="Company Name" value={project.company} />
             <DetailRow label="Created By" value={project.createdBy} />
+            {project.previousProject && (
+              <DetailRow
+                label="Previous Project"
+                value={
+                  <Link
+                    href={scoped(
+                      `/specialist/projects/${encodeURIComponent(project.previousProject.id)}`,
+                      project.companyId,
+                    )}
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    {project.previousProject.name}
+                  </Link>
+                }
+              />
+            )}
           </DetailSection>
         </div>
 
-        <section className="rounded-xl border border-border bg-card p-6 lg:self-start">
-          <h2 className="mb-4 text-sm font-semibold">Documents</h2>
+        <DocumentSelection>
+          <section className="rounded-xl border border-border bg-card p-6 lg:self-start">
+            <h2 className="mb-4 text-sm font-semibold">Documents</h2>
 
-          <div className="mb-4 flex gap-2">
-            {/*
-             * Upload was disabled behind "the backend does not have file
-             * storage yet". It does — GET /api/health reports
-             * `storage: "supabase"`, and Documents on the next tab has
-             * been uploading through the same three-step handshake all along.
-             * The dialog is pre-scoped to this project, so there is nothing to
-             * choose here that the page does not already know.
-             *
-             * Download stays out: the bulk endpoint is a POST returning signed
-             * links, and no boundary function calls it yet. A per-file control
-             * belongs on the row rather than above the list.
-             */}
-            <SpecialistUploadFile
-              companies={[{ id: project.companyId, name: project.company }]}
-              projects={[{ name: project.name, companyId: project.companyId }]}
-              fixed
-            />
-          </div>
+            <div className="mb-4 flex gap-2">
+              {/*
+               * Upload was disabled behind "the backend does not have file
+               * storage yet". It does — GET /api/health reports
+               * `storage: "supabase"`, and Documents on the next tab has
+               * been uploading through the same three-step handshake all along.
+               * The dialog is pre-scoped to this project, so there is nothing to
+               * choose here that the page does not already know.
+               *
+               * Download stays out: the bulk endpoint is a POST returning signed
+               * links, and no boundary function calls it yet. A per-file control
+               * belongs on the row rather than above the list.
+               */}
+              {!completed && (
+                <SpecialistUploadFile
+                  companies={[{ id: project.companyId, name: project.company }]}
+                  projects={[{ name: project.name, companyId: project.companyId }]}
+                  fixed
+                />
+              )}
+              <SelectionBar />
+            </div>
 
-          {attached.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No files attached.</p>
-          ) : (
-            <ul className="divide-y divide-border border-t border-border">
-              {attached.map((doc) => (
-                <li key={doc.id} className="flex items-center gap-2 py-3">
-                  <span className="min-w-0 flex-1 text-sm">
-                    <FilePreview
-                      name={doc.name}
-                      href={documentPath(doc)}
-                      size={doc.size}
-                      className="block max-w-full"
-                    />
-                    {/* Who put it there and when — the two facts the file
-                        organiser's own columns carry, and the two a reader
-                        cannot get from the name. */}
-                    <span className="block text-xs text-muted-foreground">
-                      {doc.owner} · <span className="tabular-nums">{doc.uploadedAt} · {formatFileSize(doc.size)}</span>
+            {attached.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No files attached.</p>
+            ) : (
+              <ul className="divide-y divide-border border-t border-border">
+                {attached.map((doc) => (
+                  <li key={doc.id} className="flex items-center gap-2 py-3">
+                    <SelectBox doc={doc} viewerId={viewer} />
+                    <span className="min-w-0 flex-1 text-sm">
+                      <FilePreview
+                        name={doc.name}
+                        href={documentPath(doc)}
+                        size={doc.size}
+                        className="block max-w-full"
+                      />
+                      {/* Who put it there and when — the two facts the file
+                          organizer's own columns carry, and the two a reader
+                          cannot get from the name. */}
+                      <span className="block text-xs text-muted-foreground">
+                        {doc.owner} · <span className="tabular-nums">{doc.uploadedAt} · {formatFileSize(doc.size)}</span>
+                      </span>
                     </span>
-                  </span>
-                  <DocumentActions doc={doc} viewerId={viewer} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                    <DocumentActions doc={doc} viewerId={viewer} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </DocumentSelection>
       </div>
     </>
   );

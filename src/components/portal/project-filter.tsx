@@ -21,8 +21,10 @@ export function ProjectFilter({ projects }: { projects: string[] }) {
       label="Project"
       menuLabel="Filter by project"
       // The company scope outranks this filter and must survive it. The page
-      // number and the column filters describe the project being left.
-      keep={["company", "sort", "dir", "size"]}
+      // number and the column filters describe the project being left. The
+      // Documents/Archive tab is kept too: switching project stays on its tab.
+      // So is the customer's service, which is the sidebar row they are under.
+      keep={["company", "view", "service", "sort", "dir", "size"]}
       variant="outline"
     />
   );

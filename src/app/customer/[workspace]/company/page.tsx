@@ -7,10 +7,11 @@ import {
   parsePageSize,
 } from "@/components/admin/data-table";
 import { AvatarStack } from "@/components/admin/initials-avatar";
+import { CompanyRowActions } from "@/components/portal/record-controls";
 import { Badge } from "@/components/ui/badge";
 import { api, unpaidCompanyIds } from "@/lib/api";
 import { customerApi, type CustomerCompany } from "@/lib/customer";
-import { dateKey, withTeammates } from "@/lib/portal";
+import { dateKey, mustPayToReactivate, withTeammates } from "@/lib/portal";
 
 import { AddCompany } from "./add-company";
 import { parseFilters } from "@/lib/table-filter";
@@ -92,6 +93,7 @@ export default async function CompanyPage({
           cell: (row) => (
             <span className="flex items-center gap-2">
               <span className="font-medium">{row.name}</span>
+              {row.inactive && <Badge variant="secondary">Inactive</Badge>}
               {unpaid.includes(row.id) && (
                 <Badge variant="destructive">Payment Pending</Badge>
               )}
@@ -127,6 +129,26 @@ export default async function CompanyPage({
           sortValue: (row) => row.teamMembers.length,
           cell: (row) => <AvatarStack people={row.teamMembers} />,
         },
+        // The owner's Inactive / Delete (17 Nov), same as the company page.
+        // A teammate gets no column: neither is theirs and the API refuses both.
+        ...(status.isOwner
+          ? [
+              {
+                header: "Actions",
+                filter: false as const,
+                sortValue: false as const,
+                cell: (row: CustomerCompany) => (
+                  <CompanyRowActions
+                    company={row}
+                    mustPay={mustPayToReactivate(
+                      row.paidUntil,
+                      unpaid.includes(row.id),
+                    )}
+                  />
+                ),
+              },
+            ]
+          : []),
       ]}
     />
   );

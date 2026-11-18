@@ -4,8 +4,13 @@ import * as React from "react";
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { ChevronLeft, LogOut, type LucideIcon } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  ChevronDown,
+  ChevronLeft,
+  LogOut,
+  type LucideIcon,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -19,18 +24,208 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
-export type NavItem = {
+type NavLink = {
   href: string;
   label: string;
-  icon: LucideIcon;
+  /**
+   * Params the URL must carry for this row to be lit, on top of the path. The
+   * customer's service rows share one path and differ only in `?service=`.
+   * Not read off `href`: the manager's rows carry `?company=` there, and must
+   * stay lit without it.
+   */
+  query?: Record<string, string>;
+  /**
+   * A number beside the row: something under it is new or unread. `label` is
+   * the word a screen reader hears after it ("3 unread").
+   */
+  badge?: { count: number; label: string };
 };
+
+export type NavItem = NavLink & {
+  icon: LucideIcon;
+  /** Pages under this row, drawn indented beneath it. */
+  children?: NavLink[];
+};
+
+/**
+ * Whether the reader is on a nav row, or with `under` on a page beneath it.
+ * A prefix match, so a detail page keeps its section lit, and on the path
+ * only: see `query` above for the rows that need more.
+ *
+ * Reads `useSearchParams`, so whatever calls this sits inside a Suspense
+ * boundary: the build refuses the hook outside one. Every portal page is
+ * rendered per request, where the hook answers on the server and the boundary
+ * never shows its fallback.
+ */
+function useOnRow() {
+  const pathname = usePathname();
+  const search = useSearchParams();
+  return (item: NavLink, under = false) =>
+    pathname.startsWith(`${item.href.split("?")[0]}${under ? "/" : ""}`) &&
+    Object.entries(item.query ?? {}).every(
+      ([key, value]) => search.get(key) === value,
+    );
+}
+
+/** Inverted on the lit row, where the row itself is the solid purple. */
+function NavBadge({ badge }: { badge: NavLink["badge"] }) {
+  if (!badge?.count) return null;
+  return (
+    <span className="ml-auto inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-[5px] bg-primary px-1 text-[0.6875rem] leading-none font-medium tabular-nums text-primary-foreground group-data-[active=true]/menu-button:bg-primary-foreground group-data-[active=true]/menu-button:text-primary">
+      {badge.count > 99 ? "99+" : badge.count}
+      <span className="sr-only"> {badge.label}</span>
+    </span>
+  );
+}
+
+/*
+ * Which rows the reader has folded shut, by label, so a row folded on one
+ * company stays folded on the next. Kept in this browser: it is a view
+ * preference, and nothing else reads it.
+ */
+const FOLDED_KEY = "portal:nav-folded";
+
+function parseFolded(raw: string): string[] {
+  try {
+    const labels: unknown = JSON.parse(raw);
+    return Array.isArray(labels)
+      ? labels.filter((label): label is string => typeof label === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function NavMenu({ nav }: { nav: NavItem[] }) {
+  const onRow = useOnRow();
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+
+  // The server has no storage to read, so it renders every row open.
+  const stored = React.useSyncExternalStore(
+    () => () => {},
+    () => {
+      try {
+        return localStorage.getItem(FOLDED_KEY) ?? "[]";
+      } catch {
+        return "[]";
+      }
+    },
+    () => "[]",
+  );
+  // What was toggled here, for a browser whose storage refuses the write.
+  const [changed, setChanged] = React.useState<string | null>(null);
+  const folded = parseFolded(changed ?? stored);
+
+  function toggle(label: string) {
+    const next = JSON.stringify(
+      folded.includes(label)
+        ? folded.filter((other) => other !== label)
+        : [...folded, label],
+    );
+    try {
+      localStorage.setItem(FOLDED_KEY, next);
+    } catch {}
+    setChanged(next);
+  }
+
+  return (
+    <SidebarMenu>
+      {nav.map((item) => {
+        const shut = !!item.children && folded.includes(item.label);
+        // Its pages are out of sight, folded shut or on the collapsed rail, so
+        // the row speaks for them: it is lit when one of them is, and carries
+        // their numbers added up.
+        const alone = shut || collapsed;
+        const badges = [item, ...(item.children ?? [])].flatMap((row) =>
+          row.badge?.count ? [row.badge] : [],
+        );
+        const total = badges.reduce((sum, badge) => sum + badge.count, 0);
+
+        return (
+          <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton
+              asChild
+              isActive={
+                item.children
+                  ? alone && item.children.some((child) => onRow(child))
+                  : onRow(item)
+              }
+              tooltip={item.label}
+            >
+              <Link href={item.href}>
+                <item.icon aria-hidden />
+                <span>{item.label}</span>
+                {/* On the rail the number is clipped with the label, and a
+                    screen reader still hears it; the dot below is what shows. */}
+                <NavBadge
+                  badge={
+                    !item.children
+                      ? item.badge
+                      : alone && total > 0
+                        ? { count: total, label: badges[0].label }
+                        : undefined
+                  }
+                />
+              </Link>
+            </SidebarMenuButton>
+            {collapsed && total > 0 ? (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute top-0 right-0 size-2 rounded-xs bg-primary ring-2 ring-sidebar"
+              />
+            ) : null}
+            {item.children ? (
+              <button
+                type="button"
+                // Named a menu action so the row beside it leaves room.
+                data-sidebar="menu-action"
+                onClick={() => toggle(item.label)}
+                aria-expanded={!shut}
+                aria-label={`${shut ? "Show" : "Hide"} ${item.label} pages`}
+                className="absolute top-2 right-0.5 flex size-7 items-center justify-center rounded-md text-sidebar-foreground ring-sidebar-ring outline-hidden transition-colors duration-150 group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 peer-data-[active=true]/menu-button:text-primary-foreground peer-data-[active=true]/menu-button:hover:bg-primary-foreground/15"
+              >
+                <ChevronDown
+                  aria-hidden
+                  className={cn(
+                    "size-4 transition-transform duration-150",
+                    shut && "-rotate-90",
+                  )}
+                />
+              </button>
+            ) : null}
+            {item.children && !shut ? (
+              <SidebarMenuSub>
+                {item.children.map((child) => (
+                  <SidebarMenuSubItem key={child.href}>
+                    <SidebarMenuSubButton asChild isActive={onRow(child)}>
+                      <Link href={child.href}>
+                        <span>{child.label}</span>
+                        <NavBadge badge={child.badge} />
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                ))}
+              </SidebarMenuSub>
+            ) : null}
+          </SidebarMenuItem>
+        );
+      })}
+    </SidebarMenu>
+  );
+}
 
 /**
  * The frame every portal shares: side menu for navigation, top bar for
@@ -56,15 +251,6 @@ export function PortalShell({
   headerRight?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-
-  // Inner pages go back to the nav section they live under, so the top bar
-  // derives the back link instead of every detail page repeating one. Longest
-  // match wins; sections carry ?company= that the link has to keep.
-  const back = nav
-    .filter((item) => pathname.startsWith(`${item.href.split("?")[0]}/`))
-    .sort((a, b) => b.href.length - a.href.length)[0];
-
   return (
     <TooltipProvider>
       <SidebarProvider>
@@ -94,25 +280,9 @@ export function PortalShell({
                 <SidebarGroupLabel>{groupLabel}</SidebarGroupLabel>
               ) : null}
               <SidebarGroupContent>
-                <SidebarMenu>
-                  {nav.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        asChild
-                        // Prefix match so a detail page keeps its section lit.
-                        // Compared against the path only: manager nav hrefs
-                        // carry ?company=, which would never prefix-match.
-                        isActive={pathname.startsWith(item.href.split("?")[0])}
-                        tooltip={item.label}
-                      >
-                        <Link href={item.href}>
-                          <item.icon aria-hidden />
-                          <span>{item.label}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
+                <React.Suspense>
+                  <NavMenu nav={nav} />
+                </React.Suspense>
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
@@ -133,9 +303,9 @@ export function PortalShell({
             {/* Mobile sidebar is a sheet, so its own trigger is unreachable
                 once it closes. Desktop keeps the trigger in the menu. */}
             <SidebarTrigger className="-ml-1 md:hidden" />
-            {back ? (
-              <BackLink href={back.href} label={back.label} />
-            ) : null}
+            <React.Suspense>
+              <BackSlot nav={nav} />
+            </React.Suspense>
             <div className="ml-auto flex items-center gap-3">{headerRight}</div>
           </header>
 
@@ -188,6 +358,21 @@ function LogoutButton() {
       <span>{pending ? "Signing out…" : "Log Out"}</span>
     </SidebarMenuButton>
   );
+}
+
+/**
+ * Inner pages go back to the nav section they live under, so the top bar
+ * derives the back link instead of every detail page repeating one. Longest
+ * match wins; sections carry ?company= that the link has to keep. A row with
+ * pages under it stands aside for them: the page is what was left.
+ */
+function BackSlot({ nav }: { nav: NavItem[] }) {
+  const onRow = useOnRow();
+  const back = nav
+    .flatMap((item): NavLink[] => item.children ?? [item])
+    .filter((item) => onRow(item, true))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+  return back ? <BackLink href={back.href} label={back.label} /> : null;
 }
 
 /**

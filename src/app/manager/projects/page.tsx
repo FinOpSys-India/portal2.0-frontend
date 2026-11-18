@@ -9,6 +9,7 @@ import { PersonCell } from "@/components/admin/initials-avatar";
 import { ExportProjectsCsv } from "@/components/portal/export-csv";
 import { ProgressBar } from "@/components/portal/progress-bar";
 import { ProjectDeadline } from "@/components/portal/project-deadline";
+import { ProjectTabs } from "@/components/portal/project-tabs";
 import {
   companyScope,
   managerApi,
@@ -20,6 +21,8 @@ import {
 
 import { NewProject } from "./new-project";
 import { parseFilters } from "@/lib/table-filter";
+import { ProjectRowActions } from "@/components/portal/record-controls";
+import { parseProjectTab, projectTab, tabHref, viewerId } from "@/lib/portal";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -33,9 +36,11 @@ export default async function ManagerProjectsPage({
     sort?: string;
     dir?: string;
     f?: string | string[];
+    tab?: string;
   }>;
 }) {
   const {
+    tab: rawTab,
     company: picked,
     page: rawPage,
     size: rawSize,
@@ -46,9 +51,10 @@ export default async function ManagerProjectsPage({
   const page = parsePage(rawPage);
   const size = parsePageSize(rawSize);
   const company = await companyScope(picked);
-  const [projects, companies] = await Promise.all([
+  const [projects, companies, viewer] = await Promise.all([
     managerApi.projects(company),
     managerApi.companies(),
+    viewerId(),
   ]);
 
   // `POST /projects` admits an ACCOUNTING_MANAGER and always has; this
@@ -58,6 +64,8 @@ export default async function ManagerProjectsPage({
   // Columns are 1.0's, in 1.0's order. Status is deliberately absent: it
   // is not a column there, it lives on the project detail.
   const scope = await scopeName(company);
+  const tab = parseProjectTab(rawTab);
+  const rows = projects.filter((p) => projectTab(p) === tab);
 
   return (
     <DataTable<ManagedProject>
@@ -69,7 +77,14 @@ export default async function ManagerProjectsPage({
       sort={sort}
       dir={dir}
       filters={parseFilters(f)}
-      total={projects.length}
+      total={rows.length}
+      tabs={
+        <ProjectTabs
+          current={tab}
+          projects={projects}
+          href={(t) => tabHref(scoped("/manager/projects", company), t)}
+        />
+      }
       exportCsv={(filtered) => (
         <ExportProjectsCsv
           companyId={company}
@@ -84,12 +99,19 @@ export default async function ManagerProjectsPage({
       action={
         <NewProject
           companies={companies.map(({ id, name }) => ({ id, name }))}
+          projects={projects.map(({ id, name, companyId }) => ({
+            id,
+            name,
+            companyId,
+          }))}
           defaultCompanyId={company}
         />
       }
-      rows={projects}
+      rows={rows}
       rowHref={(row) => scoped(`/manager/projects/${row.id}`, company)}
-      empty="No projects for this company."
+      empty={
+        tab === "active" ? "No projects for this company." : `No ${tab} projects.`
+      }
       columns={[
         {
           header: "Project Name",
@@ -150,6 +172,16 @@ export default async function ManagerProjectsPage({
           filter: false,
           sortValue: (row) => row.progress,
           cell: (row) => <ProgressBar value={row.progress} />,
+        },
+        {
+          // The creator's Inactive / Edit / Delete (15 Nov); empty for anyone
+          // else, same rule as the project page.
+          header: "Actions",
+          filter: false,
+          sortValue: false,
+          cell: (row) => (
+            <ProjectRowActions project={row} mine={row.creatorId === viewer} />
+          ),
         },
       ]}
     />

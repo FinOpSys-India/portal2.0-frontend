@@ -4,6 +4,9 @@ import { notFound, redirect } from "next/navigation";
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AvatarStack } from "@/components/admin/initials-avatar";
 import { PageHeader } from "@/components/portal/portal-shell";
+import { FrozenNotice } from "@/components/portal/record-controls";
+import { ReassignmentBanner } from "@/components/portal/reassignment";
+import { AssignCompanySpecialist } from "@/components/manager/assign-company-specialist";
 import {
   SortableHeadRow,
   sortRows,
@@ -65,11 +68,34 @@ export default async function ManagerCompanyPage({
 
   if (!company) notFound();
 
+  if (company.inactive) {
+    return (
+      <>
+        <PageHeader title="Company Details" description={company.name} />
+        <FrozenNotice>
+          This company is inactive, so nothing under it can be opened until its
+          owner makes it active again.
+        </FrozenNotice>
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeader title="Company Details" description={company.name} />
 
       <div className="grid gap-6">
+        {company.inactiveSpecialists.length > 0 ? (
+          <ReassignmentBanner detail={company.inactiveSpecialists.join("; ")}>
+            <AssignCompanySpecialist
+              companyId={company.id}
+              companyName={company.name}
+              assigned={company.specialists}
+              label="Reassign"
+            />
+          </ReassignmentBanner>
+        ) : null}
+
         <DetailSection title="General Information">
           <DetailRow label="Company Name" value={company.name} />
           <DetailRow label="Company Email" value={company.email} />

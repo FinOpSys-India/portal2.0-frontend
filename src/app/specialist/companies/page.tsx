@@ -51,7 +51,8 @@ export default async function SpecialistCompaniesPage({
   const scopedRows = company ? all.filter((c) => c.id === company) : all;
   // Same completion as the manager's table: the company read names our side of
   // the account, and the customer's own teammates come from GET /teammates.
-  const companies = await withTeammates(scopedRows);
+  // Inactive companies are frozen (16 Nov) and leave a specialist's list.
+  const companies = await withTeammates(scopedRows.filter((c) => !c.inactive));
 
   return (
     <DataTable<ClientCompany>

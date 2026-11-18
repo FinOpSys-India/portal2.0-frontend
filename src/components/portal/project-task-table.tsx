@@ -33,7 +33,7 @@ import { parseDeadline, type ProjectTask } from "@/lib/manager";
  *
  * No Project Name, which the other two carry. This table is already on one
  * project's page, so the cell would repeat that project's name down every row —
- * the same reason the file organisers dropped their Company column.
+ * the same reason the file organizers dropped their Company column.
  */
 /*
  * WIDTHS ON THREE OF THE FOUR. `w-*` lands on the header cell, which is what
@@ -91,13 +91,16 @@ export function ProjectTaskTable({
   from,
   sort,
   dir,
+  locked = false,
 }: {
   tasks: ProjectTask[];
   from: "manager" | "specialist" | "customer";
   sort?: string;
   dir?: string;
+  /** A completed project: statuses read, not moved, until it's reopened. */
+  locked?: boolean;
 }) {
-  const writable = from !== "customer";
+  const writable = from !== "customer" && !locked;
   const [openId, setOpenId] = React.useState<string | null>(null);
 
   // Read back out of `tasks` rather than holding the task: a status change

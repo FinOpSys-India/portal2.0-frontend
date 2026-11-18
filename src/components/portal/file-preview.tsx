@@ -2,8 +2,12 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Download, Eye, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Download, Eye, Trash2 } from "lucide-react";
 
+import {
+  DocumentsDialog,
+  type DocumentsAction,
+} from "@/components/portal/delete-documents";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +19,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { fileKind, formatFileSize } from "@/lib/manager";
-import { deleteDocument, documentPath } from "@/lib/portal";
+import { documentPath, unarchiveDocument } from "@/lib/portal";
 import { cn } from "@/lib/utils";
 
 /**
@@ -198,7 +202,8 @@ export function PreviewDialog({
 }
 
 /**
- * The row's controls: preview, download, and — for your own uploads — delete.
+ * The row's controls: preview, download, and — for your own uploads — archive
+ * and delete.
  *
  * DELETE IS THE UPLOADER'S ALONE here. The server allows more (anyone with
  * write access to the project may remove a file), but "you can delete what you
@@ -209,41 +214,42 @@ export function PreviewDialog({
 export function DocumentActions({
   doc,
   viewerId,
+  archived = false,
 }: {
   doc: {
     id: string;
     projectId: string | null;
     name: string;
+    /** Named in the delete warning when the row has it. */
+    project?: string | null;
     ownerId: string | null;
     size: number;
   };
   /** The signed-in user, from `viewerId()`. */
   viewerId: string;
+  /** On the Archive tab: offer Unarchive instead of Archive. */
+  archived?: boolean;
 }) {
   const router = useRouter();
-  const [pending, setPending] = React.useState(false);
-  const href = documentPath(doc);
-  const mine = doc.ownerId !== null && doc.ownerId === viewerId;
+  const [action, setAction] = React.useState<DocumentsAction | null>(null);
+  const [restoring, setRestoring] = React.useState(false);
 
-  async function remove() {
-    if (!doc.projectId || pending) return;
-    // Deleting the bytes is not undoable — the row is kept for history, the
-    // object in the bucket is not — so it is worth one question.
-    if (!window.confirm(`Delete ${doc.name}? This cannot be undone.`)) return;
-
-    setPending(true);
+  // No warning: unarchiving loses nothing, so it is one click and a toast.
+  async function unarchive() {
+    if (!doc.projectId || restoring) return;
+    setRestoring(true);
     try {
-      await deleteDocument(doc.projectId, doc.id);
-      toast.success(`${doc.name} deleted.`);
+      await unarchiveDocument(doc.projectId, doc.id);
+      toast.success(`${doc.name} moved back to Documents.`);
       router.refresh();
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "That file could not be deleted.",
-      );
+    } catch {
+      toast.error(`${doc.name} could not be unarchived.`);
     } finally {
-      setPending(false);
+      setRestoring(false);
     }
   }
+  const href = documentPath(doc);
+  const mine = doc.ownerId !== null && doc.ownerId === viewerId;
 
   return (
     <span className="flex items-center justify-end gap-1">
@@ -268,17 +274,46 @@ export function DocumentActions({
         </>
       ) : null}
 
-      {mine ? (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={remove}
-          disabled={pending}
-          aria-label={`Delete ${doc.name}`}
-          className="text-muted-foreground hover:text-destructive"
-        >
-          {pending ? <Spinner className="size-4" /> : <Trash2 aria-hidden />}
-        </Button>
+      {mine && doc.projectId ? (
+        <>
+          {archived ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={unarchive}
+              disabled={restoring}
+              aria-label={`Unarchive ${doc.name}`}
+              className="text-muted-foreground"
+            >
+              {restoring ? <Spinner className="size-4" /> : <ArchiveRestore aria-hidden />}
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setAction("archive")}
+              aria-label={`Archive ${doc.name}`}
+              className="text-muted-foreground"
+            >
+              <Archive aria-hidden />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setAction("delete")}
+            aria-label={`Delete ${doc.name}`}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 aria-hidden />
+          </Button>
+          <DocumentsDialog
+            action={action ?? "delete"}
+            docs={[doc]}
+            open={action !== null}
+            onOpenChange={(open) => !open && setAction(null)}
+          />
+        </>
       ) : null}
     </span>
   );

@@ -72,9 +72,12 @@ async function myUserId(): Promise<number> {
   return (await get<{ id: number }>("/users/me")).id;
 }
 
+/** Same freeze as the manager's `scopeIds`: an inactive company reads nothing. */
 async function scopeIds(companyId?: string): Promise<string[]> {
-  if (companyId) return [companyId];
-  return (await myCompanies()).map((c) => String(c.id));
+  const companies = await specialistApi.companies();
+  const frozen = new Set(companies.filter((c) => c.inactive).map((c) => c.id));
+  if (companyId) return frozen.has(companyId) ? [] : [companyId];
+  return companies.filter((c) => !c.inactive).map((c) => c.id);
 }
 
 /**
@@ -87,7 +90,9 @@ async function scopeIds(companyId?: string): Promise<string[]> {
 export async function companyScope(
   companyId?: string,
 ): Promise<string | undefined> {
-  return companyId ?? (await specialistApi.companies())[0]?.id;
+  return (
+    companyId ?? (await specialistApi.companies()).find((c) => !c.inactive)?.id
+  );
 }
 
 /**

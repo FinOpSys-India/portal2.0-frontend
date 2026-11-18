@@ -8,17 +8,31 @@ import {
 import {
   fileColumns,
   type FileRow,
+  archiveColumns,
+  DocumentTabs,
+  parseDocumentsView,
+  viewHref,
 } from "@/components/portal/file-list";
+import {
+  DocumentSelection,
+  SelectionBar,
+} from "@/components/portal/delete-documents";
 import { ProjectFilter } from "@/components/portal/project-filter";
-import { companyScope, managerApi } from "@/lib/manager";
-import { viewerId, withService } from "@/lib/portal";
+import { companyScope, managerApi, scoped } from "@/lib/manager";
+import {
+  archivedDocuments,
+  isOpenProject,
+  outsideInactive,
+  viewerId,
+  withService,
+} from "@/lib/portal";
 import { ManagerUploadFile } from "./upload-file";
 import { parseFilters } from "@/lib/table-filter";
 
 export const metadata: Metadata = { title: "Documents" };
 
 /**
- * Documents — the file organiser, newest upload first.
+ * Documents — the file organizer, newest upload first.
  *
  * Two filters, both in the URL: the header's company switcher and this page's
  * project pill. The breadcrumb spells out the resulting scope, because two
@@ -41,6 +55,7 @@ export default async function ManagerDocumentsPage({
     sort?: string;
     dir?: string;
     f?: string | string[];
+    view?: string;
   }>;
 }) {
   const {
@@ -53,6 +68,7 @@ export default async function ManagerDocumentsPage({
     f,
   } = await searchParams;
   const page = parsePage(rawPage);
+  const view = parseDocumentsView((await searchParams).view);
   const size = parsePageSize(rawSize);
   const company = await companyScope(picked);
 
@@ -71,36 +87,56 @@ export default async function ManagerDocumentsPage({
   // From the company list, not from the projects: a company with no projects
   // yet would otherwise leave the breadcrumb blank while scoped to it.
 
+  const rows =
+    view === "archive"
+      ? await archivedDocuments<FileRow>()
+      : withService(outsideInactive(documents, allProjects), allProjects);
+
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <ProjectFilter projects={projects.map((p) => p.name)} />
+        <ProjectFilter projects={projects.filter((p) => !p.inactive).map((p) => p.name)} />
       </div>
 
-      <DataTable<FileRow>
-        page={page}
-        size={size}
-        sort={sort}
-        dir={dir}
-        filters={parseFilters(f)}
-        noun="documents"
-        total={documents.length}
-        rows={withService(documents, allProjects)}
-        title="Documents"
-        action={
-          <ManagerUploadFile
-            companies={companies.map(({ id, name }) => ({ id, name }))}
-            projects={allProjects.map(({ name, companyId }) => ({
-              name,
-              companyId,
-            }))}
-          />
-        }
-        empty={
-          project ? "No documents on this project yet." : "No documents yet."
-        }
-        columns={fileColumns(viewer)}
-      />
+      <DocumentSelection>
+        <DataTable<FileRow>
+          page={page}
+          size={size}
+          sort={sort}
+          dir={dir}
+          filters={parseFilters(f)}
+          noun="documents"
+          total={rows.length}
+          rows={rows}
+          title="Documents"
+          tabs={
+            <DocumentTabs
+              current={view}
+              href={(v) => viewHref(scoped("/manager/documents", company), v)}
+            />
+          }
+          action={
+            <>
+              <SelectionBar archived={view === "archive"} />
+              <ManagerUploadFile
+                companies={companies.map(({ id, name }) => ({ id, name }))}
+                projects={allProjects.filter(isOpenProject).map(({ name, companyId }) => ({
+                  name,
+                  companyId,
+                }))}
+              />
+            </>
+          }
+          empty={
+            view === "archive"
+              ? "No archived documents."
+              : project ? "No documents on this project yet." : "No documents yet."
+          }
+          columns={
+            view === "archive" ? archiveColumns(viewer) : fileColumns(viewer)
+          }
+        />
+      </DocumentSelection>
     </>
   );
 }

@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import {
+  CompanyActiveSwitch,
+  DeleteCompany,
+} from "@/components/portal/record-controls";
 import { PageHeader } from "@/components/portal/portal-shell";
+import { ReassignmentBanner } from "@/components/portal/reassignment";
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AvatarStack } from "@/components/admin/initials-avatar";
 import {
@@ -12,6 +17,7 @@ import {
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { adminApi, type CompanyPlan } from "@/lib/admin";
 import { countryLabel, formatEin } from "@/lib/company";
+import { AssignManager } from "../assign-manager";
 
 const PLAN_COLUMNS: SortableColumn<CompanyPlan>[] = [
   { header: "Service", sortValue: (plan) => plan.service },
@@ -45,11 +51,51 @@ export default async function CompanyDetailPage({
 
   if (!company) notFound();
 
+  // Who can take over (17 Nov): admin reassigns a company's manager at any
+  // time. The options ride on the companies response, so one row of it is
+  // enough.
+  const reassignable = Boolean(company.accountingManager) && !company.inactive;
+  const managers = reassignable
+    ? (await adminApi.companies(1, 1)).managers
+    : [];
+
   return (
     <>
-      <PageHeader title={company.name} description={company.email} />
+      <PageHeader
+        title={company.name}
+        description={company.email}
+        action={
+          <span className="flex flex-wrap items-center gap-4">
+            <CompanyActiveSwitch
+              companyId={company.id}
+              name={company.name}
+              inactive={company.inactive}
+              admin
+            />
+            {/* Admin has master access to delete (Sir, Q2). */}
+            <DeleteCompany
+              companyId={company.id}
+              name={company.name}
+              after="/admin/companies"
+            />
+          </span>
+        }
+      />
 
       <div className="grid gap-6">
+        {company.managerInactive && !company.inactive ? (
+          <ReassignmentBanner detail={company.accountingManager ?? ""}>
+            <AssignManager
+              companyId={company.id}
+              companyName={company.name}
+              managers={managers}
+              replacing={company.accountingManager ?? undefined}
+              replacingAvatarUrl={company.managerAvatarUrl}
+              label="Reassign"
+            />
+          </ReassignmentBanner>
+        ) : null}
+
         <DetailSection title="General Information">
           <DetailRow label="Company Name" value={company.name} />
           <DetailRow label="Company Email" value={company.email} />
@@ -57,7 +103,20 @@ export default async function CompanyDetailPage({
           <DetailRow label="Owner" value={company.owner} />
           <DetailRow
             label="Accounting Manager"
-            value={company.accountingManager}
+            value={
+              // An Inactive manager's Reassign is in the banner above.
+              reassignable && !company.managerInactive ? (
+                <AssignManager
+                  companyId={company.id}
+                  companyName={company.name}
+                  managers={managers}
+                  replacing={company.accountingManager ?? undefined}
+                  replacingAvatarUrl={company.managerAvatarUrl}
+                />
+              ) : (
+                company.accountingManager
+              )
+            }
           />
           <DetailRow label="Next Billing Date" value={company.billingDate} />
         </DetailSection>

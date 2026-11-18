@@ -74,7 +74,7 @@ export function NotificationBell({ items = [] }: { items?: Notification[] }) {
 
       <DropdownMenuContent align="end" className="w-96 p-0">
         <DropdownMenuLabel className="flex items-baseline justify-between px-4 py-3">
-          <span>New Messages</span>
+          <span>Notifications</span>
           {count > 0 ? (
             <span className="text-xs font-normal text-muted-foreground tabular-nums">
               {count} unread
@@ -85,7 +85,7 @@ export function NotificationBell({ items = [] }: { items?: Notification[] }) {
 
         {items.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No new messages.
+            No new notifications.
           </p>
         ) : (
           /* Capped, and the cap is stated. An unbounded dropdown scrolls off the

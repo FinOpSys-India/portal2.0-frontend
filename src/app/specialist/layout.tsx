@@ -32,7 +32,10 @@ export default async function SpecialistLayout({
   // The bell's list is built from these same rows rather than fetching them
   // again: it used to call `companies()` itself, which the data cache absorbed
   // on a warm read and re-issued on the first render after any write.
-  const forBell = companies.map(({ id, name }) => ({ id, name }));
+  // Inactive companies are frozen (16 Nov): off the switcher and the bell.
+  const forBell = companies
+    .filter((c) => !c.inactive)
+    .map(({ id, name }) => ({ id, name }));
 
   return (
     <SpecialistShell

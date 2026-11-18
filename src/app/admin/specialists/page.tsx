@@ -6,6 +6,7 @@ import {
   parsePageSize,
 } from "@/components/admin/data-table";
 import { PersonCell } from "@/components/admin/initials-avatar";
+import { StaffActiveSwitch } from "@/components/portal/record-controls";
 import { listWindow, adminApi, type Specialist } from "@/lib/admin";
 import { InviteSpecialist } from "./invite-specialist";
 import { parseFilters } from "@/lib/table-filter";
@@ -55,6 +56,20 @@ export default async function SpecialistsPage({
           header: "Email",
           cell: (row) => (
             <span className="text-muted-foreground">{row.email}</span>
+          ),
+        },
+        {
+          // Inactive, never deleted (Sir, Q17). Last, like every Actions column.
+          header: "Status",
+          filter: "enum",
+          sortValue: (row) => (row.inactive ? "Inactive" : "Active"),
+          cell: (row) => (
+            <StaffActiveSwitch
+              userId={row.userId}
+              name={row.name}
+              inactive={row.inactive}
+              manager={false}
+            />
           ),
         },
       ]}

@@ -7,6 +7,7 @@ import {
   parsePageSize,
 } from "@/components/admin/data-table";
 import { AvatarStack, PersonCell } from "@/components/admin/initials-avatar";
+import { Badge } from "@/components/ui/badge";
 import { AssignCompanySpecialist } from "@/components/manager/assign-company-specialist";
 import {
   companyScope,
@@ -59,7 +60,11 @@ export default async function ManagerCompaniesPage({
   const scopedRows = company ? all.filter((c) => c.id === company) : all;
   // The column's faces include the customer's own teammates, which no company
   // read carries — one request per row, and this list is one row wide.
-  const companies = await withTeammates(scopedRows);
+  // Inactive companies follow by name only: frozen, nothing under them read.
+  const companies = [
+    ...(await withTeammates(scopedRows.filter((c) => !c.inactive))),
+    ...all.filter((c) => c.inactive),
+  ];
 
   return (
     <DataTable<ClientCompany>
@@ -71,8 +76,11 @@ export default async function ManagerCompaniesPage({
       filters={parseFilters(f)}
       total={companies.length}
       rows={companies}
+      // An inactive company is frozen (16 Nov): its name shows, it doesn't open.
       rowHref={(row) =>
-        scoped(`/manager/companies/${encodeURIComponent(row.id)}`, company)
+        row.inactive
+          ? undefined
+          : scoped(`/manager/companies/${encodeURIComponent(row.id)}`, company)
       }
       empty="No companies assigned to you yet."
       columns={[
@@ -83,7 +91,12 @@ export default async function ManagerCompaniesPage({
           // about one spelling at a time.
           filter: "enum",
           sortValue: (row) => row.name,
-          cell: (row) => <span className="font-medium">{row.name}</span>,
+          cell: (row) => (
+            <span className="inline-flex items-center gap-2 font-medium">
+              {row.name}
+              {row.inactive && <Badge variant="secondary">Inactive</Badge>}
+            </span>
+          ),
         },
         {
           header: "Company Owner",
@@ -121,13 +134,21 @@ export default async function ManagerCompaniesPage({
           // Names once staffed, an Assign button until then. Nothing to order
           // by either way.
           sortValue: false,
-          cell: (row) => (
-            <AssignCompanySpecialist
-              companyId={row.id}
-              companyName={row.name}
-              assigned={row.specialists}
-            />
-          ),
+          cell: (row) =>
+            row.inactive ? null : (
+              <span className="flex flex-wrap items-center gap-2">
+                <AssignCompanySpecialist
+                  companyId={row.id}
+                  companyName={row.name}
+                  assigned={row.specialists}
+                />
+                {/* A specialist made Inactive (17 Nov) is still named, marked
+                    "(inactive)", until the manager reassigns the company. */}
+                {row.inactiveSpecialists.length > 0 ? (
+                  <Badge variant="destructive">Needs Reassignment</Badge>
+                ) : null}
+              </span>
+            ),
         },
       ]}
     />

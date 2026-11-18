@@ -26,3 +26,9 @@ export function tomorrow(): string {
   const day = String(date.getDate()).padStart(2, "0");
   return `${date.getFullYear()}-${month}-${day}`;
 }
+
+/** "11/27/2026" (the tables' M/D/YYYY) as the `yyyy-mm-dd` a date input holds. */
+export function isoDate(us: string): string {
+  const [month, day, year] = us.split("/");
+  return year ? `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}` : "";
+}

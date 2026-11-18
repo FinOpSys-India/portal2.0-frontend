@@ -7,6 +7,7 @@ import {
   InitialsAvatar,
 } from "@/components/admin/initials-avatar";
 import { PageHeader } from "@/components/portal/portal-shell";
+import { FrozenNotice } from "@/components/portal/record-controls";
 import { scopeSwitch, scoped } from "@/lib/manager";
 import { specialistApi } from "@/lib/specialist";
 import { countryLabel, formatEin } from "@/lib/company";
@@ -49,6 +50,18 @@ export default async function SpecialistCompanyPage({
   // Null covers both "no such company" and "you do not work for it".
   const company = await specialistApi.company(id);
   if (!company) notFound();
+
+  if (company.inactive) {
+    return (
+      <>
+        <PageHeader title="Company Details" description={company.name} />
+        <FrozenNotice>
+          This company is inactive, so nothing under it can be opened until its
+          owner makes it active again.
+        </FrozenNotice>
+      </>
+    );
+  }
 
   return (
     <>

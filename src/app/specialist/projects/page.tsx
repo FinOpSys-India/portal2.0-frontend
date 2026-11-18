@@ -9,9 +9,11 @@ import { ExportProjectsCsv } from "@/components/portal/export-csv";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ProgressBar } from "@/components/portal/progress-bar";
 import { ProjectDeadline } from "@/components/portal/project-deadline";
+import { ProjectTabs } from "@/components/portal/project-tabs";
 import { type ManagedProject, parseDeadline, scoped } from "@/lib/manager";
 import { companyScope, scopeName, specialistApi } from "@/lib/specialist";
 import { parseFilters } from "@/lib/table-filter";
+import { parseProjectTab, projectTab, tabHref } from "@/lib/portal";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -33,9 +35,11 @@ export default async function SpecialistProjectsPage({
     sort?: string;
     dir?: string;
     f?: string | string[];
+    tab?: string;
   }>;
 }) {
   const {
+    tab: rawTab,
     company: picked,
     page: rawPage,
     size: rawSize,
@@ -49,6 +53,8 @@ export default async function SpecialistProjectsPage({
   const projects = await specialistApi.projects(company);
 
   const scope = await scopeName(company);
+  const tab = parseProjectTab(rawTab);
+  const rows = projects.filter((p) => projectTab(p) === tab);
 
   return (
     <DataTable<ManagedProject>
@@ -58,7 +64,14 @@ export default async function SpecialistProjectsPage({
       sort={sort}
       dir={dir}
       filters={parseFilters(f)}
-      total={projects.length}
+      total={rows.length}
+      tabs={
+        <ProjectTabs
+          current={tab}
+          projects={projects}
+          href={(t) => tabHref(scoped("/specialist/projects", company), t)}
+        />
+      }
       exportCsv={(filtered) => (
         <ExportProjectsCsv
           companyId={company}
@@ -66,12 +79,14 @@ export default async function SpecialistProjectsPage({
           filtered={filtered}
         />
       )}
-      rows={projects}
+      rows={rows}
       rowHref={(row) => scoped(`/specialist/projects/${row.id}`, company)}
       empty={
-        company
-          ? "No projects assigned to you at this company."
-          : "No projects assigned to you yet."
+        tab !== "active"
+          ? `No ${tab} projects.`
+          : company
+            ? "No projects assigned to you at this company."
+            : "No projects assigned to you yet."
       }
       columns={[
         {

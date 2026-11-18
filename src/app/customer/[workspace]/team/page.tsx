@@ -89,7 +89,14 @@ export default async function TeamPage({
           sortValue: (row) => row.name,
           cell: (row) => <PersonCell name={row.name} avatarUrl={row.avatarUrl} />,
         },
-        { header: "Title", cell: (row) => row.title },
+        // What they are on this account. A checklist: a handful of values,
+        // and "just the specialists" is one tick.
+        { header: "Role", cell: (row) => row.role, filter: "enum" },
+        {
+          header: "Title",
+          cell: (row) =>
+            row.title || <span className="text-muted-foreground">—</span>,
+        },
         /*
          * WHO THEY WORK FOR, because the table now holds both sides of the
          * account — the customer's own colleagues and the FinOpSys staff on it.

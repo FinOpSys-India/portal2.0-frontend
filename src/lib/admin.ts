@@ -10,17 +10,24 @@ import {
   get,
   getOrNull,
   pageQuery,
+  patch,
   post,
   put,
 } from "@/lib/http";
 import { subscription, type BillingView, type Subscription } from "@/lib/billing";
-import { fullName, roleIds, type DirectoryUser } from "@/lib/directory";
+import {
+  fullName,
+  isInactive,
+  roleIds,
+  type DirectoryUser,
+} from "@/lib/directory";
 import { withDialCode } from "@/lib/phone";
 import {
   money,
   teammatePeople,
   usDate,
   type PortalPerson,
+  type Reassignment,
 } from "@/lib/portal";
 
 export type CustomerRole = "Owner" | "Team Member";
@@ -49,18 +56,23 @@ export interface CustomerDetail extends Customer {
   country: string;
 }
 
+/** Shown with the admin's Active switch, so `name` carries no "(inactive)". */
 export interface Specialist {
+  userId: number;
   name: string;
   speciality: string;
   email: string;
   avatarUrl: string | null;
+  inactive: boolean;
 }
 
 export interface AccountingManager {
+  userId: number;
   name: string;
   email: string;
   companies: string[];
   avatarUrl: string | null;
+  inactive: boolean;
 }
 
 export interface Company {
@@ -74,7 +86,12 @@ export interface Company {
   billingDate: string | null;
   teamMembers: PortalPerson[];
   accountingManager: string | null;
+  /** Its accounting manager was made Inactive: Needs Reassignment. */
+  managerInactive: boolean;
+  managerAvatarUrl: string | null;
   status: CompanyStatus;
+  /** Switched off by the owner or an admin: frozen, nothing deleted. */
+  inactive: boolean;
 }
 
 /**
@@ -86,7 +103,7 @@ export interface Company {
  * somebody walked at least part of the onboarding flow, but no payment has
  * landed.
  */
-export type CompanyStatus = "Active" | "Onboarded";
+export type CompanyStatus = "Active" | "Onboarded" | "Inactive";
 
 export interface CompanyPlan {
   service: string;
@@ -114,6 +131,7 @@ export interface Page<T> {
 export interface ManagerOption {
   userId: number;
   name: string;
+  avatarUrl: string | null;
 }
 
 /**
@@ -252,7 +270,7 @@ interface AccountRow {
    */
   enNumber?: string | null;
   owner: Person | null;
-  accountingManager: { firstName: string; lastName: string } | null;
+  accountingManager: Person | null;
   primaryAddress: BackendAddress | null;
   // `planName` is the tier the company is on. There is no price here — see
   // `company()` below.
@@ -274,6 +292,8 @@ interface AccountRow {
 interface Person {
   firstName: string;
   lastName: string;
+  /** `UserStatus`, once `projectDto.toPerson` sends it (Pratibha #5). */
+  status?: string | null;
   /** `projectDto.toPerson` builds one for everyone on a company's team. */
   avatarUrl?: string | null;
 }
@@ -350,19 +370,23 @@ function toCustomer(row: CustomerRow): Customer {
 
 function toSpecialist(row: SpecialistRow): Specialist {
   return {
-    name: fullName(row),
+    userId: row.userId,
+    name: fullName({ ...row, status: null }),
     speciality: row.serviceSpeciality ?? "",
     email: row.email,
     avatarUrl: row.avatarUrl ?? null,
+    inactive: isInactive(row),
   };
 }
 
 function toManager(row: ManagerRow): AccountingManager {
   return {
-    name: fullName(row),
+    userId: row.userId,
+    name: fullName({ ...row, status: null }),
     avatarUrl: row.avatarUrl ?? null,
     email: row.email,
     companies: (row.companies ?? []).map((c) => c.companyName),
+    inactive: isInactive(row),
   };
 }
 
@@ -392,6 +416,10 @@ function toCompany(row: AccountRow): Company {
     accountingManager: row.accountingManager
       ? person(row.accountingManager)
       : null,
+    managerInactive: row.accountingManager
+      ? isInactive(row.accountingManager)
+      : false,
+    managerAvatarUrl: row.accountingManager?.avatarUrl ?? null,
     /*
      * Two states, not the backend's four. `ACTIVE` is the one the payment
      * webhook sets, so it is the only one that means "paid". `SUSPENDED` (paid
@@ -399,7 +427,13 @@ function toCompany(row: AccountRow): Company {
      * claiming an account is live — this column answers "has money arrived",
      * and for those two the answer today is no.
      */
-    status: row.status === "ACTIVE" ? "Active" : "Onboarded",
+    status:
+      row.status === "ACTIVE"
+        ? "Active"
+        : row.status === "INACTIVE"
+          ? "Inactive"
+          : "Onboarded",
+    inactive: row.status === "INACTIVE",
   };
 }
 
@@ -560,10 +594,14 @@ export const adminApi = {
     return {
       rows: data.companies.map(toCompany),
       total: data.pagination.total,
-      managers: data.accountingManagers.map((m) => ({
-        userId: m.userId,
-        name: fullName(m),
-      })),
+      // An Inactive manager is never offered for a company (17 Nov).
+      managers: data.accountingManagers
+        .filter((m) => !isInactive(m))
+        .map((m) => ({
+          userId: m.userId,
+          name: fullName(m),
+          avatarUrl: m.avatarUrl ?? null,
+        })),
     };
   },
 
@@ -665,6 +703,42 @@ export const adminApi = {
    * lookup here at all. It used to resolve a name to an email to an id through
    * two more requests, off a fixture that held neither.
    */
+  /**
+   * Companies whose accounting manager was made Inactive, for the Reassign
+   * Accounting Managers popup, bell and banner.
+   *
+   * ponytail: the first 100 companies only, the same `FILTER_SCAN` ceiling
+   * the tables filter within. A `?managerStatus=` filter on the backend is
+   * the fix if the book outgrows it.
+   */
+  async reassignments(): Promise<Reassignment[]> {
+    const { rows } = await adminApi.companies(1, FILTER_SCAN);
+    return rows
+      .filter((c) => c.managerInactive && !c.inactive)
+      .map((c) => ({
+        companyId: c.id,
+        company: c.name,
+        detail: c.accountingManager ?? "",
+        people: [
+          { name: c.accountingManager ?? "", avatarUrl: c.managerAvatarUrl },
+        ],
+      }));
+  },
+
+  /**
+   * Make an accounting manager or specialist Inactive, or Active again (17
+   * Nov). Admin only. Inactive blocks sign-in and drops them from every
+   * assignment list; nothing is deleted (Sir, Q17). Making them Active again
+   * does not give back the companies they lost.
+   *
+   * PLACEHOLDER ROUTE until Pratibha's #5 lands.
+   */
+  async setUserActive(userId: number, active: boolean): Promise<void> {
+    await patch(`/users/${userId}/status`, {
+      status: active ? "ACTIVE" : "HIBERNATED",
+    });
+  },
+
   async assignManager(companyId: string, managerUserId: number): Promise<void> {
     await put(
       `/companies/${encodeURIComponent(companyId)}/accounting-manager`,

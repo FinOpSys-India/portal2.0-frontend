@@ -9,12 +9,26 @@
 import assert from "node:assert/strict";
 
 import {
+  inactiveSpecialists,
   billingDate,
+  isOpenProject,
+  outsideInactive,
   personName,
   taskStatusCode,
   teamPeople,
   toAddressFields,
   toAddressPayload,
+  documentsMessage,
+  mustPayToReactivate,
+  parseProjectTab,
+  projectTab,
+  parseServiceTab,
+  serviceTab,
+  serviceHref,
+  serviceGroups,
+  newSince,
+  onServiceTab,
+  tabHref,
   documentPath,
   personAvatarUrl,
   personId,
@@ -85,7 +99,7 @@ const project: BackendProject = {
     servicePlanId: 4,
   },
   specialist: { firstName: "Nadia", lastName: "Haddad" },
-  createdBy: { firstName: "Priya", lastName: "Nair" },
+  createdBy: { id: 7, firstName: "Priya", lastName: "Nair" },
   status: "ACTIVE",
   progressBar: 40,
   createdAt: "2026-07-01T09:00:00.000Z",
@@ -105,6 +119,10 @@ assert.equal(mapped.progress, 40);
 // through the same `usDate` as every other timestamp.
 assert.equal(mapped.deadline, "9/30/2026");
 assert.equal(mapped.createdOn, usDate(project.createdAt));
+// Only the creator may delete a project (Sir, Q2), so the page compares this
+// to the viewer's id. A creator whose account is gone owns nothing.
+assert.equal(mapped.creatorId, "7");
+assert.equal(toManagedProject({ ...project, createdBy: null }).creatorId, null);
 assert.equal(usDate("2026-09-30"), "9/30/2026");
 
 // An unstaffed line stays null so the column can say so, rather than "".
@@ -550,4 +568,141 @@ assert.deepEqual(
     { id: "4", projectId: "99", service: null },
     { id: "5", projectId: "30", service: null },
   ],
+);
+
+/* ------------------------------------------------------ documentsMessage -- */
+
+assert.equal(documentsMessage("deleted", ["Q3.pdf"], []), "Q3.pdf deleted.");
+assert.equal(documentsMessage("deleted", ["a", "b", "c"], []), "3 documents deleted.");
+assert.equal(
+  documentsMessage("deleted", ["a", "b"], ["W-2.pdf"]),
+  "2 documents deleted. 1 document could not be deleted: W-2.pdf.",
+);
+assert.equal(
+  documentsMessage("archived", [], ["a", "b", "c", "d"]),
+  "4 documents could not be archived.",
+);
+
+/* --------------------------------------------------- mustPayToReactivate -- */
+
+const NOW = Date.parse("2026-11-13T12:00:00Z");
+// Inside the period already paid for: back on with no payment.
+assert.equal(mustPayToReactivate("2026-12-01T00:00:00Z", false, NOW), false);
+// The period ran out while it was off.
+assert.equal(mustPayToReactivate("2026-11-01T00:00:00Z", false, NOW), true);
+// Never paid, or no billing date at all.
+assert.equal(mustPayToReactivate("2026-12-01T00:00:00Z", true, NOW), true);
+assert.equal(mustPayToReactivate(null, false, NOW), true);
+
+/* -------------------------------------------------------- project tabs -- */
+
+// Inactive wins over status: a completed project switched off is on Inactive.
+assert.equal(projectTab({ status: "In progress", inactive: false }), "active");
+assert.equal(projectTab({ status: "Not started", inactive: false }), "active");
+assert.equal(projectTab({ status: "Completed", inactive: false }), "completed");
+assert.equal(projectTab({ status: "Completed", inactive: true }), "inactive");
+// Anything off the URL that isn't a tab is the default one.
+assert.equal(parseProjectTab("completed"), "completed");
+assert.equal(parseProjectTab(undefined), "active");
+assert.equal(parseProjectTab("bogus"), "active");
+// Service tabs: the backend's name picks the tab; a service with no tab of its
+// own, an unnamed one and a document on no project all sit on Other.
+assert.equal(serviceTab("Bookkeeping"), "bookkeeping");
+assert.equal(serviceTab("Tax"), "tax");
+assert.equal(serviceTab("FP&A"), "other");
+assert.equal(serviceTab(""), "other");
+assert.equal(serviceTab(null), "other");
+assert.equal(onServiceTab({ service: "Payroll" }, "all"), true);
+assert.equal(onServiceTab({ service: "Payroll" }, "tax"), false);
+assert.equal(parseServiceTab("payroll"), "payroll");
+assert.equal(parseServiceTab("bogus"), "all");
+// The two tab rows share one address: each link keeps the other row's pick.
+assert.equal(serviceHref(tabHref("/p", "completed"), "tax"), "/p?tab=completed&service=tax");
+assert.equal(serviceHref(tabHref("/p", "active"), "all"), "/p");
+// The sidebar's service groups: what the company pays for plus what it still
+// has projects on, in the order the app names services, never in the order
+// they arrive. Other only when something sits on it; nothing at all is no
+// groups, which leaves the flat Projects and Documents rows.
+assert.deepEqual(
+  serviceGroups(["Tax", "Bookkeeping"], [{ service: "Payroll" }]),
+  ["bookkeeping", "payroll", "tax"],
+);
+assert.deepEqual(serviceGroups(["Bookkeeping"], [{ service: "FP&A" }]), [
+  "bookkeeping",
+  "other",
+]);
+assert.deepEqual(serviceGroups([], []), []);
+// The number beside a sidebar row: what someone else added after the reader
+// last opened the list. Their own upload is not news, and neither is anything
+// from before that visit; a row with no known author counts as someone else's.
+assert.equal(
+  newSince(
+    [
+      { createdAt: "2026-11-18T09:00:00.000Z", by: "8" },
+      { createdAt: "2026-11-18T09:00:00.000Z", by: "10" },
+      { createdAt: "2026-11-18T09:00:00.000Z", by: null },
+      { createdAt: "2026-11-17T09:00:00.000Z", by: "10" },
+    ],
+    "2026-11-18T00:00:00.000Z",
+    "8",
+  ),
+  2,
+);
+// `inactiveAt` is the switch; absent (every route today) reads as active.
+assert.equal(mapped.inactive, false);
+assert.equal(
+  toManagedProject({ ...project, inactiveAt: "2026-11-13T00:00:00Z" }).inactive,
+  true,
+);
+
+// Frozen (16 Nov): an inactive project leaves the pickers, and its rows leave
+// every list. A row with no project, or one not in the list, stays.
+assert.equal(isOpenProject({ status: "In progress", inactive: true }), false);
+assert.equal(isOpenProject({ status: "In progress", inactive: false }), true);
+assert.deepEqual(
+  outsideInactive(
+    [{ projectId: "1" }, { projectId: "2" }, { projectId: null }, { projectId: "9" }],
+    [
+      { id: "1", inactive: true },
+      { id: "2", inactive: false },
+    ],
+  ),
+  [{ projectId: "2" }, { projectId: null }, { projectId: "9" }],
+);
+
+// Staff Inactive (17 Nov): "Name (inactive)", never "former employee", and the
+// line a company that Needs Reassignment shows for each Inactive specialist.
+assert.equal(personName({ firstName: "Jane", lastName: "Doe" }), "Jane Doe");
+assert.equal(
+  personName({ firstName: "Jane", lastName: "Doe", status: "HIBERNATED" }),
+  "Jane Doe (inactive)",
+);
+assert.deepEqual(
+  inactiveSpecialists({
+    id: 1,
+    companyName: "Acme",
+    companyEmail: "a@acme.com",
+    owner: null,
+    accountingManager: null,
+    primaryAddress: null,
+    activeServices: [],
+    billing: null,
+    teamMembers: {
+      owner: null,
+      accountingManager: null,
+      specialists: [
+        { firstName: "Al", lastName: "Bo", status: "ACTIVE" },
+        {
+          firstName: "Jane",
+          lastName: "Doe",
+          status: "HIBERNATED",
+          specializations: [
+            { specializationCode: "BOOKKEEPING", specializationName: "Bookkeeping" },
+            { specializationCode: "PAYROLL", specializationName: "Payroll" },
+          ],
+        },
+      ],
+    },
+  }),
+  ["Bookkeeping, Payroll · Jane Doe (inactive)"],
 );

@@ -8,9 +8,24 @@ import {
 import {
   fileColumns,
   type FileRow,
+  archiveColumns,
+  DocumentTabs,
+  parseDocumentsView,
+  viewHref,
 } from "@/components/portal/file-list";
+import {
+  DocumentSelection,
+  SelectionBar,
+} from "@/components/portal/delete-documents";
+import { scoped } from "@/lib/manager";
 import { ProjectFilter } from "@/components/portal/project-filter";
-import { viewerId, withService } from "@/lib/portal";
+import {
+  archivedDocuments,
+  isOpenProject,
+  outsideInactive,
+  viewerId,
+  withService,
+} from "@/lib/portal";
 import { companyScope, specialistApi } from "@/lib/specialist";
 
 import { SpecialistUploadFile } from "./upload-file";
@@ -43,6 +58,7 @@ export default async function SpecialistDocumentsPage({
     sort?: string;
     dir?: string;
     f?: string | string[];
+    view?: string;
   }>;
 }) {
   const {
@@ -55,6 +71,7 @@ export default async function SpecialistDocumentsPage({
     f,
   } = await searchParams;
   const page = parsePage(rawPage);
+  const view = parseDocumentsView((await searchParams).view);
   const size = parsePageSize(rawSize);
   const company = await companyScope(picked);
 
@@ -73,36 +90,56 @@ export default async function SpecialistDocumentsPage({
   // what the list below shows.
   const allProjects = await specialistApi.projects();
 
+  const rows =
+    view === "archive"
+      ? await archivedDocuments<FileRow>()
+      : withService(outsideInactive(documents, allProjects), allProjects);
+
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <ProjectFilter projects={projects.map((p) => p.name)} />
+        <ProjectFilter projects={projects.filter((p) => !p.inactive).map((p) => p.name)} />
       </div>
 
-      <DataTable<FileRow>
-        page={page}
-        size={size}
-        sort={sort}
-        dir={dir}
-        filters={parseFilters(f)}
-        noun="documents"
-        total={documents.length}
-        rows={withService(documents, allProjects)}
-        title="Documents"
-        action={
-          <SpecialistUploadFile
-            companies={companies.map(({ id, name }) => ({ id, name }))}
-            projects={allProjects.map((p) => ({
-              name: p.name,
-              companyId: p.companyId,
-            }))}
-          />
-        }
-        empty={
-          project ? "No documents on this project yet." : "No documents yet."
-        }
-        columns={fileColumns(viewer)}
-      />
+      <DocumentSelection>
+        <DataTable<FileRow>
+          page={page}
+          size={size}
+          sort={sort}
+          dir={dir}
+          filters={parseFilters(f)}
+          noun="documents"
+          total={rows.length}
+          rows={rows}
+          title="Documents"
+          tabs={
+            <DocumentTabs
+              current={view}
+              href={(v) => viewHref(scoped("/specialist/documents", company), v)}
+            />
+          }
+          action={
+            <>
+              <SelectionBar archived={view === "archive"} />
+              <SpecialistUploadFile
+                companies={companies.map(({ id, name }) => ({ id, name }))}
+                projects={allProjects.filter(isOpenProject).map((p) => ({
+                  name: p.name,
+                  companyId: p.companyId,
+                }))}
+              />
+            </>
+          }
+          empty={
+            view === "archive"
+              ? "No archived documents."
+              : project ? "No documents on this project yet." : "No documents yet."
+          }
+          columns={
+            view === "archive" ? archiveColumns(viewer) : fileColumns(viewer)
+          }
+        />
+      </DocumentSelection>
     </>
   );
 }

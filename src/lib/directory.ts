@@ -37,14 +37,29 @@ export interface NestedCompany {
   status?: string;
 }
 
+/**
+ * An accounting manager or specialist the admin has made Inactive (17 Nov).
+ * Staff are never deleted (Sir, Q17): the backend's `HIBERNATED` keeps the
+ * record and blocks sign-in.
+ */
+export const isInactive = (user: { status?: string | null }): boolean =>
+  user.status === "HIBERNATED";
+
+/**
+ * A person's name, with " (inactive)" once the admin has made them Inactive —
+ * never "former employee" (Sir, Q17). Every name in the portal comes through
+ * here, so past work, chat and team lists all say it the same way. Lists that
+ * show the Active switch beside the name pass the name parts alone.
+ */
 export function fullName(user: {
   firstName?: string | null;
   lastName?: string | null;
   fullName?: string | null;
+  status?: string | null;
 }): string {
-  return (
-    user.fullName ?? [user.firstName, user.lastName].filter(Boolean).join(" ")
-  );
+  const name =
+    user.fullName ?? [user.firstName, user.lastName].filter(Boolean).join(" ");
+  return isInactive(user) ? `${name} (inactive)` : name;
 }
 
 /* ------------------------------------------------------------------ roles -- */

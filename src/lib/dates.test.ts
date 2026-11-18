@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 
-import { tomorrow } from "./dates";
+import { isoDate, tomorrow } from "./dates";
 
 const value = tomorrow();
 
@@ -30,3 +30,8 @@ const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart
 assert.ok(value > todayKey, "tomorrow must sort after today");
 
 console.log("dates: all checks passed");
+
+/* Edit Project pre-fills the date input from the table's M/D/YYYY. */
+assert.equal(isoDate("11/27/2026"), "2026-11-27");
+assert.equal(isoDate("3/5/2026"), "2026-03-05");
+assert.equal(isoDate(""), "");
