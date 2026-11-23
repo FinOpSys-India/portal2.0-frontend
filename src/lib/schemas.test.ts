@@ -322,27 +322,14 @@ const schedule = {
   durationMinutes: 30,
   date: "2026-11-24",
   time: "14:00",
-  link: "teams",
-  meetingLink: "",
 };
 
-assert.ok(scheduleMeetingSchema.safeParse(schedule).success, "Teams needs no link");
+// Every meeting is a Teams meeting (Siddharth, 23 Nov): there is no link to give.
+assert.ok(scheduleMeetingSchema.safeParse(schedule).success, "a Teams meeting needs no link");
 assert.equal(
-  errorFor(
-    scheduleMeetingSchema.safeParse({ ...schedule, link: "own", meetingLink: "http://zoom.us/j/1" }),
-    "meetingLink",
-  ),
-  "Enter a link that starts with https://.",
-);
-assert.equal(
-  errorFor(
-    scheduleMeetingSchema.safeParse({ ...schedule, link: "own", meetingLink: "" }),
-    "meetingLink",
-  ),
-  "Enter a link that starts with https://.",
-);
-assert.ok(
-  scheduleMeetingSchema.safeParse({ ...schedule, link: "own", meetingLink: "https://zoom.us/j/1" }).success,
+  "meetingLink" in scheduleMeetingSchema.parse({ ...schedule, meetingLink: "https://zoom.us/j/1" }),
+  false,
+  "a pasted link is not part of a schedule",
 );
 assert.equal(
   errorFor(scheduleMeetingSchema.safeParse({ ...schedule, title: "  " }), "title"),

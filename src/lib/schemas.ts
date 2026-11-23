@@ -291,32 +291,16 @@ export const otpSchema = z.object({
 const meetingTitle = z.string().trim().min(1, "Enter a title.").max(200, "Use at most 200 characters.");
 const meetingDescription = z.string().trim().max(5000, "Use at most 5,000 characters.");
 
-export const scheduleMeetingSchema = z
-  .object({
-    companyId: z.string().min(1, "Choose who the meeting is with."),
-    participantEmail: z.string().trim().min(1, "Choose who the meeting is with."),
-    title: meetingTitle,
-    description: meetingDescription,
-    durationMinutes: z.number().refine((n) => [15, 30, 45, 60].includes(n), "Choose a duration."),
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date."),
-    time: z.string().regex(/^\d{2}:\d{2}$/, "Choose a time."),
-    link: z.enum(["teams", "own"]),
-    meetingLink: z.string().trim(),
-  })
-  .superRefine((v, ctx) => {
-    if (v.link !== "own") return;
-    let https = false;
-    try {
-      https = new URL(v.meetingLink).protocol === "https:";
-    } catch {}
-    if (!https) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["meetingLink"],
-        message: "Enter a link that starts with https://.",
-      });
-    }
-  });
+/** Every meeting is a Teams meeting the server creates (Siddharth, 23 Nov): no link field. */
+export const scheduleMeetingSchema = z.object({
+  companyId: z.string().min(1, "Choose who the meeting is with."),
+  participantEmail: z.string().trim().min(1, "Choose who the meeting is with."),
+  title: meetingTitle,
+  description: meetingDescription,
+  durationMinutes: z.number().refine((n) => [15, 30, 45, 60].includes(n), "Choose a duration."),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date."),
+  time: z.string().regex(/^\d{2}:\d{2}$/, "Choose a time."),
+});
 
 export const requestMeetingSchema = z.object({
   title: meetingTitle,

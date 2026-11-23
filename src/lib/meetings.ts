@@ -512,8 +512,6 @@ export interface MeetingInput {
   /** IANA, e.g. Asia/Kolkata. */
   timezone: string;
   participantEmail: string;
-  /** https; the manager only. Omitted, the server creates a Teams meeting. */
-  meetingLink?: string;
 }
 
 export interface MicrosoftStatus {
@@ -565,9 +563,9 @@ export const meetingsApi = {
   },
 
   async create(companyId: string, input: MeetingInput): Promise<Meeting> {
+    // No link: the server creates the Teams meeting on the manager's calendar.
     const body: Record<string, unknown> = { ...input };
     if (!input.description) delete body.description;
-    if (!input.meetingLink) delete body.meetingLink;
     return toMeeting(
       await post<BackendMeeting>(`/meetings?${scope(companyId)}`, body),
     );

@@ -55,7 +55,7 @@ export function MicrosoftConnection({ status }: { status: MicrosoftStatus | null
   }
 
   const text = !status.configured
-    ? "Teams isn’t set up on this server yet. You can still schedule with your own meeting link."
+    ? "Teams isn’t set up on this server yet, so meetings can’t be scheduled."
     : status.connected
       ? `Connected as ${status.accountEmail ?? "your Microsoft account"}. New meetings go on your Outlook calendar.`
       : "Connect your finopsys.ai Microsoft account to create Teams meetings and let customers book your free times.";

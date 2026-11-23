@@ -73,13 +73,12 @@ type Props =
       initial: { title?: string; description?: string };
     };
 
-const FIELD_ORDER = ["participantEmail", "title", "description", "durationMinutes", "meetingLink", "date", "time"];
+const FIELD_ORDER = ["participantEmail", "title", "description", "durationMinutes", "date", "time"];
 
 /** The API's field names onto this form's. */
 const API_FIELD: Record<string, string> = {
   startAt: "time",
   participantEmail: "participantEmail",
-  meetingLink: "meetingLink",
   title: "title",
   description: "description",
   durationMinutes: "durationMinutes",
@@ -130,8 +129,6 @@ export function BookingView(props: Props) {
   const [time, setTime] = React.useState(schedule ? (props.initial.time ?? "") : "");
   const [slot, setSlot] = React.useState<Slot | null>(null);
   const teamsReady = schedule && !!props.microsoft?.connected;
-  const [link, setLink] = React.useState<"teams" | "own">(schedule && !teamsReady ? "own" : "teams");
-  const [meetingLink, setMeetingLink] = React.useState("");
 
   const [errors, setErrors] = React.useState<Errors>({});
   const [alert, setAlert] = React.useState<string | null>(null);
@@ -216,8 +213,6 @@ export function BookingView(props: Props) {
           durationMinutes: duration,
           date: day,
           time,
-          link,
-          meetingLink,
         })
       : requestMeetingSchema.safeParse({
           title,
@@ -249,7 +244,6 @@ export function BookingView(props: Props) {
           durationMinutes: duration,
           timezone: timeZone,
           participantEmail: person!.email,
-          meetingLink: link === "own" ? meetingLink.trim() : undefined,
         });
       } else {
         created = await meetingsApi.create(props.companyId, {
@@ -276,7 +270,7 @@ export function BookingView(props: Props) {
         setRetry((n) => n + 1);
         fail({ time: "That time was just taken. Pick another time." });
       } else if (err.code === "MICROSOFT_NOT_CONNECTED" || err.code === "MICROSOFT_RECONNECT_REQUIRED") {
-        fail({}, "Connect your Microsoft account on the Meetings page first, or use your own link.");
+        fail({}, "Connect your Microsoft account on the Meetings page first.");
       } else if (err.status === 404) {
         fail({}, "Meetings aren’t available yet. Try again once the server supports them.");
       } else {
@@ -350,7 +344,7 @@ export function BookingView(props: Props) {
             <ul className="grid gap-2 text-sm text-muted-foreground">
               <li className="flex gap-2">
                 <Video className="mt-0.5 size-4 shrink-0" aria-hidden />
-                The meeting link arrives once {props.manager.name} accepts.
+                The Teams link arrives once {props.manager.name} accepts.
               </li>
               <li className="flex gap-2">
                 <Globe className="mt-0.5 size-4 shrink-0" aria-hidden />
@@ -445,71 +439,36 @@ export function BookingView(props: Props) {
           </div>
 
           {schedule ? (
-            <fieldset className="grid gap-2">
-              <legend className="mb-2 text-sm font-medium">Meeting Link</legend>
-              <label
-                className={cn(
-                  "flex gap-3 rounded-lg border p-3",
-                  link === "teams" ? "border-primary bg-primary/5" : "border-border",
-                  !teamsReady && "opacity-60",
-                )}
-              >
-                <input
-                  type="radio"
-                  name="booking-link"
-                  value="teams"
-                  checked={link === "teams"}
-                  disabled={!teamsReady}
-                  onChange={() => setLink("teams")}
-                  className="mt-1 accent-primary"
-                />
+            // Every meeting is a Teams meeting on the manager's own calendar
+            // (Siddharth, 23 Nov); there is no other kind to choose.
+            teamsReady ? (
+              <p className="flex gap-2 rounded-lg border border-border p-3 text-sm">
+                <Video className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
                 <span className="grid gap-0.5">
-                  <span className="text-sm font-medium">Create a Teams meeting</span>
+                  <span className="font-medium">Teams meeting</span>
                   <span className="text-xs text-muted-foreground">
-                    {teamsReady
-                      ? `On your calendar, as ${props.microsoft?.accountEmail ?? "your Microsoft account"}.`
-                      : props.microsoft?.configured === false
-                        ? "Teams isn’t set up on this server yet."
-                        : "Connect your Microsoft account on the Meetings page first."}
+                    Created on your calendar as {props.microsoft?.accountEmail ?? "your Microsoft account"}. Microsoft emails the invitation.
                   </span>
                 </span>
-              </label>
-              <label
-                className={cn(
-                  "flex gap-3 rounded-lg border p-3",
-                  link === "own" ? "border-primary bg-primary/5" : "border-border",
-                )}
-              >
-                <input
-                  type="radio"
-                  name="booking-link"
-                  value="own"
-                  checked={link === "own"}
-                  onChange={() => setLink("own")}
-                  className="mt-1 accent-primary"
-                />
-                <span className="grid gap-0.5">
-                  <span className="text-sm font-medium">Use my own link</span>
-                  <span className="text-xs text-muted-foreground">Paste an https link from Zoom, Meet or another tool.</span>
-                </span>
-              </label>
-              {link === "own" ? (
-                <div className="grid gap-2">
-                  <Label htmlFor="booking-meetingLink" className="sr-only">
-                    Meeting link
-                  </Label>
-                  <Input
-                    id="booking-meetingLink"
-                    value={meetingLink}
-                    onChange={(e) => setMeetingLink(e.target.value)}
-                    placeholder="https://"
-                    inputMode="url"
-                    {...described("meetingLink")}
-                  />
-                  {fieldError("meetingLink")}
-                </div>
-              ) : null}
-            </fieldset>
+              </p>
+            ) : (
+              <Alert>
+                <Video className="size-4" aria-hidden />
+                <AlertDescription>
+                  {props.microsoft?.configured === false
+                    ? "Teams isn’t set up on this server yet, so meetings can’t be scheduled."
+                    : "Meetings are Teams meetings on your calendar. Connect your Microsoft account first."}
+                  {props.microsoft?.configured === false ? null : (
+                    <>
+                      {" "}
+                      <Link href="/manager/meetings" className="font-medium underline underline-offset-2">
+                        Connect Microsoft
+                      </Link>
+                    </>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )
           ) : null}
         </section>
 
@@ -619,7 +578,8 @@ export function BookingView(props: Props) {
           <Button asChild variant="secondary">
             <Link href={backHref}>Cancel</Link>
           </Button>
-          <Button type="submit" disabled={busy}>
+          {/* No Microsoft, no Teams meeting to create: nothing to schedule yet. */}
+          <Button type="submit" disabled={busy || (schedule && !teamsReady)}>
             {busy ? <Spinner /> : null}
             {schedule ? "Schedule" : "Send Request"}
           </Button>
