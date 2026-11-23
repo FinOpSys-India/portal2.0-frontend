@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 
 import { AvatarUpload } from "@/components/portal/avatar-upload";
+import { MicrosoftConnection } from "@/components/portal/microsoft-connection";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { ProfileForm } from "@/components/portal/profile-form";
 import { managerApi } from "@/lib/manager";
+import { meetingsApi, meetingsEnabled } from "@/lib/meetings";
 
 export const metadata: Metadata = { title: "Profile" };
 
@@ -17,7 +19,12 @@ export const metadata: Metadata = { title: "Profile" };
  * manager off it too, so what is saved here is what they show.
  */
 export default async function ManagerProfilePage() {
-  const profile = await managerApi.profile();
+  const [profile, microsoft] = await Promise.all([
+    managerApi.profile(),
+    meetingsEnabled()
+      ? meetingsApi.microsoftStatus().catch(() => null)
+      : Promise.resolve(null),
+  ]);
 
   return (
     <>
@@ -36,6 +43,13 @@ export default async function ManagerProfilePage() {
           </div>
         </section>
       </div>
+
+      {/* The same card as the Meetings page: Teams belongs to the person. */}
+      {microsoft ? (
+        <div className="mt-6">
+          <MicrosoftConnection status={microsoft} />
+        </div>
+      ) : null}
     </>
   );
 }

@@ -117,6 +117,7 @@ export function CustomerShell({
   user,
   owner,
   services = [],
+  meetings,
   children,
 }: {
   workspace: Workspace;
@@ -136,6 +137,8 @@ export function CustomerShell({
    * Projects and Documents rows, so the lists are never without a way in.
    */
   services?: ServiceTab[];
+  /** The Meetings icon, beside the bell. A node, so the count can arrive late. */
+  meetings?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -213,6 +216,7 @@ export function CustomerShell({
               )
             }
           />
+          {meetings}
           {/* A client component, so it mounts once and survives every
               navigation under this shell instead of sweeping again on each
               one. Here rather than in the layout so its sweep can feed the

@@ -2,14 +2,16 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { CalendarPlus, ChevronLeft } from "lucide-react";
 
 import { InitialsAvatar } from "@/components/admin/initials-avatar";
 import { ChatThread } from "@/components/portal/chat-thread";
+import { MeetingNote, useChatMeetings } from "@/components/portal/meeting-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ChatContact } from "@/lib/chat";
 import { managerApi, type Party } from "@/lib/manager";
+import { meetingsEnabled, parseMeetingNote } from "@/lib/meetings";
 import { cn } from "@/lib/utils";
 
 /**
@@ -55,6 +57,11 @@ export function ChatInbox({
   const [opening, setOpening] = React.useState(false);
 
   const open = rows.find((c) => c.userId === openUserId) ?? null;
+
+  // Meetings are between the manager and the customer side only (the API
+  // refuses specialists), so the specialist inbox never reads them.
+  const meetingsOn = meetingsEnabled() && party === "customer" && !!companyId;
+  const meetings = useChatMeetings(meetingsOn ? companyId : undefined);
 
   async function select(contact: ChatContact) {
     setOpenUserId(contact.userId);
@@ -109,6 +116,31 @@ export function ChatInbox({
           send={(body) => managerApi.sendMessage(open.conversationId!, body)}
           sendFile={(file) =>
             managerApi.sendAttachment(open.conversationId!, file)
+          }
+          action={
+            meetingsOn ? (
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  href={`/manager/meetings/new?company=${encodeURIComponent(companyId!)}&with=${open.userId}`}
+                >
+                  <CalendarPlus aria-hidden />
+                  Schedule a Meeting
+                </Link>
+              </Button>
+            ) : undefined
+          }
+          renderNote={
+            meetingsOn
+              ? (message) =>
+                  !message.deleted && parseMeetingNote(message.body) ? (
+                    <MeetingNote
+                      message={message}
+                      viewer="manager"
+                      otherName={open.name}
+                      meetings={meetings}
+                    />
+                  ) : null
+              : undefined
           }
         />
       ) : (

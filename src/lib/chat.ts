@@ -23,6 +23,7 @@ import {
   type BackendMessage,
 } from "@/lib/portal";
 import type { ChatMessage } from "@/lib/manager";
+import { previewText } from "@/lib/meeting-note";
 import {
   reactionName,
   toMessageReaction,
@@ -91,7 +92,7 @@ export function toContact(c: BackendContact): ChatContact {
       c.roleLabel ??
       c.specializations.map((s) => s.specializationName).filter(Boolean).join(", "),
     conversationId: c.conversationId === null ? null : String(c.conversationId),
-    lastMessage: c.lastMessage?.body ?? "",
+    lastMessage: previewText(c.lastMessage?.body ?? ""),
     lastMessageAt: c.lastMessageAt ?? "",
     unread: c.unreadCount ?? 0,
   };
@@ -151,7 +152,7 @@ export async function unreadThreads(
           companyId: company.id,
           company: row.companyName ?? company.name,
           contact: personName(row.counterpart),
-          preview: row.lastMessage?.body ?? "",
+          preview: previewText(row.lastMessage?.body ?? ""),
           unread: row.unreadCount ?? 0,
           at: row.lastMessageAt ?? "",
         }));

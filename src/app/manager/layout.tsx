@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { ManagerShell } from "@/components/manager/manager-shell";
+import { MeetingsLink } from "@/components/portal/meetings-link";
 import { NotificationBell } from "@/components/portal/portal-chrome";
 import { ReassignNotice } from "@/components/portal/reassignment";
 import { dayLabel, managerApi, unreadConversations } from "@/lib/manager";
+import { groupMeetings, meetingsApi, meetingsEnabled } from "@/lib/meetings";
 import { reassignmentNotifications } from "@/lib/portal";
 
 export const metadata: Metadata = {
@@ -59,6 +61,23 @@ async function UnreadBell() {
   );
 }
 
+/**
+ * The Meetings icon's number: requests across every company that wait on this
+ * manager. The same company sweep as the bell, behind its own boundary and
+ * swallowed for the same reasons — a count nobody can read is zero.
+ */
+async function MeetingsBadge() {
+  const { meetings } = await meetingsApi
+    .listAll()
+    .catch(() => ({ meetings: [] }));
+  return (
+    <MeetingsLink
+      href="/manager/meetings"
+      count={groupMeetings(meetings, "manager").needsReply.length}
+    />
+  );
+}
+
 export default async function ManagerLayout({
   children,
 }: {
@@ -85,6 +104,15 @@ export default async function ManagerLayout({
         <Suspense fallback={<NotificationBell />}>
           <UnreadBell />
         </Suspense>
+      }
+      meetings={
+        meetingsEnabled() ? (
+          <Suspense
+            fallback={<MeetingsLink href="/manager/meetings" count={0} />}
+          >
+            <MeetingsBadge />
+          </Suspense>
+        ) : undefined
       }
     >
       <ReassignNotice

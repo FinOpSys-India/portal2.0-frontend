@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { CustomerShell } from "@/components/customer/customer-shell";
+import { MeetingsLink } from "@/components/portal/meetings-link";
 import { PageHeader } from "@/components/portal/portal-shell";
 import {
   CompanyActiveSwitch,
@@ -10,11 +12,27 @@ import {
 } from "@/components/portal/record-controls";
 import { api, unpaidCompanyIds } from "@/lib/api";
 import { customerApi } from "@/lib/customer";
+import { groupMeetings, meetingsApi, meetingsEnabled } from "@/lib/meetings";
 import { mustPayToReactivate } from "@/lib/portal";
 
 export const metadata: Metadata = {
   title: { default: "FinOpSys", template: "%s – FinOpSys" },
 };
+
+/**
+ * The Meetings icon's number: invitations on this company that wait on the
+ * reader's answer. Its own boundary, and swallowed, like the bell: an unpaid
+ * company 402s here and that must not take the frame down.
+ */
+async function MeetingsBadge({ workspace }: { workspace: string }) {
+  const meetings = await meetingsApi.list(workspace).catch(() => []);
+  return (
+    <MeetingsLink
+      href={`/customer/${workspace}/meetings`}
+      count={groupMeetings(meetings, "customer").needsReply.length}
+    />
+  );
+}
 
 export default async function CustomerLayout({
   params,
@@ -104,6 +122,18 @@ export default async function CustomerLayout({
       owner={owner}
       services={services}
       unpaid={status ? unpaidCompanyIds(status) : []}
+      meetings={
+        // Not on a frozen company: nothing under it opens (16 Nov).
+        meetingsEnabled() && !workspace.inactive ? (
+          <Suspense
+            fallback={
+              <MeetingsLink href={`/customer/${id}/meetings`} count={0} />
+            }
+          >
+            <MeetingsBadge workspace={id} />
+          </Suspense>
+        ) : undefined
+      }
     >
       {body}
     </CustomerShell>

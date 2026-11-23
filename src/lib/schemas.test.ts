@@ -14,6 +14,8 @@ import {
   newProjectSchema,
   otpSchema,
   profileSchema,
+  requestMeetingSchema,
+  scheduleMeetingSchema,
   signupSchema,
   userInfoSchema,
 } from "./schemas";
@@ -308,6 +310,68 @@ assert.ok(
     country: "United Kingdom",
     phone: "2071838750",
   }).success,
+);
+
+/* ------------------------------------------------------------- meetings -- */
+
+const schedule = {
+  companyId: "18",
+  participantEmail: "daniel@northwind.example",
+  title: "Q3 Books Review",
+  description: "",
+  durationMinutes: 30,
+  date: "2026-11-24",
+  time: "14:00",
+  link: "teams",
+  meetingLink: "",
+};
+
+assert.ok(scheduleMeetingSchema.safeParse(schedule).success, "Teams needs no link");
+assert.equal(
+  errorFor(
+    scheduleMeetingSchema.safeParse({ ...schedule, link: "own", meetingLink: "http://zoom.us/j/1" }),
+    "meetingLink",
+  ),
+  "Enter a link that starts with https://.",
+);
+assert.equal(
+  errorFor(
+    scheduleMeetingSchema.safeParse({ ...schedule, link: "own", meetingLink: "" }),
+    "meetingLink",
+  ),
+  "Enter a link that starts with https://.",
+);
+assert.ok(
+  scheduleMeetingSchema.safeParse({ ...schedule, link: "own", meetingLink: "https://zoom.us/j/1" }).success,
+);
+assert.equal(
+  errorFor(scheduleMeetingSchema.safeParse({ ...schedule, title: "  " }), "title"),
+  "Enter a title.",
+);
+assert.equal(
+  errorFor(scheduleMeetingSchema.safeParse({ ...schedule, time: "" }), "time"),
+  "Choose a time.",
+);
+assert.equal(
+  errorFor(scheduleMeetingSchema.safeParse({ ...schedule, participantEmail: "" }), "participantEmail"),
+  "Choose who the meeting is with.",
+);
+assert.ok(errorFor(scheduleMeetingSchema.safeParse({ ...schedule, durationMinutes: 20 }), "durationMinutes"));
+
+const request = {
+  title: "GST Filing Questions",
+  description: "",
+  durationMinutes: 30,
+  startAt: "2026-11-25T05:30:00.000Z",
+};
+assert.ok(requestMeetingSchema.safeParse(request).success);
+assert.ok(
+  errorFor(requestMeetingSchema.safeParse({ ...request, durationMinutes: 45 }), "durationMinutes"),
+  "a customer asks for 30 or 60 minutes",
+);
+assert.equal(
+  errorFor(requestMeetingSchema.safeParse({ ...request, startAt: "" }), "startAt"),
+  "Choose a time.",
 );
 
 console.log("schemas: all checks passed");

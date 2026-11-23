@@ -284,6 +284,50 @@ export const otpSchema = z.object({
     .regex(/^\d{6}$/, "The code is 6 digits."),
 });
 
+/**
+ * Meetings (backend list #13). The view builds these from its own controls —
+ * calendar days and time buttons are not inputs — and checks them on submit.
+ */
+const meetingTitle = z.string().trim().min(1, "Enter a title.").max(200, "Use at most 200 characters.");
+const meetingDescription = z.string().trim().max(5000, "Use at most 5,000 characters.");
+
+export const scheduleMeetingSchema = z
+  .object({
+    companyId: z.string().min(1, "Choose who the meeting is with."),
+    participantEmail: z.string().trim().min(1, "Choose who the meeting is with."),
+    title: meetingTitle,
+    description: meetingDescription,
+    durationMinutes: z.number().refine((n) => [15, 30, 45, 60].includes(n), "Choose a duration."),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date."),
+    time: z.string().regex(/^\d{2}:\d{2}$/, "Choose a time."),
+    link: z.enum(["teams", "own"]),
+    meetingLink: z.string().trim(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.link !== "own") return;
+    let https = false;
+    try {
+      https = new URL(v.meetingLink).protocol === "https:";
+    } catch {}
+    if (!https) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["meetingLink"],
+        message: "Enter a link that starts with https://.",
+      });
+    }
+  });
+
+export const requestMeetingSchema = z.object({
+  title: meetingTitle,
+  description: meetingDescription,
+  durationMinutes: z.number().refine((n) => n === 30 || n === 60, "Choose 30 or 60 minutes."),
+  startAt: z.string().min(1, "Choose a time."),
+});
+
+export type ScheduleMeetingValues = z.infer<typeof scheduleMeetingSchema>;
+export type RequestMeetingValues = z.infer<typeof requestMeetingSchema>;
+
 export type UserInfoValues = z.infer<typeof userInfoSchema>;
 export type LoginValues = z.infer<typeof loginSchema>;
 export type SignupValues = z.infer<typeof signupSchema>;

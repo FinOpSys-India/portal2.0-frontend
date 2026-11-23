@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import { chatApi } from "@/lib/chat";
+import { splitLinks } from "@/lib/links";
 import {
   keepTombstones,
   loadTombstones,
@@ -68,6 +69,8 @@ export function ChatThread({
   sendFile,
   conversationId,
   onRead,
+  action,
+  renderNote,
 }: {
   /** The counterparty. Drives the avatar and the composer's label. */
   contact: string;
@@ -88,6 +91,13 @@ export function ChatThread({
   conversationId?: string | null;
   /** Told the new unread total after a read receipt, so a badge can follow. */
   onRead?: (unread: number) => void;
+  /** A button at the end of the header, e.g. Schedule a Meeting. */
+  action?: React.ReactNode;
+  /**
+   * Draws a message some other way, or answers null to leave it a bubble. The
+   * meeting cards use it: a meeting note is a card, everything else is text.
+   */
+  renderNote?: (message: ChatMessage) => React.ReactNode | null;
 }) {
   const [messages, setMessages] = React.useState<ChatMessage[] | null>(null);
   /**
@@ -437,6 +447,9 @@ export function ChatThread({
             {meta}
           </span>
         ) : null}
+        {action ? (
+          <span className={cn("shrink-0", !meta && "ml-auto")}>{action}</span>
+        ) : null}
       </div>
 
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-4">
@@ -461,7 +474,9 @@ export function ChatThread({
               {isNewDay(message, messages[index - 1]) ? (
                 <DayDivider label={dayLabel(message.sentAt)} />
               ) : null}
-              <Bubble message={message} onDelete={remove} onReact={react} />
+              {renderNote?.(message) ?? (
+                <Bubble message={message} onDelete={remove} onReact={react} />
+              )}
             </React.Fragment>
           ))
         )}
@@ -628,7 +643,25 @@ function Bubble({
             {/* An attachment-only message has no body. Rendering an empty
                 paragraph would add a blank line under the file. */}
             {message.body ? (
-              <p className="text-sm break-words">{message.body}</p>
+              <p className="text-sm break-words">
+                {/* Text stays text; only http(s) runs become links, and they
+                    open outside the portal. */}
+                {splitLinks(message.body).map((part, i) =>
+                  "href" in part ? (
+                    <a
+                      key={i}
+                      href={part.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline underline-offset-2"
+                    >
+                      {part.text}
+                    </a>
+                  ) : (
+                    <React.Fragment key={i}>{part.text}</React.Fragment>
+                  ),
+                )}
+              </p>
             ) : null}
             <span
               className={cn(

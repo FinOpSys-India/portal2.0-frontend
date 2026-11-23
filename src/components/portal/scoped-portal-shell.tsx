@@ -49,6 +49,8 @@ export type ScopedShellProps = {
    * boundary and let the number arrive late.
    */
   notifications?: React.ReactNode;
+  /** The Meetings icon, beside the bell; a node for the same reason. */
+  meetings?: React.ReactNode;
   children: React.ReactNode;
 };
 
@@ -80,6 +82,7 @@ function Shell({
   user,
   companies,
   notifications,
+  meetings,
   company,
   children,
 }: ScopedShellProps & { company: string }) {
@@ -93,6 +96,7 @@ function Shell({
       headerRight={
         <>
           <CompanySwitcher companies={companies} />
+          {meetings}
           {notifications ?? <NotificationBell />}
           <AccountMenu user={user} profileHref={`${profileHref}${query}`} />
         </>

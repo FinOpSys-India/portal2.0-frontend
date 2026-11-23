@@ -25,6 +25,7 @@ import {
   type UploadTicket,
 } from "@/lib/http";
 import { fullName, isInactive } from "@/lib/directory";
+import { previewText } from "@/lib/meeting-note";
 // Re-exported below, so a screen rendering a thread keeps one import for its
 // whole shape — the same courtesy `ChatAttachment` gets by being declared here.
 import type { MessageReaction } from "@/lib/reactions";
@@ -1285,7 +1286,7 @@ export const managerApi = {
           party: (c.participantKind === "SPECIALIST"
             ? "specialist"
             : "customer") as Party,
-          lastMessage: c.lastMessage?.body ?? "",
+          lastMessage: previewText(c.lastMessage?.body ?? ""),
           lastMessageAt: c.lastMessageAt ?? "",
           unread: c.unreadCount ?? 0,
         }))
