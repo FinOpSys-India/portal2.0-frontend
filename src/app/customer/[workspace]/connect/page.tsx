@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Mail, MessageSquare } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 
 import { ConnectCard } from "@/components/portal/connect-card";
 import { chatApi } from "@/lib/chat";
@@ -42,7 +42,7 @@ export default async function CustomerConnectPage({
           Connect with Your Accounting Manager
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Chat or email your accounting manager for support, updates, and
+          Chat with your accounting manager for support, updates, and
           document sharing.
         </p>
       </div>
@@ -56,15 +56,6 @@ export default async function CustomerConnectPage({
           action="Start Chat"
           href={`/customer/${workspace}/connect/chat`}
           unread={unread}
-        />
-        {/* No count on email: the card opens a blank compose form, and there is
-            no inbox to read a reply in. A badge here would point at nothing. */}
-        <ConnectCard
-          icon={<Mail className="size-10" aria-hidden />}
-          label="Email Your Manager"
-          action="Send Email"
-          href={`/customer/${workspace}/connect/email`}
-          unread={0}
         />
       </div>
     </section>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Mail, MessageSquare } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 
 import { ConnectCard } from "@/components/portal/connect-card";
 import {
@@ -13,34 +13,28 @@ export const metadata: Metadata = { title: "Connect" };
 
 /**
  * The Connect hub, as 1.0 lays it out: two sections — customers and
- * specialists — each offering chat and email.
- *
- * The four cards lead to /manager/connect/chat and /manager/connect/email,
- * each carrying ?party=. 1.0 has four separate routes for the same four
- * destinations; chat opens a thread list, email opens a blank compose form.
+ * specialists — each opening /manager/connect/chat with its ?party=. Email,
+ * 1.0's second channel, was dropped on 4 Nov 2026; chat is the only one.
  */
 const SECTIONS: {
   party: Party;
   title: string;
   blurb: string;
   chat: string;
-  email: string;
 }[] = [
   {
     party: "customer",
     title: "Connect with Your Customer",
     blurb:
-      "Keep your customers in the loop. Chat for quick updates or email for detailed communication and document sharing.",
+      "Keep your customers in the loop with quick updates, detailed communication, and document sharing.",
     chat: "Chat with Customer",
-    email: "Email to Customer",
   },
   {
     party: "specialist",
     title: "Connect with Your Specialist",
     blurb:
-      "Reach your specialist via chat or email for quick updates, document sharing, and case support.",
+      "Reach your specialist via chat for quick updates, document sharing, and case support.",
     chat: "Chat with Specialist",
-    email: "Email to Specialist",
   },
 ];
 
@@ -54,16 +48,14 @@ export default async function ManagerConnectPage({
     company ? { companyId: company } : {},
   );
 
-  const unreadFor = (party: Party, channel: "chat" | "email") =>
-    totalUnread(
-      conversations.filter((c) => c.party === party && c.channel === channel),
-    );
+  const unreadFor = (party: Party) =>
+    totalUnread(conversations.filter((c) => c.party === party));
 
-  const href = (channel: string, party: Party) => {
+  const href = (party: Party) => {
     const search = new URLSearchParams();
     if (company) search.set("company", company);
     search.set("party", party);
-    return `/manager/connect/${channel}?${search}`;
+    return `/manager/connect/chat?${search}`;
   };
 
   return (
@@ -94,18 +86,8 @@ export default async function ManagerConnectPage({
               icon={<MessageSquare className="size-10" aria-hidden />}
               label={section.chat}
               action="Start Chat"
-              href={href("chat", section.party)}
-              unread={unreadFor(section.party, "chat")}
-            />
-            {/* No count on email: the card opens a blank compose form, and
-                1.0 has no inbox to read a reply in. A badge here would point
-                at nothing. */}
-            <ConnectCard
-              icon={<Mail className="size-10" aria-hidden />}
-              label={section.email}
-              action="Send Email"
-              href={href("email", section.party)}
-              unread={0}
+              href={href(section.party)}
+              unread={unreadFor(section.party)}
             />
           </div>
         </section>

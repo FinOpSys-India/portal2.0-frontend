@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Mail, MessageSquare } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 
 import { ConnectCard } from "@/components/portal/connect-card";
 import { chatApi } from "@/lib/chat";
@@ -37,8 +37,8 @@ export default async function SpecialistConnectPage({
           Connect with Your Accounting Manager
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Chat for quick updates, or email for detailed communication and
-          document sharing.
+          Chat for quick updates, detailed communication, and document
+          sharing.
         </p>
       </div>
 
@@ -49,15 +49,6 @@ export default async function SpecialistConnectPage({
           action="Start Chat"
           href={scoped("/specialist/connect/chat", company)}
           unread={unread}
-        />
-        {/* No count on email: the card opens a blank compose form, and there is
-            no inbox to read a reply in. A badge here would point at nothing. */}
-        <ConnectCard
-          icon={<Mail className="size-10" aria-hidden />}
-          label="Email Your Manager"
-          action="Send Email"
-          href={scoped("/specialist/connect/email", company)}
-          unread={0}
         />
       </div>
     </section>

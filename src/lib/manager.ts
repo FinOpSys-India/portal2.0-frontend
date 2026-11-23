@@ -14,7 +14,6 @@ import { withDialCode } from "@/lib/phone";
 import type { CompanyPlan, CustomerRole } from "@/lib/admin";
 import {
   ApiError,
-  describeFile,
   get,
   getOrNull,
   patch,
@@ -22,7 +21,6 @@ import {
   put,
   putSigned,
   uploadViaSignedUrls,
-  type UploadTicket,
 } from "@/lib/http";
 import { fullName, isInactive } from "@/lib/directory";
 import { previewText } from "@/lib/meeting-note";
@@ -240,8 +238,6 @@ export interface ManagerThread {
   unread: number;
 }
 
-export type Channel = "chat" | "email";
-
 /** Who the manager is talking to. Customers are clients, specialists staff. */
 export type Party = "customer" | "specialist";
 
@@ -251,7 +247,6 @@ export interface Conversation {
   company: string;
   /** The person on the other end. */
   contact: string;
-  channel: Channel;
   party: Party;
   lastMessage: string;
   /** The backend's ISO instant, or `""` on a thread with no messages. */
@@ -261,7 +256,6 @@ export interface Conversation {
 
 export interface ConversationFilter {
   companyId?: string;
-  channel?: Channel;
   party?: Party;
 }
 
@@ -333,14 +327,6 @@ export interface ChatAttachment {
 
 export type { MessageReaction };
 
-/** The four inboxes the Connect page is split into. */
-export const INBOXES: { channel: Channel; party: Party; label: string }[] = [
-  { channel: "chat", party: "customer", label: "Chat · Customers" },
-  { channel: "chat", party: "specialist", label: "Chat · Specialists" },
-  { channel: "email", party: "customer", label: "Email · Customers" },
-  { channel: "email", party: "specialist", label: "Email · Specialists" },
-];
-
 export interface ManagerDocument {
   id: string;
   /**
@@ -401,8 +387,7 @@ export const MAX_UPLOAD_LABEL = "25 MB";
 /**
  * Extensions the SERVER accepts, mirroring `utils/documentTypes.js`.
  *
- * Shared by every upload control — the documents dialog and the email
- * composer — because they hit the same allowlist. An allowlist narrower than
+ * Shared by every upload control because they hit the same allowlist. An allowlist narrower than
  * the backend's is invisible: the upload never happens, so nothing logs a
  * rejection.
  */
@@ -420,82 +405,6 @@ export const ACCEPTED_UPLOAD_EXTENSIONS = [
   "webp",
   "heic",
 ];
-
-/**
- * What ONE EMAIL may carry across all its attachments, and how many.
- *
- * Both are the server's, from `emailMessageService`: 20 MB total (stricter than
- * the 25 MB per-file cap, because base64 inflates the MIME parts by a third and
- * the SMTP host would refuse the result) and ten files per message from
- * `UPLOAD_MAX_DOCUMENTS_PER_REQUEST`.
- *
- * ponytail: hardcoded like MAX_UPLOAD_BYTES above, for the same reason — no
- * endpoint publishes either number.
- */
-export const MAX_EMAIL_ATTACHMENT_BYTES = 20 * 1024 * 1024;
-export const MAX_EMAIL_ATTACHMENTS = 10;
-export const MAX_EMAIL_ATTACHMENT_LABEL = "20 MB";
-
-/**
- * The selection rules for an email's attachments, applied to a whole pick.
- *
- * A pure function so the branches are testable without a browser, and generic
- * so the caller gets its `File`s back rather than the structural type this only
- * needs the two fields of.
- *
- * The WHOLE set is re-checked on every add, not just the new files: the total
- * cap is a property of the set, so three individually-legal files can still
- * exceed it together. A refused file is named and the rest of the pick is kept
- * — dropping a valid selection because one file in it was oversized is what
- * makes people re-pick everything.
- *
- * A courtesy, not a control. `POST /emails` re-reads the real sizes out of the
- * bucket and enforces both caps there; anything checked only in a browser is a
- * suggestion.
- */
-export function acceptAttachments<T extends { name: string; size: number }>(
-  current: T[],
-  chosen: T[],
-): { files: T[]; refused: string[] } {
-  const refused: string[] = [];
-  const files = [...current];
-
-  for (const file of chosen) {
-    // The same file picked twice is not an error, it is a no-op — the second
-    // pick says nothing new about what the message should carry.
-    if (files.some((f) => f.name === file.name && f.size === file.size)) {
-      continue;
-    }
-    if (
-      !ACCEPTED_UPLOAD_EXTENSIONS.includes(fileKind(file.name).toLowerCase())
-    ) {
-      refused.push(`${file.name} is not a supported file type.`);
-      continue;
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      refused.push(
-        `${file.name} is ${formatFileSize(file.size)}; the limit is ${MAX_UPLOAD_LABEL}.`,
-      );
-      continue;
-    }
-    if (files.length >= MAX_EMAIL_ATTACHMENTS) {
-      refused.push(`Only ${MAX_EMAIL_ATTACHMENTS} files fit on one email.`);
-      break;
-    }
-    if (
-      files.reduce((sum, f) => sum + f.size, file.size) >
-      MAX_EMAIL_ATTACHMENT_BYTES
-    ) {
-      refused.push(
-        `Attachments come to more than ${MAX_EMAIL_ATTACHMENT_LABEL} with ${file.name}.`,
-      );
-      continue;
-    }
-    files.push(file);
-  }
-
-  return { files, refused };
-}
 
 /** Uppercase extension, for the type chip. Files without one show "FILE". */
 export function fileKind(name: string): string {
@@ -690,7 +599,7 @@ async function overCompanies<T>(
  * `conversations()` takes a filter OBJECT, and `cache()` compares arguments by
  * identity — a fresh `{}` at every call site would miss every time and the
  * memoisation would be decoration. Only the company id reaches the backend; the
- * party and channel filters are applied to the result, so the id is the whole
+ * party filter is applied to the result, so the id is the whole
  * key. The layout asks for this on every manager page to put a number on the
  * bell, so it is the single most repeated sweep in the portal.
  */
@@ -1258,16 +1167,10 @@ export const managerApi = {
 
   /**
    * The Connect inbox.
-   *
-   * Chat only. There is no email inbox on the backend — `POST /emails` sends
-   * and nothing lists what was sent — so an email filter returns nothing rather
-   * than inventing rows.
    */
   async conversations(
     filter: ConversationFilter = {},
   ): Promise<Conversation[]> {
-    if (filter.channel === "email") return [];
-
     const [names, rows] = await Promise.all([
       companyNames(),
       fetchConversations(filter.companyId),
@@ -1280,7 +1183,6 @@ export const managerApi = {
           companyId: String(c.companyId),
           company: c.companyName ?? names.get(String(c.companyId)) ?? "",
           contact: personName(c.counterpart),
-          channel: "chat" as Channel,
           // The backend's own word for which side of the account the other person
           // sits on. CUSTOMER covers owner and teammate alike.
           party: (c.participantKind === "SPECIALIST"
@@ -1294,23 +1196,6 @@ export const managerApi = {
         // Unread first — the threads owing a reply.
         .sort((a, b) => b.unread - a.unread)
     );
-  },
-
-  /**
-   * Send an email.
-   *
-   * `to` is a list of USER IDS, not addresses: the backend resolves the person
-   * and reads their address off the joined row, so a client cannot send to
-   * somewhere the recipient does not actually live.
-   */
-  async sendEmail(input: {
-    to: string;
-    subject: string;
-    message: string;
-    companyId?: string;
-    files?: File[];
-  }): Promise<void> {
-    await sendEmailAs(input);
   },
 
   /**
@@ -1565,159 +1450,6 @@ export async function createProjectOn(
 }
 
 /**
- * `POST /emails` for any role. Shared because the customer and specialist
- * portals compose through the same form and the same endpoint — only the
- * recipient's side of the account differs, and the server decides that.
- */
-/**
- * The subject a recipient actually sees, tagged with the company it is about.
- *
- * NOTHING ELSE IN THE MAIL SAYS WHICH ACCOUNT IT IS. The backend sends from a
- * shared portal address with the sender's personal name on it and replies go to
- * the sender — so an accounting manager holding eight companies received
- * "Siddharth Gautam" and a subject, with no way to tell which client it
- * concerned without opening it and inferring.
- *
- * The subject is the only part of a message visible while triaging an inbox, so
- * that is where the tag goes. It survives a reply as `Re: [Toyota] ...`, which
- * keeps a thread attributable after it leaves this app.
- *
- * Not applied twice: a sender who typed the company themselves, or a subject
- * being reused from an earlier tagged one, keeps what they wrote.
- *
- * Exported for the test.
- */
-export function taggedSubject(subject: string, companyName?: string): string {
-  const name = companyName?.trim();
-  if (!name) return subject;
-  return subject.startsWith(`[${name}]`) ? subject : `[${name}] ${subject}`;
-}
-
-export async function sendEmailAs(input: {
-  to: string;
-  subject: string;
-  message: string;
-  companyId?: string;
-  files?: File[];
-}): Promise<void> {
-  const companyId = input.companyId ?? (await scopeIds())[0];
-  if (!companyId) throw new Error("No company to send from.");
-
-  const to = await recipientId(companyId, input.to);
-  const files = await uploadEmailAttachments(companyId, input.files ?? []);
-
-  await post("/emails", {
-    companyId: Number(companyId),
-    subject: taggedSubject(input.subject, to.companyName),
-    // The column is HTML. The composer is plain text, so it is escaped rather
-    // than passed through — an address with an angle bracket in it would
-    // otherwise become markup.
-    bodyHtml: `<p>${escapeHtml(input.message).replace(/\n/g, "<br>")}</p>`,
-    to: [to.id],
-    // Omitted entirely with nothing attached: `files: []` is accepted, but the
-    // no-attachment path is meant to be one request and this keeps it one.
-    ...(files.length ? { files } : {}),
-  });
-}
-
-/**
- * Tickets, then bytes, for the files a message is about to carry.
- *
- * NOT `uploadViaSignedUrls`: the third step of that helper is a confirm call,
- * and an email has none — the send IS the confirm, so this returns the
- * `{ key, fileName }` list for `POST /emails` to carry instead of posting
- * anything itself. There is no draft to hang an upload off, which is why the
- * ticket request names the company rather than a message id.
- *
- * An upload that is never sent leaves an unreferenced object in the bucket.
- * That is the backend's stated trade for not putting file bytes through the
- * API's request-size ceiling, not an oversight here.
- */
-async function uploadEmailAttachments(
-  companyId: string,
-  files: File[],
-): Promise<{ key: string; fileName: string }[]> {
-  if (!files.length) return [];
-
-  const { uploads } = await post<{ uploads: UploadTicket[] }>(
-    "/emails/attachments/upload-url",
-    { companyId: Number(companyId), files: files.map(describeFile) },
-  );
-
-  await Promise.all(uploads.map((t, i) => putSigned(t.uploadUrl, files[i])));
-
-  return uploads.map((t, i) => ({ key: t.key, fileName: files[i].name }));
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-/**
- * The compose form binds to an email address; `POST /emails` wants a user id.
- *
- * THREE LISTS, not two. The picker is split by which side of the account the
- * person sits on, and the accounting manager is a group of their own — so the
- * manager was reachable through neither of the other two, and the one screen a
- * specialist or a customer has is addressed to exactly them. Both of those
- * portals could compose and never send.
- *
- * `id`, not `userId`: a recipient row is `emailDto.toRecipientOption`, which
- * spreads `projectDto.toPerson` — and that names the column `id`. Reading
- * `userId` off it produced `undefined`, which `JSON.stringify` turns into a null
- * inside `to: []`, so the send failed validation from EVERY portal rather than
- * just the two missing a list.
- *
- * Each list is fetched with its own catch: the three are gated to different
- * roles (an accounting manager is refused the manager list, and that is correct
- * — they are not their own counterparty), so one 403 must not lose the others.
- */
-async function recipientId(
-  companyId: string,
-  email: string,
-): Promise<{ id: number; companyName?: string }> {
-  const scope = `companyId=${encodeURIComponent(companyId)}`;
-  const list = async <K extends string>(
-    path: string,
-    key: K,
-  ): Promise<{
-    rows: { id: number; email: string }[];
-    companyName?: string;
-  }> => {
-    const data = await get<
-      Partial<Record<K, { id: number; email: string }[]>> & {
-        companyName?: string;
-      }
-    >(`/emails/recipients/${path}?${scope}`).catch(
-      () =>
-        ({}) as Partial<Record<K, { id: number; email: string }[]>> & {
-          companyName?: string;
-        },
-    );
-    // The envelope names the company these people belong to, which is what the
-    // subject line is tagged with — see `sendEmailAs`. Taken from here rather
-    // than looked up separately, because this request is already being made.
-    return { rows: data[key] ?? [], companyName: data.companyName };
-  };
-
-  const groups = await Promise.all([
-    list("customers", "customers"),
-    list("specialists", "specialists"),
-    list("accounting-managers", "accountingManagers"),
-  ]);
-
-  const found = groups.flatMap((g) => g.rows).find((r) => r.email === email);
-  if (!found) throw new Error(`${email} is not on this account.`);
-
-  // Whichever list answered — an accounting manager is refused the manager
-  // list, so the first one with a name on it is the one that succeeded.
-  return { id: found.id, companyName: groups.find((g) => g.companyName)?.companyName };
-}
-
-/**
  * The one thread a customer or a specialist has.
  *
  * Neither side gets an inbox: both have exactly one counterparty — the
@@ -1791,7 +1523,6 @@ export async function sendChatAttachment(
     ],
   });
 
-  const { putSigned } = await import("@/lib/http");
   await putSigned(uploads[0].uploadUrl, file);
 
   const message = await post<BackendMessage>(

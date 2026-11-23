@@ -9,9 +9,6 @@
 import assert from "node:assert/strict";
 
 import {
-  INBOXES,
-  MAX_EMAIL_ATTACHMENTS,
-  acceptAttachments,
   dayLabel,
   messageTime,
   fileKind,
@@ -28,7 +25,6 @@ import {
   unreadConversations,
   type Conversation,
   type ManagedProject,
-  taggedSubject,
 } from "./manager";
 
 function conversation(over: Partial<Conversation>): Conversation {
@@ -37,7 +33,6 @@ function conversation(over: Partial<Conversation>): Conversation {
     companyId: "c1",
     company: "A Company",
     contact: "A Person",
-    channel: "chat",
     party: "customer",
     lastMessage: "…",
     lastMessageAt: "8/01/26",
@@ -219,16 +214,6 @@ assert.equal(fileKind("archive.tar.gz"), "GZ");
 assert.equal(fileKind(".gitignore"), "FILE");
 assert.equal(fileKind("README"), "FILE");
 
-/* ---------------------------------------------------------- four inboxes -- */
-
-// Every combination must be reachable and mutually exclusive.
-assert.equal(INBOXES.length, 4);
-assert.equal(
-  new Set(INBOXES.map((i) => `${i.channel}:${i.party}`)).size,
-  4,
-  "the four inboxes must name four distinct channel/party pairs",
-);
-
 /* -------------------------------------------------------- company scope -- */
 
 // scoped() is what keeps a selection alive across navigation — including out
@@ -245,67 +230,6 @@ assert.equal(
 assert.equal(
   scoped("/manager/projects", "a b&c"),
   "/manager/projects?company=a%20b%26c",
-);
-
-/* ---------------------------------------------------- email attachments -- */
-
-const MB = 1024 * 1024;
-const file = (name: string, mb: number) => ({ name, size: mb * MB });
-
-// The happy path: two legal files land in order.
-assert.deepEqual(
-  acceptAttachments([], [file("a.pdf", 1), file("b.png", 2)]).files.map(
-    (f) => f.name,
-  ),
-  ["a.pdf", "b.png"],
-);
-
-// A type the server's allowlist does not carry is refused, and — the part that
-// matters — the rest of the same pick still arrives.
-const mixed = acceptAttachments([], [file("virus.exe", 1), file("ok.pdf", 1)]);
-assert.deepEqual(mixed.files.map((f) => f.name), ["ok.pdf"]);
-assert.equal(mixed.refused.length, 1);
-assert.match(mixed.refused[0], /virus\.exe/);
-
-// Per-file cap: 25 MB. Enforced before anything is uploaded.
-assert.equal(acceptAttachments([], [file("big.pdf", 26)]).files.length, 0);
-
-// Total cap: 20 MB, and it is a property of the SET — each of these is legal
-// on its own, and the third is what pushes the message over.
-const total = acceptAttachments(
-  [],
-  [file("a.pdf", 9), file("b.pdf", 9), file("c.pdf", 9)],
-);
-assert.deepEqual(total.files.map((f) => f.name), ["a.pdf", "b.pdf"]);
-assert.equal(total.refused.length, 1);
-
-// The cap counts what is ALREADY attached, not just the new pick.
-assert.equal(
-  acceptAttachments([file("already.pdf", 19)], [file("more.pdf", 2)]).files
-    .length,
-  1,
-);
-
-// Count cap, with small files that no size rule would catch.
-const many = acceptAttachments(
-  [],
-  Array.from({ length: MAX_EMAIL_ATTACHMENTS + 3 }, (_, i) =>
-    file(`f${i}.txt`, 0),
-  ),
-);
-assert.equal(many.files.length, MAX_EMAIL_ATTACHMENTS);
-assert.equal(many.refused.length, 1, "one message about the count, not three");
-
-// The same file picked twice is a no-op, not a refusal — otherwise re-dropping
-// a folder would fill the alert with complaints about files already attached.
-const twice = acceptAttachments([file("a.pdf", 1)], [file("a.pdf", 1)]);
-assert.equal(twice.files.length, 1);
-assert.deepEqual(twice.refused, []);
-
-// Same name, different bytes: a genuinely different file, so both are kept.
-assert.equal(
-  acceptAttachments([file("a.pdf", 1)], [file("a.pdf", 2)]).files.length,
-  2,
 );
 
 /*
@@ -360,33 +284,6 @@ assert.equal(
 );
 
 console.log("manager api: all checks passed");
-
-/* ------------------------------------------------- email subject tag -- */
-
-/*
- * The only part of a sent email that says which company it is about. The mail
- * goes from a shared portal address with the sender's personal name on it, so
- * an accounting manager holding several companies has nothing else to triage
- * on — see `taggedSubject`.
- */
-assert.equal(
-  taggedSubject("Invoice question", "Toyota"),
-  "[Toyota] Invoice question",
-);
-
-/* Already tagged — a reply, or a sender who typed it themselves. Left alone
-   rather than stacked into "[Toyota] [Toyota] ...". */
-assert.equal(
-  taggedSubject("[Toyota] Invoice question", "Toyota"),
-  "[Toyota] Invoice question",
-);
-
-/* No company name resolved: send what the sender wrote rather than an empty
-   bracket. The recipient lists are role-gated and one of them can 403. */
-assert.equal(taggedSubject("Invoice question", undefined), "Invoice question");
-assert.equal(taggedSubject("Invoice question", "   "), "Invoice question");
-
-console.log("manager api: email subject tag ok");
 
 /* ------------------------------------------------------- overdue tasks ---- */
 

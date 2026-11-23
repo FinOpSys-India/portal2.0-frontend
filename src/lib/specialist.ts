@@ -11,7 +11,6 @@ import {
   openConversation,
   openThread,
   sendChatAttachment,
-  sendEmailAs,
   uploadCompanyDocument,
   type ChatMessage,
   type ClientCompany,
@@ -325,17 +324,6 @@ export const specialistApi = {
     const id = await threadId(companyId);
     if (!id) throw new Error("No company to message about.");
     return sendChatAttachment(id, file);
-  },
-
-  async sendEmail(input: {
-    to: string;
-    subject: string;
-    message: string;
-    companyId?: string;
-    files?: File[];
-  }): Promise<void> {
-    const companyId = input.companyId ?? (await scopeIds())[0];
-    await sendEmailAs({ ...input, companyId });
   },
 };
 

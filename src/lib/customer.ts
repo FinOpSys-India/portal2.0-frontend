@@ -19,7 +19,6 @@ import {
   openConversation,
   openThread,
   sendChatAttachment,
-  sendEmailAs,
   serviceOptions,
   type ChatMessage,
   type ClientCompanyDetail,
@@ -565,16 +564,6 @@ export const customerApi = {
   async sendAttachment(workspaceId: string, file: File): Promise<ChatMessage> {
     const conversation = await openConversation(workspaceId);
     return sendChatAttachment(String(conversation.id), file);
-  },
-
-  async sendEmail(input: {
-    to: string;
-    subject: string;
-    message: string;
-    companyId?: string;
-    files?: File[];
-  }): Promise<void> {
-    await sendEmailAs(input);
   },
 };
 

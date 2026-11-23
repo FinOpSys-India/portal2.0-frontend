@@ -208,19 +208,6 @@ export type NewTaskValues = z.infer<typeof newTaskSchema>;
  */
 
 /**
- * The Connect email, shared by the manager and the specialist. 1.0 keeps Send
- * disabled until all three are filled and shows no error when they are not; the
- * messages here are the port's addition.
- */
-export const connectEmailSchema = z.object({
-  to: z.string().min(1, "Pick a recipient."),
-  subject: z.string().min(1, "Enter a subject."),
-  message: z.string().min(1, "Write a message."),
-});
-
-export type ConnectEmailValues = z.infer<typeof connectEmailSchema>;
-
-/**
  * Invite for a teammate on the customer side.
  *
  * `companyIds` is a LIST because one invitation can name several companies —
