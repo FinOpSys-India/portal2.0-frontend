@@ -29,6 +29,7 @@ import { toast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/http";
 import {
   formatWhen,
+  zoneLongName,
   meetingNote,
   meetingStart,
   meetingsApi,
@@ -353,7 +354,7 @@ export function BookingView(props: Props) {
               </li>
               <li className="flex gap-2">
                 <Globe className="mt-0.5 size-4 shrink-0" aria-hidden />
-                Times are shown in {timeZone}.
+                Times are shown in {zoneLongName(timeZone)}.
               </li>
             </ul>
           ) : null}
@@ -524,12 +525,12 @@ export function BookingView(props: Props) {
             onSelect={pickDay}
             defaultMonth={date ?? today}
             disabled={schedule ? { before: today } : [{ before: today }, { dayOfWeek: [0, 6] }]}
-            className="w-full [--cell-size:--spacing(11)]"
+            className="mx-auto bg-transparent p-0 [--cell-size:--spacing(11)]"
           />
           {fieldError("date")}
           <p className="text-xs text-muted-foreground">
             {schedule
-              ? `Times are in your time zone, ${timeZone}.`
+              ? `Times are in your time zone, ${zoneLongName(timeZone)}.`
               : "Monday to Friday, at least 24 hours from now."}
           </p>
         </section>

@@ -13,6 +13,7 @@ import {
   counterpart,
   dayGroups,
   formatWhen,
+  zoneLongName,
   zoneName,
   groupMeetings,
   httpsOnly,
@@ -217,6 +218,15 @@ assert.equal(
   "a US reader sees the same instant in their own time",
 );
 assert.equal(zoneName(new Date("2026-11-24T08:30:00Z"), "Asia/Dubai"), "GST");
+assert.equal(
+  zoneLongName("Asia/Calcutta", new Date("2026-11-24T08:30:00Z")),
+  "India Standard Time",
+  "the browser's legacy zone id never reaches the screen",
+);
+assert.equal(
+  zoneLongName("America/New_York", new Date("2026-11-24T08:30:00Z")),
+  "Eastern Standard Time",
+);
 assert.equal(zoneName(new Date("2026-11-24T08:30:00Z"), "Europe/London"), "GMT");
 assert.equal(
   formatWhen("2026-11-24T05:30:00.000Z", "2026-11-24T07:00:00.000Z", "UTC"),

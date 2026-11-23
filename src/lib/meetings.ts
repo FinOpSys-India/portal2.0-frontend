@@ -218,6 +218,19 @@ export function zoneName(at: Date, timeZone: string): string {
   return fallback;
 }
 
+/**
+ * The zone in words, for a line like "Times are in India Standard Time".
+ * Browsers report India as the legacy id "Asia/Calcutta"; nobody should read
+ * an id.
+ */
+export function zoneLongName(timeZone: string, at: Date = new Date()): string {
+  return (
+    new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "long" })
+      .formatToParts(at)
+      .find((p) => p.type === "timeZoneName")?.value ?? timeZone
+  );
+}
+
 /** "2:00 PM", or "2:00 PM IST" with the zone. */
 export function formatClock(iso: string, timeZone: string, withZone = false): string {
   const at = new Date(iso);

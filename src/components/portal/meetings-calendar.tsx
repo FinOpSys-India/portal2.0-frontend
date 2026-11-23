@@ -34,6 +34,7 @@ import {
   formatWhen,
   meetingLabel,
   occurrences,
+  zoneLongName,
   type Meeting,
 } from "@/lib/meetings";
 import { cn } from "@/lib/utils";
@@ -148,7 +149,7 @@ export function MeetingsCalendar({ meetings }: { meetings: Meeting[] }) {
         />
       )}
 
-      <p className="text-xs text-muted-foreground">Times are in {timeZone}.</p>
+      <p className="text-xs text-muted-foreground">Times are in {zoneLongName(timeZone)}.</p>
 
       <Dialog open={!!open} onOpenChange={(next) => !next && setOpen(null)}>
         {open ? (
