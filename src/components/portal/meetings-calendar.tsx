@@ -301,11 +301,23 @@ function WeekGrid({
                     blockStyle(p.meeting),
                   )}
                 >
-                  <span className="block truncate font-semibold">{p.meeting.title}</span>
-                  <span className="sr-only">, {meetingLabel(p.meeting, "manager")}</span>
-                  <span className="block truncate">
-                    {format(p.startAt, "h:mm")} – {format(p.endAt, "h:mm a")}
-                    {p.meeting.companyName ? ` · ${p.meeting.companyName}` : ""}
+                  {/* Under 45 minutes there is room for one line: the title and the start. */}
+                  {differenceInMinutes(p.endAt, p.startAt) < 45 ? (
+                    <span className="block truncate">
+                      <span className="font-semibold">{p.meeting.title}</span> · {format(p.startAt, "h:mm a")}
+                    </span>
+                  ) : (
+                    <>
+                      <span className="block truncate font-semibold">{p.meeting.title}</span>
+                      <span className="block truncate">
+                        {format(p.startAt, "h:mm")} – {format(p.endAt, "h:mm a")}
+                        {p.meeting.companyName ? ` · ${p.meeting.companyName}` : ""}
+                      </span>
+                    </>
+                  )}
+                  <span className="sr-only">
+                    , {format(p.startAt, "h:mm a")} to {format(p.endAt, "h:mm a")}
+                    {p.meeting.companyName ? `, ${p.meeting.companyName}` : ""}, {meetingLabel(p.meeting, "manager")}
                   </span>
                 </button>
               ))}
