@@ -3,7 +3,10 @@
 import * as React from "react";
 
 import { DataTable } from "@/components/admin/data-table";
-import { TaskStatusMenu } from "@/components/portal/task-status-menu";
+import {
+  ReviewNoteRow,
+  TaskStatusMenu,
+} from "@/components/portal/task-status-menu";
 import {
   Dialog,
   DialogContent,
@@ -130,8 +133,10 @@ export function TaskTable({
             cell: (task) => (
               <TaskStatusMenu
                 taskId={task.id}
+                name={task.name}
                 status={task.status}
                 from={from}
+                locked={task.locked}
               />
             ),
           },
@@ -175,11 +180,14 @@ export function TaskTable({
                   <dd className="mt-1.5">
                     <TaskStatusMenu
                       taskId={open.id}
+                      name={open.name}
                       status={open.status}
                       from={from}
+                      locked={open.locked}
                     />
                   </dd>
                 </div>
+                <ReviewNoteRow review={open.reviewNote} />
               </dl>
             </>
           ) : null}

@@ -63,7 +63,7 @@ export interface Workspace {
   services?: string[];
 }
 
-export type ProjectStatus = "Not started" | "In progress" | "Completed";
+export type ProjectStatus = "Not started" | "In progress" | "In review" | "Completed";
 
 export interface Project {
   id: string;
@@ -100,6 +100,8 @@ export interface CustomerFile {
   createdAt: string;
   /** Bytes. Rendered beneath the file name, as in the staff portals. */
   size: number;
+  /** When the reader archived it, on the Archive tab's rows. */
+  archivedAt: string | null;
 }
 
 export interface CustomerCompany {
@@ -107,8 +109,6 @@ export interface CustomerCompany {
   name: string;
   activeServices: string[];
   subscriptionDate: string | null;
-  /** End of the period paid for — see `mustPayToReactivate`. */
-  paidUntil: string | null;
   inactive: boolean;
   teamMembers: PortalPerson[];
 }
@@ -348,16 +348,18 @@ export const customerApi = {
     return data.tasks.map(toProjectTask);
   },
 
+  /** `archived` reads the customer's own archive instead of Documents. */
   async files(
     workspaceId: string,
     projectName?: string,
+    archived = false,
   ): Promise<CustomerFile[]> {
     // ponytail: 100 is the server's own maxLimit, and the whole set is fetched
     // in one request so the table can page it locally. Past 100 rows the
     // remainder is silently absent — move to `?limit=&offset=` per page (as the
     // admin lists do) when a workspace realistically holds that many.
     const data = await get<{ documents: BackendDocument[] }>(
-      `/documents?companyId=${encodeURIComponent(workspaceId)}&limit=100`,
+      `/documents?companyId=${encodeURIComponent(workspaceId)}${archived ? "&archived=true" : ""}&limit=100`,
     );
 
     const files = data.documents.map((d) => ({
@@ -371,6 +373,7 @@ export const customerApi = {
       uploadedAt: usDate(d.createdAt),
       createdAt: d.createdAt,
       size: d.sizeBytes,
+      archivedAt: d.archivedAt ?? null,
     }));
 
     return projectName ? files.filter((f) => f.project === projectName) : files;
@@ -416,6 +419,7 @@ export const customerApi = {
       uploadedAt: usDate(doc.createdAt),
       createdAt: doc.createdAt,
       size: doc.sizeBytes,
+      archivedAt: null,
     };
   },
 
@@ -432,7 +436,6 @@ export const customerApi = {
       name: c.companyName,
       activeServices: (c.activeServices ?? []).map((s) => s.specializationName),
       subscriptionDate: billingDate(c),
-      paidUntil: c.billing?.currentPeriodEnd ?? null,
       inactive: c.status === "INACTIVE",
       teamMembers: teamPeople(c),
     }));
@@ -579,7 +582,7 @@ function toProject(p: BackendProject): Project {
     specialist: p.specialist ? personName(p.specialist) : null,
     specialistAvatarUrl: personAvatarUrl(p.specialist),
     creatorId: personId(p.createdBy),
-    inactive: !!p.inactiveAt,
+    inactive: p.isActive === false,
     previousProject: toPreviousProject(p),
     createdAt: p.createdAt,
   };

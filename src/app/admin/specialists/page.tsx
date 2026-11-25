@@ -62,15 +62,20 @@ export default async function SpecialistsPage({
           // Inactive, never deleted (Sir, Q17). Last, like every Actions column.
           header: "Status",
           filter: "enum",
-          sortValue: (row) => (row.inactive ? "Inactive" : "Active"),
-          cell: (row) => (
-            <StaffActiveSwitch
-              userId={row.userId}
-              name={row.name}
-              inactive={row.inactive}
-              manager={false}
-            />
-          ),
+          sortValue: (row) =>
+            row.invited ? "Invited" : row.inactive ? "Inactive" : "Active",
+          // No switch until they sign up: the server refuses one (409).
+          cell: (row) =>
+            row.invited ? (
+              <span className="text-sm text-muted-foreground">Invited</span>
+            ) : (
+              <StaffActiveSwitch
+                userId={row.userId}
+                name={row.name}
+                inactive={row.inactive}
+                manager={false}
+              />
+            ),
         },
       ]}
     />

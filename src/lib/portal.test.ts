@@ -12,14 +12,14 @@ import {
   inactiveSpecialists,
   billingDate,
   isOpenProject,
-  outsideInactive,
+  lockInactive,
   personName,
+  taskMoves,
   taskStatusCode,
   teamPeople,
   toAddressFields,
   toAddressPayload,
   documentsMessage,
-  mustPayToReactivate,
   parseProjectTab,
   projectTab,
   parseServiceTab,
@@ -52,13 +52,15 @@ import {
 
 /* --------------------------------------------------------------- statuses -- */
 
-// Three states, two vocabularies. Projects and tasks name them differently and
+// Four states, two vocabularies. Projects and tasks name them differently and
 // always have — the map is the only place that knows both.
 assert.equal(toProjectStatus("TODO"), "Not started");
 assert.equal(toProjectStatus("ACTIVE"), "In progress");
 assert.equal(toProjectStatus("COMPLETED"), "Completed");
+assert.equal(toProjectStatus("IN_REVIEW"), "In review");
 assert.equal(toTaskStatus("TODO"), "Not started");
 assert.equal(toTaskStatus("ACTIVE"), "In progress");
+assert.equal(toTaskStatus("IN_REVIEW"), "In review");
 
 // An unknown code must not render blank: a status cell with nothing in it reads
 // as a data problem, and "Not started" is the column's own default.
@@ -70,9 +72,10 @@ assert.equal(toTaskStatus("SOMETHING_NEW"), "Not started");
 assert.equal(taskStatusCode("Not started"), "TODO");
 assert.equal(taskStatusCode("In progress"), "ACTIVE");
 assert.equal(taskStatusCode("Completed"), "COMPLETED");
+assert.equal(taskStatusCode("In review"), "IN_REVIEW");
 
 // Round trip, every state.
-for (const code of ["TODO", "ACTIVE", "COMPLETED"]) {
+for (const code of ["TODO", "ACTIVE", "IN_REVIEW", "COMPLETED"]) {
   assert.equal(taskStatusCode(toTaskStatus(code)), code);
 }
 
@@ -153,7 +156,51 @@ assert.deepEqual(toProjectTask(task), {
   description: "Match the bank feed against the ledger.",
   status: "Not started",
   deadline: "8/15/2026",
+  reviewNote: null,
 });
+
+// The manager's note on the latest review move, with who and when. An
+// approval with no note has nothing to show.
+assert.deepEqual(
+  toProjectTask({
+    ...task,
+    status: "ACTIVE",
+    review: {
+      note: "Two entries are unmatched.",
+      reviewedAt: "2026-11-20T07:15:38.384Z",
+      reviewedBy: { firstName: "AM", lastName: "user" },
+    },
+  }).reviewNote,
+  { note: "Two entries are unmatched.", by: "AM user", on: "11/20/2026" },
+);
+assert.equal(
+  toProjectTask({
+    ...task,
+    review: { note: null, reviewedAt: "2026-11-20T07:15:38.384Z", reviewedBy: null },
+  }).reviewNote,
+  null,
+);
+
+// The review flow (25 Nov), as PATCH /tasks/:id/status enforces it. The
+// specialist sends work for review and can't complete it or touch it again
+// until the manager has; the manager approves or sends back (note required)
+// and reopens completed work (note required).
+const moves = (from: "manager" | "specialist", status: Parameters<typeof taskMoves>[1]) =>
+  taskMoves(from, status).map((m) => `${m.label}>${m.to}${m.note ? `:${m.note}` : ""}`);
+assert.deepEqual(moves("specialist", "Not started"), ["In progress>In progress"]);
+assert.deepEqual(moves("specialist", "In progress"), [
+  "Not started>Not started",
+  "Send for Review>In review",
+]);
+assert.deepEqual(moves("specialist", "In review"), []);
+assert.deepEqual(moves("specialist", "Completed"), []);
+assert.deepEqual(moves("manager", "Not started"), ["In progress>In progress"]);
+assert.deepEqual(moves("manager", "In progress"), ["Not started>Not started"]);
+assert.deepEqual(moves("manager", "In review"), [
+  "Approve>Completed:optional",
+  "Send Back>In progress:required",
+]);
+assert.deepEqual(moves("manager", "Completed"), ["Reopen>In progress:required"]);
 
 // Across projects the task name alone says nothing, so the project rides along.
 assert.equal(toSpecialistTask(task).project, "Q3 Bookkeeping");
@@ -583,17 +630,6 @@ assert.equal(
   "4 documents could not be archived.",
 );
 
-/* --------------------------------------------------- mustPayToReactivate -- */
-
-const NOW = Date.parse("2026-11-13T12:00:00Z");
-// Inside the period already paid for: back on with no payment.
-assert.equal(mustPayToReactivate("2026-12-01T00:00:00Z", false, NOW), false);
-// The period ran out while it was off.
-assert.equal(mustPayToReactivate("2026-11-01T00:00:00Z", false, NOW), true);
-// Never paid, or no billing date at all.
-assert.equal(mustPayToReactivate("2026-12-01T00:00:00Z", true, NOW), true);
-assert.equal(mustPayToReactivate(null, false, NOW), true);
-
 /* -------------------------------------------------------- project tabs -- */
 
 // Inactive wins over status: a completed project switched off is on Inactive.
@@ -648,26 +684,30 @@ assert.equal(
   ),
   2,
 );
-// `inactiveAt` is the switch; absent (every route today) reads as active.
+// `isActive` is the switch; absent reads as active.
 assert.equal(mapped.inactive, false);
-assert.equal(
-  toManagedProject({ ...project, inactiveAt: "2026-11-13T00:00:00Z" }).inactive,
-  true,
-);
+assert.equal(toManagedProject({ ...project, isActive: true }).inactive, false);
+assert.equal(toManagedProject({ ...project, isActive: false }).inactive, true);
 
-// Frozen (16 Nov): an inactive project leaves the pickers, and its rows leave
-// every list. A row with no project, or one not in the list, stays.
+// Read-only (25 Nov): an inactive project leaves the pickers, and its rows
+// stay in every list, locked. A row with no project, or one not in the list,
+// stays open.
 assert.equal(isOpenProject({ status: "In progress", inactive: true }), false);
 assert.equal(isOpenProject({ status: "In progress", inactive: false }), true);
 assert.deepEqual(
-  outsideInactive(
+  lockInactive(
     [{ projectId: "1" }, { projectId: "2" }, { projectId: null }, { projectId: "9" }],
     [
       { id: "1", inactive: true },
       { id: "2", inactive: false },
     ],
   ),
-  [{ projectId: "2" }, { projectId: null }, { projectId: "9" }],
+  [
+    { projectId: "1", locked: true },
+    { projectId: "2", locked: false },
+    { projectId: null, locked: false },
+    { projectId: "9", locked: false },
+  ],
 );
 
 // Staff Inactive (17 Nov): "Name (inactive)", never "former employee", and the

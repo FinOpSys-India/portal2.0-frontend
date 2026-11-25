@@ -20,9 +20,8 @@ import {
 import { ProjectFilter } from "@/components/portal/project-filter";
 import { companyScope, managerApi, scoped } from "@/lib/manager";
 import {
-  archivedDocuments,
   isOpenProject,
-  outsideInactive,
+  lockInactive,
   viewerId,
   withService,
 } from "@/lib/portal";
@@ -73,7 +72,8 @@ export default async function ManagerDocumentsPage({
   const company = await companyScope(picked);
 
   const [documents, projects, companies, viewer] = await Promise.all([
-    managerApi.documents(company, project),
+    // The Archive tab reads the reader's own archive; Documents leaves it out.
+    managerApi.documents(company, project, view === "archive"),
     managerApi.projects(company),
     managerApi.companies(),
     // Who "delete" is offered to: the uploader of the row, nobody else.
@@ -87,15 +87,12 @@ export default async function ManagerDocumentsPage({
   // From the company list, not from the projects: a company with no projects
   // yet would otherwise leave the breadcrumb blank while scoped to it.
 
-  const rows =
-    view === "archive"
-      ? await archivedDocuments<FileRow>()
-      : withService(outsideInactive(documents, allProjects), allProjects);
+  const rows = withService(lockInactive(documents, allProjects), allProjects);
 
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <ProjectFilter projects={projects.filter((p) => !p.inactive).map((p) => p.name)} />
+        <ProjectFilter projects={projects.map((p) => p.name)} />
       </div>
 
       <DocumentSelection>

@@ -64,6 +64,8 @@ export interface Specialist {
   email: string;
   avatarUrl: string | null;
   inactive: boolean;
+  /** Invited, never signed up: there's no account to switch on or off yet. */
+  invited: boolean;
 }
 
 export interface AccountingManager {
@@ -73,6 +75,8 @@ export interface AccountingManager {
   companies: string[];
   avatarUrl: string | null;
   inactive: boolean;
+  /** See `Specialist.invited`. */
+  invited: boolean;
 }
 
 export interface Company {
@@ -376,6 +380,7 @@ function toSpecialist(row: SpecialistRow): Specialist {
     email: row.email,
     avatarUrl: row.avatarUrl ?? null,
     inactive: isInactive(row),
+    invited: row.status === "INVITED",
   };
 }
 
@@ -387,6 +392,7 @@ function toManager(row: ManagerRow): AccountingManager {
     email: row.email,
     companies: (row.companies ?? []).map((c) => c.companyName),
     inactive: isInactive(row),
+    invited: row.status === "INVITED",
   };
 }
 
@@ -556,7 +562,9 @@ export const adminApi = {
     const data = await get<{
       specialists: SpecialistRow[];
       pagination: { total: number };
-    }>(`/specialists?${pageQuery(page, limit)}`);
+      // Inactive people too, or someone switched off leaves the list and can
+      // never be switched back on. It brings the invited along as well.
+    }>(`/specialists?${pageQuery(page, limit)}&includeInactive=true`);
     // `pagination.total`, not the page length — that counted the rows on screen,
     // so the pager always computed exactly one page.
     return {
@@ -572,7 +580,8 @@ export const adminApi = {
     const data = await get<{
       accountingManagers: ManagerRow[];
       pagination: { total: number };
-    }>(`/admin/accounting-managers?${pageQuery(page, limit)}`);
+      // As on `specialists`: Inactive managers stay findable.
+    }>(`/admin/accounting-managers?${pageQuery(page, limit)}&includeInactive=true`);
     return {
       rows: data.accountingManagers.map(toManager),
       total: data.pagination.total,
@@ -727,25 +736,38 @@ export const adminApi = {
 
   /**
    * Make an accounting manager or specialist Inactive, or Active again (17
-   * Nov). Admin only. Inactive blocks sign-in and drops them from every
-   * assignment list; nothing is deleted (Sir, Q17). Making them Active again
-   * does not give back the companies they lost.
-   *
-   * PLACEHOLDER ROUTE until Pratibha's #5 lands.
+   * Nov). Admin only. Inactive signs them out at once, blocks sign-in and
+   * drops them from every assignment list; nothing is deleted (Sir, Q17).
+   * Their companies keep them until someone reassigns, so making them Active
+   * again before that finds everything as it was.
    */
-  async setUserActive(userId: number, active: boolean): Promise<void> {
-    await patch(`/users/${userId}/status`, {
-      status: active ? "ACTIVE" : "HIBERNATED",
-    });
+  async setStaffActive(
+    userId: number,
+    active: boolean,
+    manager: boolean,
+  ): Promise<void> {
+    await patch(
+      `/admin/${manager ? "accounting-managers" : "specialists"}/${userId}/status`,
+      { status: active ? "ACTIVE" : "INACTIVE" },
+    );
   },
 
-  async assignManager(companyId: string, managerUserId: number): Promise<void> {
-    await put(
+  /**
+   * Assign the company's accounting manager, or replace the one it has, in
+   * one step. Replacing cancels the upcoming meetings the previous manager set
+   * up on the company; how many comes back for the toast.
+   */
+  async assignManager(
+    companyId: string,
+    managerUserId: number,
+  ): Promise<{ canceledMeetings: number }> {
+    const data = await put<{ cancelledMeetings?: unknown[] }>(
       `/companies/${encodeURIComponent(companyId)}/accounting-manager`,
       {
         accountingManagerUserId: managerUserId,
       },
     );
+    return { canceledMeetings: data?.cancelledMeetings?.length ?? 0 };
   },
 };
 

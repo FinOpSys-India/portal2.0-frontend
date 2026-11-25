@@ -5,15 +5,10 @@ import { Suspense } from "react";
 import { CustomerShell } from "@/components/customer/customer-shell";
 import { MeetingsLink } from "@/components/portal/meetings-link";
 import { PageHeader } from "@/components/portal/portal-shell";
-import {
-  CompanyActiveSwitch,
-  DeleteCompany,
-  FrozenNotice,
-} from "@/components/portal/record-controls";
+import { FrozenNotice } from "@/components/portal/record-controls";
 import { api, unpaidCompanyIds } from "@/lib/api";
 import { customerApi } from "@/lib/customer";
 import { groupMeetings, meetingsApi, meetingsEnabled } from "@/lib/meetings";
-import { mustPayToReactivate } from "@/lib/portal";
 
 export const metadata: Metadata = {
   title: { default: "FinOpSys", template: "%s – FinOpSys" },
@@ -70,42 +65,16 @@ export default async function CustomerLayout({
 
   /*
    * An inactive company is frozen (16 Nov): every page under it — projects,
-   * tasks, documents, chat — is replaced by its name and a notice. The owner
-   * keeps the two things they can still do here, turn it back on or delete it.
-   * The paid-until date is read only then, for the Complete Payment rule.
+   * tasks, documents, chat — is replaced by its name and a notice. Only an
+   * admin turns it back on or deletes it (25 Nov), so nobody here gets a
+   * control.
    */
-  const company =
-    workspace.inactive && owner ? await customerApi.company(id) : null;
   const body = workspace.inactive ? (
     <div className="grid gap-6">
-      <PageHeader
-        title="Company Details"
-        description={workspace.name}
-        action={
-          company ? (
-            <span className="flex flex-wrap items-center gap-4">
-              <CompanyActiveSwitch
-                companyId={id}
-                name={workspace.name}
-                inactive
-                mustPay={mustPayToReactivate(
-                  company.paidUntil,
-                  !!status && unpaidCompanyIds(status).includes(id),
-                )}
-              />
-              <DeleteCompany
-                companyId={id}
-                name={workspace.name}
-                after="/company_select"
-              />
-            </span>
-          ) : undefined
-        }
-      />
+      <PageHeader title="Company Details" description={workspace.name} />
       <FrozenNotice>
-        {owner
-          ? "This company is inactive, so nothing under it can be opened. Make it active to open it again."
-          : "This company is inactive, so nothing under it can be opened until its owner makes it active again."}
+        This company is inactive, so nothing under it can be opened until an
+        administrator makes it active again.
       </FrozenNotice>
     </div>
   ) : (

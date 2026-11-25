@@ -259,6 +259,7 @@ export const specialistApi = {
     return managerApi.addTask(projectId, task);
   },
 
+  /** Never with a note: the server refuses one from the specialist. */
   setTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
     return patch(`/tasks/${encodeURIComponent(taskId)}/status`, {
       status: taskStatusCode(status),
@@ -269,11 +270,12 @@ export const specialistApi = {
   async documents(
     companyId?: string,
     project?: string,
+    archived = false,
   ): Promise<ManagerDocument[]> {
     const names = new Map(
       (await myCompanies()).map((c) => [String(c.id), c.companyName]),
     );
-    return listDocuments(companyId, project, names);
+    return listDocuments(companyId, project, names, archived);
   },
 
   /**

@@ -49,11 +49,11 @@ import {
   type BackendTask,
 } from "@/lib/portal";
 
-export type ProjectStatus = "Not started" | "In progress" | "Completed";
+export type ProjectStatus = "Not started" | "In progress" | "In review" | "Completed";
 
 /**
- * Tasks and projects run through the same three backend codes, so they say the
- * same three words. 1.0 spelled the first one "To do" on a task table and "Not
+ * Tasks and projects run through the same four backend codes, so they say the
+ * same four words. 1.0 spelled the first one "To do" on a task table and "Not
  * started" on a project table — one state, two vocabularies, which is a
  * difference the reader has to learn means nothing.
  */
@@ -68,9 +68,7 @@ export interface ClientCompany {
   activeServices: string[];
   /** M/DD/YY. Absent until a subscription starts — 1.0 renders the cell blank. */
   billingDate: string | null;
-  /** The raw `currentPeriodEnd` behind `billingDate`, for comparing against today. */
-  paidUntil: string | null;
-  /** Switched off by the owner. Hidden from the switcher, records kept. */
+  /** Switched off by an admin. Hidden from the switcher, records kept. */
   inactive: boolean;
   teamMembers: PortalPerson[];
   /** Staffed specialists, if any. The company list already carries them, so the
@@ -144,6 +142,11 @@ export interface ProjectTask {
   description: string;
   status: TaskStatus;
   deadline: string;
+  /**
+   * The accounting manager's note on the latest review move (approve, send
+   * back, reopen). Null when there is none to show.
+   */
+  reviewNote: { note: string; by: string; on: string } | null;
 }
 
 export interface Specialist {
@@ -198,6 +201,8 @@ export interface SpecialistDetail extends Specialist {
  */
 export interface SpecialistTask extends ProjectTask {
   project: string;
+  /** In an inactive project: read, not moved. See `lockInactive`. */
+  locked?: boolean;
 }
 
 export interface ManagerProfile {
@@ -347,6 +352,8 @@ export interface ManagerDocument {
   uploadedAt: string;
   /** Bytes. Rendered beneath the file name. */
   size: number;
+  /** When the reader archived it, on the Archive tab's rows. */
+  archivedAt: string | null;
 }
 
 /**
@@ -1083,10 +1090,18 @@ export const managerApi = {
     });
   },
 
-  /** `PATCH`, and the status is the backend's own code, not the label. */
-  async setTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
+  /**
+   * `PATCH`, and the status is the backend's own code, not the label. `note`
+   * is the review note on approve, send back and reopen (see `taskMoves`).
+   */
+  async setTaskStatus(
+    taskId: string,
+    status: TaskStatus,
+    note?: string,
+  ): Promise<void> {
     await patch(`/tasks/${encodeURIComponent(taskId)}/status`, {
       status: taskStatusCode(status),
+      ...(note && { note }),
     });
   },
 
@@ -1247,12 +1262,16 @@ export const managerApi = {
    */
   uploadDocument: uploadCompanyDocument,
 
-  /** Documents across the manager's companies, optionally one project's. */
+  /**
+   * Documents across the manager's companies, optionally one project's.
+   * `archived` reads the manager's own archive instead.
+   */
   async documents(
     companyId?: string,
     project?: string,
+    archived = false,
   ): Promise<ManagerDocument[]> {
-    return listDocuments(companyId, project, await companyNames());
+    return listDocuments(companyId, project, await companyNames(), archived);
   },
 };
 
@@ -1577,13 +1596,15 @@ export async function listDocuments(
   companyId: string | undefined,
   project: string | undefined,
   names: Map<string, string>,
+  archived = false,
 ): Promise<ManagerDocument[]> {
   const ids = companyId ? [companyId] : [...names.keys()];
 
   const pages = await Promise.all(
     ids.map(async (id) => {
+      // Without `archived`, the server leaves out what the caller archived.
       const data = await get<{ documents: BackendDocument[] }>(
-        `/documents?companyId=${encodeURIComponent(id)}&limit=100`,
+        `/documents?companyId=${encodeURIComponent(id)}${archived ? "&archived=true" : ""}&limit=100`,
       );
       return data.documents.map((d) =>
         toManagerDocument(d, {

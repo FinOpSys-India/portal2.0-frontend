@@ -95,11 +95,17 @@ export function AssignManager({
     setFailure(null);
     setPending(true);
     try {
-      if (!preview) await adminApi.assignManager(companyId, Number(manager));
+      const { canceledMeetings } = preview
+        ? { canceledMeetings: 0 }
+        : await adminApi.assignManager(companyId, Number(manager));
       setOpen(false);
       setManager("");
+      const canceled =
+        canceledMeetings === 0
+          ? ""
+          : ` ${canceledMeetings} upcoming ${canceledMeetings === 1 ? "meeting was" : "meetings were"} canceled.`;
       toast.success(
-        `${managers.find((m) => String(m.userId) === manager)?.name ?? "Accounting Manager"} now manages this company.`,
+        `${managers.find((m) => String(m.userId) === manager)?.name ?? "Accounting Manager"} now manages this company.${canceled}`,
       );
       router.refresh();
     } catch (err) {
@@ -268,7 +274,9 @@ export function AssignManager({
             >
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
               The company’s projects, specialists and documents move to them,
-              and the customer starts a new chat with them.
+              and the customer starts a new chat with them. Upcoming meetings
+              the current manager set up for this company are canceled, and
+              everyone invited is told by email.
             </p>
           ) : null}
 

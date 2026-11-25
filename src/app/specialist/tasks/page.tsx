@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AddTask } from "@/components/portal/add-task";
 import { parsePage, parsePageSize } from "@/components/admin/data-table";
 import { TaskTable } from "@/components/portal/task-table";
-import { isOpenProject, outsideInactive } from "@/lib/portal";
+import { isOpenProject, lockInactive } from "@/lib/portal";
 import { companyScope, specialistApi } from "@/lib/specialist";
 import { parseFilters } from "@/lib/table-filter";
 
@@ -45,7 +45,7 @@ export default async function SpecialistTasksPage({
   return (
     <TaskTable
       title="Tasks"
-      tasks={outsideInactive(tasks, projects)}
+      tasks={lockInactive(tasks, projects)}
       from="specialist"
       page={parsePage(params.page)}
       size={parsePageSize(params.size)}

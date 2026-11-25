@@ -111,21 +111,23 @@ export const toPortalPerson = (
 /* --------------------------------------------------------------- statuses -- */
 
 /**
- * The backend stores three states and spells them TODO / ACTIVE / COMPLETED.
- * One map, not one per entity: a task and a project are the same three states,
- * and 1.0's two vocabularies ("To do" on a task, "Not started" on a project)
- * only taught the reader that two words meant one thing. The map goes both
- * ways because a status also travels back on a write.
+ * The backend stores four states and spells them TODO / ACTIVE / IN_REVIEW /
+ * COMPLETED. One map, not one per entity: a task and a project are the same
+ * states, and 1.0's two vocabularies ("To do" on a task, "Not started" on a
+ * project) only taught the reader that two words meant one thing. The map goes
+ * both ways because a status also travels back on a write.
  */
 const STATUS: Record<string, ProjectStatus> = {
   TODO: "Not started",
   ACTIVE: "In progress",
+  IN_REVIEW: "In review",
   COMPLETED: "Completed",
 };
 
 const TASK_CODE: Record<TaskStatus, string> = {
   "Not started": "TODO",
   "In progress": "ACTIVE",
+  "In review": "IN_REVIEW",
   Completed: "COMPLETED",
 };
 
@@ -137,6 +139,40 @@ export const toTaskStatus = (code: string): TaskStatus =>
 
 export const taskStatusCode = (status: TaskStatus): string =>
   TASK_CODE[status] ?? "TODO";
+
+/** One move a status menu offers, and whether it asks for a review note. */
+export interface TaskMove {
+  label: string;
+  to: TaskStatus;
+  note?: "required" | "optional";
+}
+
+/**
+ * The moves `PATCH /tasks/:id/status` accepts from this person and this state
+ * (the review flow, 25 Nov). The specialist sends finished work for review and
+ * can't complete it; the accounting manager approves it or sends it back, and
+ * can reopen completed work. Sending back and reopening need a note.
+ */
+export function taskMoves(
+  from: "manager" | "specialist",
+  status: TaskStatus,
+): TaskMove[] {
+  if (status === "Not started") return [{ label: "In progress", to: "In progress" }];
+  if (status === "In progress") {
+    const back: TaskMove = { label: "Not started", to: "Not started" };
+    return from === "specialist"
+      ? [back, { label: "Send for Review", to: "In review" }]
+      : [back];
+  }
+  // In review and Completed wait on the accounting manager.
+  if (from === "specialist") return [];
+  return status === "In review"
+    ? [
+        { label: "Approve", to: "Completed", note: "optional" },
+        { label: "Send Back", to: "In progress", note: "required" },
+      ]
+    : [{ label: "Reopen", to: "In progress", note: "required" }];
+}
 
 /* -------------------------------------------------------------- projects -- */
 
@@ -154,12 +190,10 @@ export interface BackendProject {
   progressBar: number;
   createdAt: string;
   /**
-   * When the creator switched the project off, or null. NOT SENT BY ANY ROUTE
-   * TODAY — Pratibha's list. A date rather than a status, so a project keeps
-   * whether it was In progress or Completed, and so the keep-for-N-days rule
-   * (Abhinav, undecided) has something to count from. Absent reads as active.
+   * The creator's switch, kept apart from `status`, so a project remembers
+   * whether it was In progress or Completed. Absent reads as active.
    */
-  inactiveAt?: string | null;
+  isActive?: boolean;
   /**
    * The earlier project this one follows on from, picked when it was opened. A
    * mention only — nothing is copied or shared. NOT SENT BY ANY ROUTE TODAY
@@ -182,23 +216,24 @@ export function toPreviousProject(p: BackendProject): PreviousProject | null {
 
 /**
  * Completed is final: no new tasks, uploads or status moves until the
- * accounting manager reopens it. Inactive is frozen (16 Nov). Pickers that file
- * work against a project leave both out.
+ * accounting manager reopens it. Inactive is read-only, like past work
+ * (25 Nov). Pickers that file work against a project leave both out.
  */
 export const isOpenProject = (p: { status: string; inactive: boolean }): boolean =>
   p.status !== "Completed" && !p.inactive;
 
 /**
- * Drop the rows (documents, tasks) that sit in an inactive project: frozen
- * means its name shows on the Inactive tab and nothing inside it opens
- * (16 Nov). A row whose project isn't in `projects` stays.
+ * Mark the rows (documents, tasks) that sit in an inactive project: they stay
+ * in every list and read like past work, but nothing on them changes (25 Nov;
+ * the server refuses those writes with 403). A row whose project isn't in
+ * `projects` is left open.
  */
-export function outsideInactive<T extends { projectId: string | null }>(
+export function lockInactive<T extends { projectId: string | null }>(
   rows: T[],
   projects: { id: string; inactive: boolean }[],
-): T[] {
-  const frozen = new Set(projects.filter((p) => p.inactive).map((p) => p.id));
-  return rows.filter((r) => !r.projectId || !frozen.has(r.projectId));
+): (T & { locked: boolean })[] {
+  const inactive = new Set(projects.filter((p) => p.inactive).map((p) => p.id));
+  return rows.map((r) => ({ ...r, locked: !!r.projectId && inactive.has(r.projectId) }));
 }
 
 /**
@@ -231,7 +266,7 @@ export function toManagedProject(p: BackendProject): ManagedProject {
     specialistAvatarUrl: personAvatarUrl(p.specialist),
     createdBy: personName(p.createdBy),
     creatorId: personId(p.createdBy),
-    inactive: !!p.inactiveAt,
+    inactive: p.isActive === false,
     previousProject: toPreviousProject(p),
     progress: p.progressBar ?? 0,
     createdOn: usDate(p.createdAt),
@@ -250,6 +285,12 @@ export interface BackendTask {
   description: string;
   status: string;
   deadlineDate: string | null;
+  /** The accounting manager's note on the latest review move only. */
+  review?: {
+    note: string | null;
+    reviewedAt: string | null;
+    reviewedBy: BackendPerson | null;
+  } | null;
 }
 
 export function toProjectTask(t: BackendTask): ProjectTask {
@@ -260,6 +301,14 @@ export function toProjectTask(t: BackendTask): ProjectTask {
     description: t.description,
     status: toTaskStatus(t.status),
     deadline: t.deadlineDate ? usDate(t.deadlineDate) : "",
+    // An approval may come with no note; there is nothing to show then.
+    reviewNote: t.review?.note
+      ? {
+          note: t.review.note,
+          by: personName(t.review.reviewedBy),
+          on: t.review.reviewedAt ? usDate(t.review.reviewedAt) : "",
+        }
+      : null,
   };
 }
 
@@ -277,6 +326,8 @@ export interface BackendDocument {
   uploadedBy: BackendPerson | null;
   createdAt: string;
   project?: { id: number; projectName: string } | null;
+  /** When the CALLER archived it: the archive is per person (25 Nov). */
+  archivedAt?: string | null;
 }
 
 /**
@@ -310,6 +361,7 @@ export function toManagerDocument(
     ownerAvatarUrl: personAvatarUrl(d.uploadedBy),
     uploadedAt: usDate(d.createdAt),
     size: d.sizeBytes,
+    archivedAt: d.archivedAt ?? null,
   };
 }
 
@@ -356,17 +408,16 @@ export async function deleteProject(projectId: string): Promise<void> {
 }
 
 /**
- * The creator's Active switch on a project. Inactive keeps everything and moves
- * the project to the Inactive tab.
- *
- * ponytail: PLACEHOLDER ROUTE. Portal-backend has no project active endpoint
- * yet (Pratibha's list), so this fails until it lands.
+ * The creator's Active switch on a project. Inactive keeps everything, moves
+ * the project to the Inactive tab and makes it read-only.
  */
 export async function setProjectActive(
   projectId: string,
   active: boolean,
 ): Promise<void> {
-  await patch(`/projects/${encodeURIComponent(projectId)}/active`, { active });
+  await patch(`/projects/${encodeURIComponent(projectId)}/active`, {
+    isActive: active,
+  });
 }
 
 /** The tabs over every Projects list, in order. */
@@ -471,11 +522,9 @@ export function newSince(
 }
 
 /**
- * The owner's Active switch on a company (4 Nov decision). Inactive hides it
- * from the switcher and keeps every record.
- *
- * ponytail: PLACEHOLDER ROUTE. Portal-backend has no company status endpoint
- * yet (Pratibha's list #3), so this fails until it lands.
+ * The admin's Active switch on a company (25 Nov: admin only for now).
+ * Inactive hides it from the switcher, freezes everything under it and pauses
+ * its billing; every record is kept.
  */
 export async function setCompanyActive(
   companyId: string,
@@ -487,63 +536,34 @@ export async function setCompanyActive(
 }
 
 /**
- * Delete a company and everything under it. Owner or admin.
- *
- * Today's route is a soft archive, refused (409) while a subscription is
- * active; Pratibha's list #1 makes it permanent. The call itself won't change.
+ * Delete a company and everything under it, permanently. Admin only (25 Nov).
+ * The server cancels its subscription first.
  */
 export async function deleteCompany(companyId: string): Promise<void> {
   await del(`/companies/${encodeURIComponent(companyId)}`);
 }
 
 /**
- * Whether turning an inactive company back on needs a payment first.
- *
- * Only when nothing covers today: never paid, or the period paid for has run
- * out while it was off. Inside a paid period it goes straight back on — going
- * Inactive never creates a bill by itself (12 Nov decision).
- */
-export function mustPayToReactivate(
-  paidUntil: string | null,
-  unpaid: boolean,
-  now = Date.now(),
-): boolean {
-  return unpaid || !paidUntil || Date.parse(paidUntil) <= now;
-}
-
-/**
- * Move one document to the archive: a separate folder, kept with no time limit
- * (16 Nov — replaces the 4 Nov 365-day purge).
- *
- * ponytail: PLACEHOLDER ROUTE. Portal-backend has no archive yet (Pratibha's
- * list #9), so this answers 404 until it lands.
- * Point it at the real route then; nothing above this function changes.
+ * Move one document to the caller's own archive (25 Nov: the archive is per
+ * person, so nobody else's list changes). Kept there with no time limit.
  */
 export async function archiveDocument(
   projectId: string,
   documentId: string,
 ): Promise<void> {
-  await patch(`/projects/${projectId}/documents/${documentId}/archive`);
+  await patch(`/projects/${projectId}/documents/${documentId}/archive`, {
+    archived: true,
+  });
 }
 
-/** Back out of the archive into Documents. Same placeholder caveat as `archiveDocument`. */
+/** Back out of the caller's archive into Documents. */
 export async function unarchiveDocument(
   projectId: string,
   documentId: string,
 ): Promise<void> {
-  await del(`/projects/${projectId}/documents/${documentId}/archive`);
-}
-
-/**
- * The archived documents a Documents page lists under its Archive tab.
- *
- * ponytail: ALWAYS EMPTY until Portal-backend can list archived documents
- * (backend item 9). Not a call to `?archived=true` today: the API ignores
- * unknown params, so that would return the live documents and show them as
- * archived. Replace with the real fetch when the endpoint lands.
- */
-export async function archivedDocuments<T>(): Promise<T[]> {
-  return [];
+  await patch(`/projects/${projectId}/documents/${documentId}/archive`, {
+    archived: false,
+  });
 }
 
 /**
@@ -1047,7 +1067,6 @@ export function toClientCompany(c: BackendCompany): ClientCompany {
     ownerAvatarUrl: personAvatarUrl(c.owner),
     activeServices: (c.activeServices ?? []).map((s) => s.specializationName),
     billingDate: billingDate(c),
-    paidUntil: c.billing?.currentPeriodEnd ?? null,
     inactive: c.status === "INACTIVE",
     teamMembers: teamPeople(c),
     specialists: specialistNames(c),

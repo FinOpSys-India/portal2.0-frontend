@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +20,7 @@ import {
   ProjectDeleteWarning,
 } from "@/components/portal/delete-documents";
 import { Face, Handover, Settle, Side } from "@/components/portal/handover";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +36,7 @@ import { toast } from "@/components/ui/toast";
 import { isoDate, tomorrow } from "@/lib/dates";
 import { adminApi } from "@/lib/admin";
 import { ApiError } from "@/lib/http";
-import { editProject } from "@/lib/manager";
+import { editProject, type ProjectStatus } from "@/lib/manager";
 import { editProjectSchema, type EditProjectValues } from "@/lib/schemas";
 import {
   deleteCompany,
@@ -47,8 +47,8 @@ import {
 } from "@/lib/portal";
 
 /**
- * What a frozen record shows in place of its contents (16 Nov): an inactive
- * company or project keeps its name on screen, and nothing inside it opens.
+ * What a frozen company shows in place of its contents (16 Nov): it keeps its
+ * name on screen, and nothing inside it opens.
  */
 export function FrozenNotice({ children }: { children: React.ReactNode }) {
   return (
@@ -59,22 +59,32 @@ export function FrozenNotice({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** A frozen project's page body: why nothing opens, and who can change that. */
-export function FrozenProject({
-  companyInactive,
-  creator,
-}: {
-  companyInactive: boolean;
-  creator: boolean;
-}) {
+/** A project's page body when its company is inactive. */
+export function FrozenProject() {
   return (
     <FrozenNotice>
-      {companyInactive
-        ? "This company is inactive, so nothing under it can be opened until its owner makes it active again."
-        : creator
-          ? "This project is inactive, so its tasks and documents can’t be opened. Make it active to open them again."
-          : "This project is inactive, so its tasks and documents can’t be opened until its creator makes it active again."}
+      This company is inactive, so nothing under it can be opened until an
+      administrator makes it active again.
     </FrozenNotice>
+  );
+}
+
+/**
+ * The line over an inactive project's page. Unlike a company, an inactive
+ * project reads like past work (25 Nov): its tasks and documents open, and
+ * nothing on it changes until its creator makes it active again.
+ */
+export function InactiveProjectNotice({ creator }: { creator: boolean }) {
+  return (
+    // A status, not an alert: it describes the page rather than interrupting.
+    <Alert role="status" className="mb-6">
+      <Snowflake aria-hidden />
+      <AlertDescription>
+        {creator
+          ? "This project is inactive, so it can be read but not changed. Make it active to work on it again."
+          : "This project is inactive, so it can be read but not changed until its creator makes it active again."}
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -97,16 +107,16 @@ function ActiveSwitch({
   warning,
   onSave,
   compact = false,
-  activeToast,
+  leaveTo,
 }: {
   name: string;
   inactive: boolean;
   warning: string;
   onSave: (active: boolean) => Promise<void>;
-  /** Said after switching on, when that does not make it active straight away. */
-  activeToast?: string;
   /** A table row's icon button instead of the labeled switch. */
   compact?: boolean;
+  /** Where to go once it's inactive, when this page can no longer be read. */
+  leaveTo?: string;
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = React.useState(false);
@@ -116,13 +126,10 @@ function ActiveSwitch({
     setPending(true);
     try {
       await onSave(active);
-      toast.success(
-        active
-          ? (activeToast ?? `${name} is active again.`)
-          : `${name} is now inactive.`,
-      );
+      toast.success(active ? `${name} is active again.` : `${name} is now inactive.`);
       setConfirming(false);
-      router.refresh();
+      if (!active && leaveTo) router.push(leaveTo);
+      else router.refresh();
     } catch (err) {
       toast.error(failure(err, `${name} could not be changed.`));
     } finally {
@@ -241,67 +248,36 @@ export function StaffActiveSwitch({
           ? "Their companies need a new accounting manager, which you assign."
           : "Their companies need a new specialist, which each company’s accounting manager assigns."
       }`}
-      onSave={(active) => adminApi.setUserActive(userId, active)}
+      onSave={(active) => adminApi.setStaffActive(userId, active, manager)}
     />
   );
 }
 
 /**
- * The owner's Active switch on Company Details (4 Nov decision).
- *
- * EXCEPT when nothing covers today (`mustPayToReactivate`): then the switch is
- * replaced by Complete Payment, and paying is what turns it back on (12 Nov
- * decision).
- *
- * The admin has the switch too (17 Nov). Their Make Active never switches the
- * company on by itself: it leaves a payment due with the owner, the same as an
- * unpaid company, and paying is what makes it active.
+ * The admin's Active switch on a company (25 Nov: admin only for now; the
+ * owner has none). Making it active again switches it straight back on, and
+ * the server resumes its billing.
  */
 export function CompanyActiveSwitch({
   companyId,
   name,
   inactive,
-  mustPay = false,
-  admin = false,
   compact,
+  leaveTo,
 }: {
   companyId: string;
   name: string;
   inactive: boolean;
-  /** The owner's own bill; an admin has no checkout to be sent to. */
-  mustPay?: boolean;
-  admin?: boolean;
   compact?: boolean;
+  leaveTo?: string;
 }) {
-  if (admin) {
-    return (
-      <ActiveSwitch
-        name={name}
-        inactive={inactive}
-        compact={compact}
-        warning="Its projects, tasks, documents and chat are frozen: nobody — the customer’s team, the accounting manager or specialists — can open or download anything until it is active again. Nothing is deleted. Making it active again asks the owner to complete payment first."
-        activeToast={`The owner has been asked to complete payment for ${name}.`}
-        onSave={(active) => setCompanyActive(companyId, active)}
-      />
-    );
-  }
-
-  if (inactive && mustPay) {
-    return (
-      <Button asChild size="sm">
-        <Link href={`/on_boarding_form_part_2?compID=${encodeURIComponent(companyId)}`}>
-          Complete Payment
-        </Link>
-      </Button>
-    );
-  }
-
   return (
     <ActiveSwitch
       name={name}
       inactive={inactive}
       compact={compact}
-      warning="Its projects, tasks, documents and chat are frozen: nobody — your team, your accounting manager or specialists — can open or download anything until you make it active again. Nothing is deleted."
+      leaveTo={leaveTo}
+      warning="Its projects, tasks, documents and chat are frozen: nobody — the customer’s team, the accounting manager or specialists — can open or download anything until it is active again. Its billing is paused. Nothing is deleted."
       onSave={(active) => setCompanyActive(companyId, active)}
     />
   );
@@ -324,7 +300,7 @@ export function ProjectActiveSwitch({
       name={name}
       inactive={inactive}
       compact={compact}
-      warning="It moves to the Inactive tab, frozen: nobody can open its tasks or documents until you make it active again. Nothing is deleted."
+      warning="It moves to the Inactive tab and becomes read-only: its tasks and documents still open, but nothing on it can be changed until you make it active again. Nothing is deleted."
       onSave={(active) => setProjectActive(projectId, active)}
     />
   );
@@ -340,12 +316,13 @@ export function ProjectActiveSwitch({
 export function ProjectCompletion({
   projectId,
   name,
-  completed,
+  status,
   openTasks,
 }: {
   projectId: string;
   name: string;
-  completed: boolean;
+  /** In review once every task is done (25 Nov), then the manager completes it. */
+  status: ProjectStatus;
   /** Tasks not yet Completed — completing anyway is allowed, with a warning. */
   openTasks: number;
 }) {
@@ -369,7 +346,7 @@ export function ProjectCompletion({
     }
   }
 
-  if (completed) {
+  if (status === "Completed") {
     return (
       <Button variant="outline" disabled={pending} onClick={() => save("In progress")}>
         {pending ? <Spinner className="size-4" /> : null}
@@ -392,7 +369,7 @@ export function ProjectCompletion({
             from={
               <Side avatar={<Face name={name} />}>
                 <span className="text-sm font-medium">{name}</span>
-                <span className="text-xs text-muted-foreground">In progress</span>
+                <span className="text-xs text-muted-foreground">{status}</span>
               </Side>
             }
             to={
@@ -439,7 +416,7 @@ export function ProjectCompletion({
 }
 
 /**
- * Delete Company. Owner or admin.
+ * Delete Company. Admin only for now (25 Nov).
  *
  * Deleting takes everything under the company, for everyone, and nothing
  * brings it back (Sir, Q5). Works from Active or Inactive — there is no forced
@@ -482,7 +459,7 @@ export function DeleteCompany({
   );
 }
 
-/** What Delete Company takes. Both the owner and the admin can switch it off instead. */
+/** What Delete Company takes. The admin can switch it off instead. */
 function CompanyDeleteWarning() {
   return (
     <>
@@ -497,22 +474,17 @@ function CompanyDeleteWarning() {
 }
 
 /**
- * The Companies table's Actions cell: Make Inactive / Active and Delete, with
- * the same popups as the company page (17 Nov). The caller decides who gets
- * it: the owner on their own list, the admin on theirs.
+ * The admin Companies table's Actions cell: Make Inactive / Active and
+ * Delete, with the same popups as the company page (17 Nov).
  *
  * `relative z-10` lifts the buttons over the row's stretched link, as in
  * `ProjectRowActions`.
  */
 export function CompanyRowActions({
   company,
-  mustPay,
-  admin,
   children,
 }: {
   company: { id: string; name: string; inactive: boolean };
-  mustPay?: boolean;
-  admin?: boolean;
   /** Actions that lead the row's own, e.g. admin's Reassign Accounting Manager. Delete stays last. */
   children?: React.ReactNode;
 }) {
@@ -524,8 +496,6 @@ export function CompanyRowActions({
         companyId={company.id}
         name={company.name}
         inactive={company.inactive}
-        mustPay={mustPay}
-        admin={admin}
         compact
       />
       <Button
@@ -643,6 +613,7 @@ interface RowProject {
 /**
  * The Projects table's Actions cell: Make Inactive / Active, Edit, Delete —
  * the creator's three, with the same popups as the project page (15 Nov).
+ * Edit leaves while the project is inactive.
  * Anyone else gets an empty cell.
  *
  * `relative z-10` lifts the buttons over the row's stretched link, which
@@ -667,16 +638,19 @@ export function ProjectRowActions({
         inactive={project.inactive}
         compact
       />
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => setDialog("edit")}
-        aria-label={`Edit ${project.name}`}
-        title="Edit"
-        className="text-muted-foreground"
-      >
-        <Pencil aria-hidden />
-      </Button>
+      {/* Not while inactive: the server refuses edits until it's active. */}
+      {project.inactive ? null : (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => setDialog("edit")}
+          aria-label={`Edit ${project.name}`}
+          title="Edit"
+          className="text-muted-foreground"
+        >
+          <Pencil aria-hidden />
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="icon-sm"

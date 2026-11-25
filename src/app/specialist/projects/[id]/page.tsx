@@ -12,7 +12,10 @@ import {
 import { DocumentActions, FilePreview } from "@/components/portal/file-preview";
 import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
-import { FrozenProject } from "@/components/portal/record-controls";
+import {
+  FrozenProject,
+  InactiveProjectNotice,
+} from "@/components/portal/record-controls";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
 import { ProjectDeadline } from "@/components/portal/project-deadline";
@@ -68,18 +71,19 @@ export default async function SpecialistProjectPage({
   });
   if (elsewhere) redirect(elsewhere);
 
-  // Frozen (16 Nov): name only. The specialist never holds the switch.
+  // Frozen (16 Nov): a project of an inactive company is its name only. An
+  // inactive project itself only goes read-only (25 Nov).
   const companyInactive =
     (await specialistApi.companies()).find((c) => c.id === project.companyId)
       ?.inactive ?? false;
-  if (companyInactive || project.inactive) {
+  if (companyInactive) {
     return (
       <>
         <PageHeader
           title="Project Details"
           description={`${project.name} · ${project.company}`}
         />
-        <FrozenProject companyInactive={companyInactive} creator={false} />
+        <FrozenProject />
       </>
     );
   }
@@ -90,9 +94,13 @@ export default async function SpecialistProjectPage({
     viewerId(),
   ]);
 
-  const attached = documents.filter((d) => d.project === project.name);
-  // Completed is final until the accounting manager reopens it.
-  const completed = project.status === "Completed";
+  const attached = documents
+    .filter((d) => d.project === project.name)
+    .map((d) => ({ ...d, locked: project.inactive }));
+  // Completed is final until the accounting manager reopens it; inactive is
+  // read-only until its creator switches it back. The specialist holds
+  // neither switch.
+  const locked = project.status === "Completed" || project.inactive;
 
   return (
     <>
@@ -109,13 +117,14 @@ export default async function SpecialistProjectPage({
           </div>
         }
       />
+      {project.inactive && <InactiveProjectNotice creator={false} />}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid gap-6">
           <section className="rounded-xl border border-border bg-card">
             <div className="flex items-center justify-between gap-4 border-b border-border p-6">
               <h2 className="text-sm font-semibold">Tasks</h2>
-              {!completed && (
+              {!locked && (
                 <AddTask
                   from="specialist"
                   projects={[
@@ -134,7 +143,7 @@ export default async function SpecialistProjectPage({
               from="specialist"
               sort={sort}
               dir={dir}
-              locked={completed}
+              locked={locked}
             />
           </section>
 
@@ -188,7 +197,7 @@ export default async function SpecialistProjectPage({
                * links, and no boundary function calls it yet. A per-file control
                * belongs on the row rather than above the list.
                */}
-              {!completed && (
+              {!locked && (
                 <SpecialistUploadFile
                   companies={[{ id: project.companyId, name: project.company }]}
                   projects={[{ name: project.name, companyId: project.companyId }]}

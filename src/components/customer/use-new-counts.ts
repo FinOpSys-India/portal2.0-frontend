@@ -7,7 +7,6 @@ import { customerApi, type Workspace } from "@/lib/customer";
 import {
   newSince,
   onServiceTab,
-  outsideInactive,
   viewerId,
   withService,
   type ServiceTab,
@@ -119,13 +118,11 @@ export function useNewCounts(workspace: Workspace, tabs: ServiceTab[]) {
                 createdAt: p.createdAt,
                 by: p.creatorId,
               })),
-            files: withService(outsideInactive(files, projects), projects).map(
-              (f) => ({
-                service: f.service,
-                createdAt: f.createdAt,
-                by: f.ownerId,
-              }),
-            ),
+            files: withService(files, projects).map((f) => ({
+              service: f.service,
+              createdAt: f.createdAt,
+              by: f.ownerId,
+            })),
           },
         });
       })

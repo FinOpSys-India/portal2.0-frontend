@@ -17,6 +17,7 @@ import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import {
   FrozenProject,
+  InactiveProjectNotice,
   ProjectActiveSwitch,
   ProjectCompletion,
 } from "@/components/portal/record-controls";
@@ -72,34 +73,15 @@ export default async function ManagerProjectPage({
   ]);
   const creator = project.creatorId === viewer;
 
-  // Frozen (16 Nov): an inactive project, or any project of an inactive
-  // company, shows its name and nothing inside it.
+  // Frozen (16 Nov): a project of an inactive company shows its name and
+  // nothing inside it. An inactive project itself only goes read-only (25 Nov).
   const companyInactive =
     companies.find((c) => c.id === project.companyId)?.inactive ?? false;
-  if (companyInactive || project.inactive) {
+  if (companyInactive) {
     return (
       <>
-        <PageHeader
-          title="Project Details"
-          description={project.name}
-          action={
-            !companyInactive && creator ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <ProjectActiveSwitch
-                  projectId={project.id}
-                  name={project.name}
-                  inactive={project.inactive}
-                />
-                <DeleteProject
-                  projectId={project.id}
-                  name={project.name}
-                  after={scoped("/manager/projects", project.companyId)}
-                />
-              </div>
-            ) : undefined
-          }
-        />
-        <FrozenProject companyInactive={companyInactive} creator={creator} />
+        <PageHeader title="Project Details" description={project.name} />
+        <FrozenProject />
       </>
     );
   }
@@ -109,9 +91,13 @@ export default async function ManagerProjectPage({
     managerApi.tasks(project.id),
   ]);
 
-  const attached = documents.filter((d) => d.project === project.name);
+  const attached = documents
+    .filter((d) => d.project === project.name)
+    .map((d) => ({ ...d, locked: project.inactive }));
   // Completed is final until reopened: no new tasks, uploads or status moves.
+  // Inactive is read-only the same way, until its creator switches it back.
   const completed = project.status === "Completed";
+  const locked = completed || project.inactive;
 
   return (
     <>
@@ -130,12 +116,15 @@ export default async function ManagerProjectPage({
                 inactive={project.inactive}
               />
             )}
-            <ProjectCompletion
-              projectId={project.id}
-              name={project.name}
-              completed={completed}
-              openTasks={tasks.filter((t) => t.status !== "Completed").length}
-            />
+            {/* Not while inactive: the server refuses status changes then. */}
+            {!project.inactive && (
+              <ProjectCompletion
+                projectId={project.id}
+                name={project.name}
+                status={project.status}
+                openTasks={tasks.filter((t) => t.status !== "Completed").length}
+              />
+            )}
             <ExportProjectCsv projectId={project.id} projectName={project.name} />
             {/* Creator only (Sir, Q2): an accounting manager can't delete the
                 customer's project, even on their own company. */}
@@ -151,13 +140,14 @@ export default async function ManagerProjectPage({
           </div>
         }
       />
+      {project.inactive && <InactiveProjectNotice creator={creator} />}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid gap-6">
           <section className="rounded-xl border border-border bg-card">
             <div className="flex items-center justify-between gap-4 border-b border-border p-6">
               <h2 className="text-sm font-semibold">Tasks</h2>
-              {!completed && (
+              {!locked && (
                 <AddTask
                   from="manager"
                   projects={[
@@ -176,7 +166,7 @@ export default async function ManagerProjectPage({
               from="manager"
               sort={sort}
               dir={dir}
-              locked={completed}
+              locked={locked}
             />
           </section>
 
@@ -234,7 +224,7 @@ export default async function ManagerProjectPage({
                * links, and no boundary function calls it yet. A per-file control
                * belongs on the row rather than above the list.
                */}
-              {!completed && (
+              {!locked && (
                 <ManagerUploadFile
                   companies={[{ id: project.companyId, name: project.company }]}
                   projects={[{ name: project.name, companyId: project.companyId }]}

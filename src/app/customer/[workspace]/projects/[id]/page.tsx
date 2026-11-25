@@ -21,7 +21,7 @@ import { ProjectDeadline } from "@/components/portal/project-deadline";
 import { ExportProjectCsv } from "@/components/portal/export-csv";
 import { PageHeader } from "@/components/portal/portal-shell";
 import {
-  FrozenProject,
+  InactiveProjectNotice,
   ProjectActiveSwitch,
 } from "@/components/portal/record-controls";
 import { ProjectTaskTable } from "@/components/portal/project-task-table";
@@ -85,40 +85,14 @@ export default async function CustomerProjectPage({
   const viewer = await viewerId();
   const creator = project.creatorId === viewer;
 
-  // Frozen (16 Nov): name only. An inactive company never gets this far — the
-  // workspace layout stops it.
-  if (project.inactive) {
-    return (
-      <>
-        <PageHeader
-          title="Project Details"
-          description={project.name}
-          action={
-            creator ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <ProjectActiveSwitch
-                  projectId={project.id}
-                  name={project.name}
-                  inactive
-                />
-                <DeleteProject
-                  projectId={project.id}
-                  name={project.name}
-                  after={`/customer/${encodeURIComponent(workspace)}/projects`}
-                />
-              </div>
-            ) : undefined
-          }
-        />
-        <FrozenProject companyInactive={false} creator={creator} />
-      </>
-    );
-  }
-
   const [tasks, files] = await Promise.all([
     customerApi.tasks(project.id),
     customerApi.files(workspace, project.name),
   ]);
+  // An inactive project reads like past work (25 Nov): everything opens and
+  // nothing changes. An inactive company never gets this far — the workspace
+  // layout stops it.
+  const rows = files.map((f) => ({ ...f, locked: project.inactive }));
 
   return (
     <>
@@ -153,6 +127,7 @@ export default async function CustomerProjectPage({
           </div>
         }
       />
+      {project.inactive && <InactiveProjectNotice creator={creator} />}
 
       <div className="grid gap-6">
         <DetailSection title="General Information">
@@ -204,7 +179,7 @@ export default async function CustomerProjectPage({
                   too: documents are company-scoped, and only Billing is
                   owner-only in this portal. */}
               {/* Completed is final until the accounting manager reopens it. */}
-              {project.status !== "Completed" && (
+              {project.status !== "Completed" && !project.inactive && (
                 <CustomerUploadFile
                   workspace={workspace}
                   projects={[{ name: project.name }]}
@@ -212,15 +187,15 @@ export default async function CustomerProjectPage({
                 />
               )}
             </div>
-            <DataTable<CustomerFile>
+            <DataTable<CustomerFile & { locked: boolean }>
               noun="documents"
               page={page}
               size={size}
               sort={sort}
               dir={dir}
               filters={parseFilters(f)}
-              total={files.length}
-              rows={files}
+              total={rows.length}
+              rows={rows}
               empty="No files attached to this project yet."
               columns={[
                 {

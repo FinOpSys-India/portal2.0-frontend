@@ -23,6 +23,7 @@ import {
   documentPath,
   documentsMessage,
   eachDocument,
+  unarchiveDocument,
 } from "@/lib/portal";
 
 /** What the warning needs to describe a file. Every portal's file rows carry it. */
@@ -33,6 +34,8 @@ export interface DeletableDoc {
   /** Absent on the project pages, where every file is that page's project. */
   project?: string | null;
   size: number;
+  /** The reader uploaded it, so Delete is theirs. Set when it's ticked. */
+  mine?: boolean;
 }
 
 /**
@@ -88,8 +91,9 @@ export function DocumentSelection({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * A row’s checkbox. Only the uploader can tick it, because all a
- * selection does is archive or delete — and both are theirs alone (see `DocumentActions`).
+ * A row’s checkbox. Anyone who can see a document can tick it, because the
+ * archive is per person (25 Nov); Delete in the bar stays the uploader’s.
+ * A document in an inactive project can’t be ticked: nothing on it changes.
  *
  * Renders nothing outside a `DocumentSelection`, so a list that never offers
  * bulk delete can share the same row markup.
@@ -98,49 +102,76 @@ export function SelectBox({
   doc,
   viewerId,
 }: {
-  doc: DeletableDoc & { ownerId: string | null };
+  doc: DeletableDoc & { ownerId: string | null; locked?: boolean };
   viewerId: string;
 }) {
   const selection = React.useContext(SelectionContext);
   if (!selection) return null;
 
-  const mine = doc.ownerId !== null && doc.ownerId === viewerId && !!doc.projectId;
+  const open = !!doc.projectId && !doc.locked;
+  const mine = doc.ownerId !== null && doc.ownerId === viewerId;
 
   return (
     <span
       className="inline-flex shrink-0"
-      title={mine ? undefined : "Only the uploader can archive or delete this"}
+      title={open ? undefined : "This project is inactive, so its documents can’t be changed"}
     >
       <input
         type="checkbox"
         className="size-4 accent-primary disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={!mine}
-        checked={mine && selection.selected.has(doc.id)}
-        onChange={() => selection.toggle(doc)}
+        disabled={!open}
+        checked={open && selection.selected.has(doc.id)}
+        onChange={() => selection.toggle({ ...doc, mine })}
         aria-label={
-          mine ? `Select ${doc.name}` : `Only the uploader can archive or delete ${doc.name}`
+          open
+            ? `Select ${doc.name}`
+            : `${doc.name} is in an inactive project and can’t be changed`
         }
       />
     </span>
   );
 }
 
-/** What the warning is confirming. Archive is undone by its year running out, delete by nothing. */
+/** What the warning is confirming. Archive is undone by Unarchive, delete by nothing. */
 export type DocumentsAction = "delete" | "archive";
 
-/** "N selected · size · Clear · Archive · Delete", shown only while something is ticked. */
+/**
+ * "N selected · size · Clear · Archive (or Unarchive) · Delete", shown only
+ * while something is ticked. Delete only when every ticked file is the
+ * reader's own: the server refuses anyone else’s.
+ */
 export function SelectionBar({
   archived = false,
 }: {
   /** On the Archive tab, where the selection is already archived. */
   archived?: boolean;
 }) {
+  const router = useRouter();
   const selection = React.useContext(SelectionContext);
   const [action, setAction] = React.useState<DocumentsAction | null>(null);
+  const [restoring, setRestoring] = React.useState(false);
   if (!selection || selection.selected.size === 0) return null;
 
   const docs = [...selection.selected.values()];
   const size = docs.reduce((sum, doc) => sum + doc.size, 0);
+  const mine = docs.every((doc) => doc.mine);
+
+  // No warning, as on a row: unarchiving loses nothing.
+  async function unarchive() {
+    setRestoring(true);
+    const { done, failed } = await eachDocument(docs, unarchiveDocument);
+    const name = (id: string) => docs.find((d) => d.id === id)?.name ?? id;
+    const message = documentsMessage(
+      "moved back to Documents",
+      done.map(name),
+      failed.map(name),
+    );
+    if (failed.length) toast.error(message);
+    else toast.success(message);
+    selection?.drop(done);
+    setRestoring(false);
+    router.refresh();
+  }
 
   return (
     <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1">
@@ -154,14 +185,21 @@ export function SelectionBar({
       >
         Clear
       </Button>
-      {archived ? null : (
+      {archived ? (
+        <Button variant="outline" size="sm" disabled={restoring} onClick={unarchive}>
+          {restoring ? <Spinner className="size-4" /> : null}
+          Unarchive
+        </Button>
+      ) : (
         <Button variant="outline" size="sm" onClick={() => setAction("archive")}>
           Archive
         </Button>
       )}
-      <Button variant="destructive" size="sm" onClick={() => setAction("delete")}>
-        Delete
-      </Button>
+      {mine ? (
+        <Button variant="destructive" size="sm" onClick={() => setAction("delete")}>
+          Delete
+        </Button>
+      ) : null}
       <DocumentsDialog
         action={action ?? "delete"}
         docs={docs}
@@ -178,8 +216,8 @@ export function SelectionBar({
  * Delete says the three things a person cannot see from the row: that the file
  * goes for everyone on the company, that nothing brings it back, and that a
  * copy can still be taken now — and is confirmed by holding, not clicking (see
- * `HoldToDelete`). Archive says where the file goes and for how long; it is a
- * plain click, because it takes a year to become permanent.
+ * `HoldToDelete`). Archive says where the file goes and that only the reader's
+ * own list changes; it is a plain click, because Unarchive undoes it.
  */
 export function DocumentsDialog({
   action,
@@ -281,9 +319,8 @@ export function DocumentsDialog({
         {archiving ? (
           <p className="text-sm text-muted-foreground">
             {docs.length === 1 ? "This file moves" : "These files move"} out of
-            Documents and into the archive, where{" "}
-            {docs.length === 1 ? "it’s" : "they’re"} kept until someone
-            unarchives or deletes {docs.length === 1 ? "it" : "them"}.
+            your Documents and into your archive, until you unarchive{" "}
+            {docs.length === 1 ? "it" : "them"}. Nobody else’s list changes.
           </p>
         ) : (
           <div className="space-y-2 text-sm text-muted-foreground">

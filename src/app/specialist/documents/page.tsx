@@ -20,9 +20,8 @@ import {
 import { scoped } from "@/lib/manager";
 import { ProjectFilter } from "@/components/portal/project-filter";
 import {
-  archivedDocuments,
   isOpenProject,
-  outsideInactive,
+  lockInactive,
   viewerId,
   withService,
 } from "@/lib/portal";
@@ -76,7 +75,8 @@ export default async function SpecialistDocumentsPage({
   const company = await companyScope(picked);
 
   const [documents, projects, companies, viewer] = await Promise.all([
-    specialistApi.documents(company, project),
+    // The Archive tab reads the reader's own archive; Documents leaves it out.
+    specialistApi.documents(company, project, view === "archive"),
     specialistApi.projects(company),
     specialistApi.companies(),
     // Who "delete" is offered to: the uploader of the row, nobody else.
@@ -90,15 +90,12 @@ export default async function SpecialistDocumentsPage({
   // what the list below shows.
   const allProjects = await specialistApi.projects();
 
-  const rows =
-    view === "archive"
-      ? await archivedDocuments<FileRow>()
-      : withService(outsideInactive(documents, allProjects), allProjects);
+  const rows = withService(lockInactive(documents, allProjects), allProjects);
 
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <ProjectFilter projects={projects.filter((p) => !p.inactive).map((p) => p.name)} />
+        <ProjectFilter projects={projects.map((p) => p.name)} />
       </div>
 
       <DocumentSelection>

@@ -56,8 +56,8 @@ export default async function SpecialistCompanyPage({
       <>
         <PageHeader title="Company Details" description={company.name} />
         <FrozenNotice>
-          This company is inactive, so nothing under it can be opened until its
-          owner makes it active again.
+          This company is inactive, so nothing under it can be opened until an
+          administrator makes it active again.
         </FrozenNotice>
       </>
     );

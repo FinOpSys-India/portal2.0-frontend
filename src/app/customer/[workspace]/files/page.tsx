@@ -21,10 +21,9 @@ import {
 import { ProjectFilter } from "@/components/portal/project-filter";
 import { customerApi } from "@/lib/customer";
 import {
-  archivedDocuments,
   isOpenProject,
+  lockInactive,
   onServiceTab,
-  outsideInactive,
   parseServiceTab,
   serviceHref,
   viewerId,
@@ -83,23 +82,22 @@ export default async function FilesPage({
   }
 
   const [files, all, viewer] = await Promise.all([
-    customerApi.files(workspace, project),
+    // The Archive tab reads the reader's own archive; Documents leaves it out.
+    customerApi.files(workspace, project, view === "archive"),
     customerApi.projects(workspace),
     // Who "delete" is offered to: the uploader of the row, nobody else.
     viewerId(),
   ]);
 
-  const rows = (
-    view === "archive"
-      ? await archivedDocuments<FileRow>()
-      : withService(outsideInactive(files, all), all)
-  ).filter((r) => onServiceTab(r, service));
+  const rows = withService(lockInactive(files, all), all).filter((r) =>
+    onServiceTab(r, service),
+  );
   const projects = all.filter((p) => onServiceTab(p, service));
 
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <ProjectFilter projects={projects.filter((p) => !p.inactive).map((p) => p.name)} />
+        <ProjectFilter projects={projects.map((p) => p.name)} />
       </div>
 
       <DocumentSelection>

@@ -70,7 +70,8 @@ export default async function CompanyDetailPage({
               companyId={company.id}
               name={company.name}
               inactive={company.inactive}
-              admin
+              // Once inactive, this page is refused like everything under it.
+              leaveTo="/admin/companies"
             />
             {/* Admin has master access to delete (Sir, Q2). */}
             <DeleteCompany

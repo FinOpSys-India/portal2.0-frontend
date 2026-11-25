@@ -202,14 +202,12 @@ export function PreviewDialog({
 }
 
 /**
- * The row's controls: preview, download, and — for your own uploads — archive
- * and delete.
+ * The row's controls: preview and download for everyone, archive for anyone
+ * who can see the file (the archive is per person, 25 Nov), and delete for
+ * the uploader alone, which is the server's own rule.
  *
- * DELETE IS THE UPLOADER'S ALONE here. The server allows more (anyone with
- * write access to the project may remove a file), but "you can delete what you
- * put there" is a rule a reader can predict from the row in front of them,
- * where "you can delete this one because of your role on its project" is not.
- * The narrower button is not a security claim — the server still decides.
+ * A file in an inactive project reads like past work: preview and download
+ * only, because the server refuses every change under it.
  */
 export function DocumentActions({
   doc,
@@ -224,6 +222,8 @@ export function DocumentActions({
     project?: string | null;
     ownerId: string | null;
     size: number;
+    /** In an inactive project: read, not changed. See `lockInactive`. */
+    locked?: boolean;
   };
   /** The signed-in user, from `viewerId()`. */
   viewerId: string;
@@ -249,6 +249,7 @@ export function DocumentActions({
     }
   }
   const href = documentPath(doc);
+  const open = !!doc.projectId && !doc.locked;
   const mine = doc.ownerId !== null && doc.ownerId === viewerId;
 
   return (
@@ -274,7 +275,7 @@ export function DocumentActions({
         </>
       ) : null}
 
-      {mine && doc.projectId ? (
+      {open ? (
         <>
           {archived ? (
             <Button
@@ -298,15 +299,17 @@ export function DocumentActions({
               <Archive aria-hidden />
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setAction("delete")}
-            aria-label={`Delete ${doc.name}`}
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 aria-hidden />
-          </Button>
+          {mine ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setAction("delete")}
+              aria-label={`Delete ${doc.name}`}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 aria-hidden />
+            </Button>
+          ) : null}
           <DocumentsDialog
             action={action ?? "delete"}
             docs={[doc]}

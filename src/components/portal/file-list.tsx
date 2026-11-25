@@ -34,8 +34,10 @@ export interface FileRow {
   ownerAvatarUrl?: string | null;
   uploadedAt: string;
   size: number;
-  /** Set on an archived row: when it went into the archive. */
+  /** Set on an archived row: when the reader put it in their archive. */
   archivedAt?: string | null;
+  /** In an inactive project: read, not changed. See `lockInactive`. */
+  locked?: boolean;
 }
 
 /**

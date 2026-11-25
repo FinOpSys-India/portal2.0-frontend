@@ -5,16 +5,11 @@ import { AlertCircle } from "lucide-react";
 
 import { DetailRow, DetailSection } from "@/components/admin/detail";
 import { AvatarStack } from "@/components/admin/initials-avatar";
-import {
-  CompanyActiveSwitch,
-  DeleteCompany,
-} from "@/components/portal/record-controls";
 import { PageHeader } from "@/components/portal/portal-shell";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { api, unpaidCompanyIds } from "@/lib/api";
 import { customerApi } from "@/lib/customer";
 import { countryLabel, formatEin } from "@/lib/company";
-import { mustPayToReactivate } from "@/lib/portal";
 
 export const metadata: Metadata = { title: "Company" };
 
@@ -36,7 +31,7 @@ export default async function CustomerCompanyPage({
 }: {
   params: Promise<{ workspace: string; id: string }>;
 }) {
-  const { workspace, id } = await params;
+  const { id } = await params;
 
   // NOT narrowed to the workspace in the path: the Company table lists every
   // company this customer reaches, not just the open one, so a row for the
@@ -44,15 +39,12 @@ export default async function CustomerCompanyPage({
   // which company is the service's own per-company check — a company that is
   // not theirs is a 403 there, never a page.
   //
-  // Owned fails closed, as in the layout: a teammate gets no switch and no
-  // Delete, which is what the server would hold them to anyway.
-  const [company, status, owned] = await Promise.all([
+  // No Inactive switch and no Delete: both are the admin's alone (25 Nov).
+  const [company, status] = await Promise.all([
     customerApi.company(id),
     api.onboardingStatus(),
-    api.ownedCompanies().catch(() => []),
   ]);
   if (!company) notFound();
-  const owner = owned.some((c) => String(c.companyId) === id);
 
   /*
    * The Company table sends an unpaid row to its plan step, so this page is
@@ -65,33 +57,7 @@ export default async function CustomerCompanyPage({
 
   return (
     <>
-      <PageHeader
-        title="Company Details"
-        description={company.name}
-        action={
-          owner ? (
-            <span className="flex flex-wrap items-center gap-4">
-              <CompanyActiveSwitch
-                companyId={id}
-                name={company.name}
-                inactive={company.inactive}
-                mustPay={mustPayToReactivate(company.paidUntil, owes)}
-              />
-              <DeleteCompany
-                companyId={id}
-                name={company.name}
-                // Deleting the company you are standing in takes the frame
-                // with it, so go back through the picker.
-                after={
-                  id === workspace
-                    ? "/company_select"
-                    : `/customer/${encodeURIComponent(workspace)}/company`
-                }
-              />
-            </span>
-          ) : undefined
-        }
-      />
+      <PageHeader title="Company Details" description={company.name} />
 
       <div className="grid gap-6">
         {owes && (

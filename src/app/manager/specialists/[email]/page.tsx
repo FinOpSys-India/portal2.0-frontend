@@ -21,7 +21,7 @@ import {
   scoped,
   type SpecialistTask,
 } from "@/lib/manager";
-import { isOpenProject, outsideInactive } from "@/lib/portal";
+import { isOpenProject, lockInactive } from "@/lib/portal";
 
 const COLUMNS: SortableColumn<SpecialistTask>[] = [
   // The design labels this column "File Name" on a table of tasks. Named for
@@ -103,7 +103,7 @@ export default async function ManagerSpecialistPage({
   ]);
 
   const theirs = projects.filter((p) => p.specialist === specialist.name);
-  const tasks = outsideInactive(allTasks, projects);
+  const tasks = lockInactive(allTasks, projects);
 
   return (
     // Full height, so the two columns run the length of the page instead of
@@ -157,8 +157,10 @@ export default async function ManagerSpecialistPage({
                     <TableCell>
                       <TaskStatusMenu
                         taskId={task.id}
+                        name={task.name}
                         status={task.status}
                         from="manager"
+                        locked={task.locked}
                       />
                     </TableCell>
                   </TableRow>

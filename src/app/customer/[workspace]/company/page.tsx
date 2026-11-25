@@ -7,11 +7,10 @@ import {
   parsePageSize,
 } from "@/components/admin/data-table";
 import { AvatarStack } from "@/components/admin/initials-avatar";
-import { CompanyRowActions } from "@/components/portal/record-controls";
 import { Badge } from "@/components/ui/badge";
 import { api, unpaidCompanyIds } from "@/lib/api";
 import { customerApi, type CustomerCompany } from "@/lib/customer";
-import { dateKey, mustPayToReactivate, withTeammates } from "@/lib/portal";
+import { dateKey, withTeammates } from "@/lib/portal";
 
 import { AddCompany } from "./add-company";
 import { parseFilters } from "@/lib/table-filter";
@@ -76,10 +75,15 @@ export default async function CompanyPage({
       // EXCEPT AN UNPAID ONE, which opens its plan step instead. There is
       // nothing to read on a company that was never activated, and the row the
       // chip is on should go where the chip says.
+      //
+      // An inactive one opens nothing: the API refuses every read under it,
+      // the company's own included, until an admin makes it active (25 Nov).
       rowHref={(row) =>
-        unpaid.includes(row.id)
-          ? `/on_boarding_form_part_2?compID=${encodeURIComponent(row.id)}`
-          : `/customer/${encodeURIComponent(workspace)}/company/${encodeURIComponent(row.id)}`
+        row.inactive
+          ? undefined
+          : unpaid.includes(row.id)
+            ? `/on_boarding_form_part_2?compID=${encodeURIComponent(row.id)}`
+            : `/customer/${encodeURIComponent(workspace)}/company/${encodeURIComponent(row.id)}`
       }
       empty="No companies yet."
       columns={[
@@ -129,26 +133,6 @@ export default async function CompanyPage({
           sortValue: (row) => row.teamMembers.length,
           cell: (row) => <AvatarStack people={row.teamMembers} />,
         },
-        // The owner's Inactive / Delete (17 Nov), same as the company page.
-        // A teammate gets no column: neither is theirs and the API refuses both.
-        ...(status.isOwner
-          ? [
-              {
-                header: "Actions",
-                filter: false as const,
-                sortValue: false as const,
-                cell: (row: CustomerCompany) => (
-                  <CompanyRowActions
-                    company={row}
-                    mustPay={mustPayToReactivate(
-                      row.paidUntil,
-                      unpaid.includes(row.id),
-                    )}
-                  />
-                ),
-              },
-            ]
-          : []),
       ]}
     />
   );

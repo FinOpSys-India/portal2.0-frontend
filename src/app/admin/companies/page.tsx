@@ -77,7 +77,11 @@ export default async function CompaniesPage({
       filters={filters}
       total={total}
       rows={companies}
-      rowHref={(row) => `/admin/companies/${encodeURIComponent(row.id)}`}
+      // An inactive company opens nothing, not even for admin: the API refuses
+      // its detail read too. Its row's switch and Delete are what's left.
+      rowHref={(row) =>
+        row.inactive ? undefined : `/admin/companies/${encodeURIComponent(row.id)}`
+      }
       empty="No companies yet."
       columns={[
         // Columns match 1.0's, including listing team members by name.
@@ -187,13 +191,12 @@ export default async function CompaniesPage({
           },
         },
         {
-          // Make Inactive / Active and Delete (17 Nov). The admin's Make
-          // Active leaves a payment due with the owner — see
-          // `CompanyActiveSwitch`.
+          // Make Inactive / Active and Delete (17 Nov), the admin's alone
+          // (25 Nov).
           header: "Actions",
           filter: false,
           sortValue: false,
-          cell: (row) => <CompanyRowActions company={row} admin />,
+          cell: (row) => <CompanyRowActions company={row} />,
         },
       ]}
     />

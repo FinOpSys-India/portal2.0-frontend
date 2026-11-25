@@ -3,7 +3,10 @@
 import * as React from "react";
 
 import { StatusBadge } from "@/components/portal/status-badge";
-import { TaskStatusMenu } from "@/components/portal/task-status-menu";
+import {
+  ReviewNoteRow,
+  TaskStatusMenu,
+} from "@/components/portal/task-status-menu";
 import {
   SortableHeadRow,
   sortRows,
@@ -148,6 +151,7 @@ export function ProjectTaskTable({
                   {writable ? (
                     <TaskStatusMenu
                       taskId={task.id}
+                      name={task.name}
                       status={task.status}
                       from={from}
                     />
@@ -195,6 +199,7 @@ export function ProjectTaskTable({
                     {writable ? (
                       <TaskStatusMenu
                         taskId={open.id}
+                        name={open.name}
                         status={open.status}
                         from={from}
                       />
@@ -203,6 +208,9 @@ export function ProjectTaskTable({
                     )}
                   </dd>
                 </div>
+                {from === "customer" ? null : (
+                  <ReviewNoteRow review={open.reviewNote} />
+                )}
               </dl>
             </>
           ) : null}

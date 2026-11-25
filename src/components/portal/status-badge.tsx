@@ -7,13 +7,17 @@ import { cn } from "@/lib/utils";
 /**
  * Project status chip.
  *
- * Colours come from the deployed portal's tokens (--color-status-active-bg,
+ * Colors come from the deployed portal's tokens (--color-status-active-bg,
  * --color-status-inprogress-bg and their text pairs), so a status means the
  * same thing here as it does there.
  */
 const STYLES: Record<ProjectStatus, string> = {
   "Not started": "bg-muted text-muted-foreground",
   "In progress": "bg-[#fef3c7] text-[#d97706]",
+  // Waiting on the accounting manager: neither still being worked nor done.
+  // The brand purple one step darker than --primary, which on this tint
+  // falls short of 4.5:1.
+  "In review": "bg-accent text-[#6941c6]",
   Completed: "bg-[#dcfce7] text-[#16a34a]",
 };
 

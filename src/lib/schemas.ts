@@ -197,6 +197,20 @@ export const newTaskSchema = z.object({
 export type NewTaskValues = z.infer<typeof newTaskSchema>;
 
 /**
+ * The accounting manager's note on a reviewed task: required to send it back
+ * or reopen it, optional to approve it. 2,000 is the server's own cap.
+ */
+const reviewNote = z.string().trim().max(2000, "Use at most 2,000 characters.");
+
+export const reviewNoteSchema = z.object({ note: reviewNote });
+
+export const requiredReviewNoteSchema = z.object({
+  note: reviewNote.min(1, "Add a note saying what needs to change."),
+});
+
+export type ReviewNoteValues = z.infer<typeof reviewNoteSchema>;
+
+/**
  * Editing a task is the two text fields and nothing else — the deadline is
  * bounded by the project's and the project decides the assignee, so neither
  * belongs in a dialog whose job is fixing what a task says.
