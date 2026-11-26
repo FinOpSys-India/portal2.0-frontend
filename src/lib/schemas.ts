@@ -313,6 +313,19 @@ export const requestMeetingSchema = z.object({
 export type ScheduleMeetingValues = z.infer<typeof scheduleMeetingSchema>;
 export type RequestMeetingValues = z.infer<typeof requestMeetingSchema>;
 
+/** The AI document finder (backend list #10). Both caps are the ones we asked for. */
+export const assistantQuestionSchema = z
+  .string()
+  .trim()
+  .min(1, "Describe the document you need.")
+  .max(500, "Use at most 500 characters.");
+
+export const chatTitleSchema = z
+  .string()
+  .trim()
+  .min(1, "Enter a name for this chat.")
+  .max(80, "Use at most 80 characters.");
+
 export type UserInfoValues = z.infer<typeof userInfoSchema>;
 export type LoginValues = z.infer<typeof loginSchema>;
 export type SignupValues = z.infer<typeof signupSchema>;

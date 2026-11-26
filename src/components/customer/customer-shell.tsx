@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { AskAi } from "@/components/customer/ask-ai";
 import {
   useNewCounts,
   type ServicePage,
@@ -25,6 +26,7 @@ import { LiveBell } from "@/components/portal/live-bell";
 import { AccountMenu } from "@/components/portal/portal-chrome";
 import { PortalShell, type NavItem } from "@/components/portal/portal-shell";
 import { SwitchLabel, WorkspacePill } from "@/components/portal/workspace-pill";
+import { assistantEnabled } from "@/lib/assistant";
 import type { Workspace } from "@/lib/customer";
 import {
   parseServiceTab,
@@ -199,6 +201,11 @@ export function CustomerShell({
       nav={nav}
       headerRight={
         <>
+          {/* Ask AI (feature 6): not on a frozen company, where nothing opens.
+              Keyed by company, so switching company starts a clean chat. */}
+          {assistantEnabled() && !workspace.inactive ? (
+            <AskAi key={workspace.id} workspace={workspace} />
+          ) : null}
           <SwitchLabel />
           <WorkspacePill
             current={workspace}
