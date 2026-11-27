@@ -262,7 +262,7 @@ export function FilterButton({
 
       <PopoverContent
         align="end"
-        className="w-[40rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
+        className="w-[42rem] max-w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0"
       >
         {/* Says what the panel is and how much of it is set, so an opened
             panel answers "am I looking at a filtered list?" before anything
@@ -297,8 +297,9 @@ export function FilterButton({
             where it came from. */}
         <div className="flex min-h-[25.2rem]">
           {/* The rail: every filterable column, so the choice is visible
-              rather than behind a menu. */}
-          <ul className="w-48 shrink-0 space-y-1 border-r border-border bg-muted/40 p-3">
+              rather than behind a menu. w-56 fits "Accounting Manager"; the
+              panel grew by the same 2rem so the calendar pane kept its width. */}
+          <ul className="w-56 shrink-0 space-y-1 border-r border-border bg-muted/40 p-3">
             {fields.map((field) => {
               const Icon = iconFor(field);
               const on = field.header === activeField.header;
