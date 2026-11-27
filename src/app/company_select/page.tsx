@@ -7,6 +7,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { AuthCard } from "@/components/auth/fields";
 import { AuthHeading } from "@/components/auth/auth-shell";
 import { InitialsAvatar } from "@/components/admin/initials-avatar";
+import { LiveRefresh } from "@/components/portal/live-refresh";
 import { Badge } from "@/components/ui/badge";
 import { api, unpaidCompanyIds } from "@/lib/api";
 import { customerApi } from "@/lib/customer";
@@ -87,6 +88,9 @@ export default async function WorkspaceSelectPage() {
 
   return (
     <AuthShell>
+      {/* Outside the portal shell, so it brings its own: an Inactive badge
+          set by an admin shows up without a reload. */}
+      <LiveRefresh />
       <AuthCard>
         <AuthHeading title="Select Workspace">
           Choose a company to continue.
