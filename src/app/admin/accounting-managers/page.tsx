@@ -44,8 +44,6 @@ export default async function AccountingManagersPage({
     adminApi.companies(1, FILTER_SCAN),
   ]);
 
-  // No detail view: 1.0 has none, and there is nothing here a detail
-  // page would show that the row does not.
   return (
     <DataTable<AccountingManager>
       title="Accounting Managers"
@@ -57,6 +55,7 @@ export default async function AccountingManagersPage({
       total={total}
       action={<InviteManager />}
       rows={rows}
+      rowHref={(row) => `/admin/accounting-managers/${encodeURIComponent(row.email)}`}
       empty="No accounting managers yet."
       columns={[
         {
@@ -93,12 +92,15 @@ export default async function AccountingManagersPage({
             row.invited ? (
               <span className="text-sm text-muted-foreground">Invited</span>
             ) : (
-              <StaffActiveSwitch
-                userId={row.userId}
-                name={row.name}
-                inactive={row.inactive}
-                manager={true}
-              />
+              // Lifted over the row's stretched link, as in `CompanyRowActions`.
+              <span className="relative z-10">
+                <StaffActiveSwitch
+                  userId={row.userId}
+                  name={row.name}
+                  inactive={row.inactive}
+                  manager={true}
+                />
+              </span>
             ),
         },
       ]}

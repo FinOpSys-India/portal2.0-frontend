@@ -44,6 +44,7 @@ export default async function SpecialistsPage({
       total={total}
       action={<InviteSpecialist />}
       rows={rows}
+      rowHref={(row) => `/admin/specialists/${encodeURIComponent(row.email)}`}
       empty="No specialists yet. Invite one to get started."
       columns={[
         {
@@ -69,12 +70,15 @@ export default async function SpecialistsPage({
             row.invited ? (
               <span className="text-sm text-muted-foreground">Invited</span>
             ) : (
-              <StaffActiveSwitch
-                userId={row.userId}
-                name={row.name}
-                inactive={row.inactive}
-                manager={false}
-              />
+              // Lifted over the row's stretched link, as in `CompanyRowActions`.
+              <span className="relative z-10">
+                <StaffActiveSwitch
+                  userId={row.userId}
+                  name={row.name}
+                  inactive={row.inactive}
+                  manager={false}
+                />
+              </span>
             ),
         },
       ]}

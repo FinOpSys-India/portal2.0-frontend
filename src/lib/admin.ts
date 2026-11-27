@@ -68,6 +68,19 @@ export interface Specialist {
   invited: boolean;
 }
 
+export interface SpecialistDetail extends Specialist {
+  companies: string[];
+  /** Every service line they hold, which can be more than `speciality`. */
+  specialities: string[];
+  phone: string;
+  joined: string | null;
+  addressLine1: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+}
+
 export interface AccountingManager {
   userId: number;
   name: string;
@@ -255,6 +268,16 @@ interface CustomerRow extends DirectoryUser {
 interface SpecialistRow extends DirectoryUser {
   fullName: string;
   serviceSpeciality: string | null;
+  companies?: { companyId: number; companyName: string }[];
+}
+
+/** `companyDto.toSpecialistDetail`, the fields the detail page reads. */
+interface SpecialistProfile {
+  phone: string | null;
+  avatarUrl?: string | null;
+  address: BackendAddress | null;
+  specialities?: { code: string; name: string }[];
+  createdAt?: string | null;
 }
 
 interface ManagerRow extends DirectoryUser {
@@ -571,6 +594,47 @@ export const adminApi = {
       rows: data.specialists.map(toSpecialist),
       total: data.pagination.total,
     };
+  },
+
+  /**
+   * Found the way `customer` is: links carry an email, `?search=` matches it,
+   * and the exact address is picked out of what comes back. The row brings the
+   * companies; `GET /specialists/:userId` brings phone, address and
+   * specialities, which the row does not.
+   */
+  async specialist(email: string): Promise<SpecialistDetail | null> {
+    const data = await get<{ specialists: SpecialistRow[] }>(
+      `/specialists?search=${encodeURIComponent(email)}&includeInactive=true&limit=${PAGE_SIZE}`,
+    );
+    const found = data.specialists.find((s) => s.email === email);
+    if (!found) return null;
+
+    const profile = (
+      await getOrNull<{ specialist: SpecialistProfile }>(`/specialists/${found.userId}`)
+    )?.specialist;
+
+    return {
+      ...toSpecialist(found),
+      companies: (found.companies ?? []).map((c) => c.companyName),
+      specialities: (profile?.specialities ?? []).map((s) => s.name),
+      phone: withDialCode(profile?.phone ?? "", profile?.address?.country ?? ""),
+      avatarUrl: profile?.avatarUrl ?? found.avatarUrl ?? null,
+      joined: profile?.createdAt ? usDate(profile.createdAt) : null,
+      ...address(profile?.address ?? null),
+    };
+  },
+
+  /**
+   * No `GET /admin/accounting-managers/:userId` exists, so the detail page is
+   * the directory row found by email. Phone and address wait on that endpoint
+   * (docs/pratibha-backend-list.md).
+   */
+  async accountingManager(email: string): Promise<AccountingManager | null> {
+    const data = await get<{ accountingManagers: ManagerRow[] }>(
+      `/admin/accounting-managers?search=${encodeURIComponent(email)}&includeInactive=true&limit=${PAGE_SIZE}`,
+    );
+    const found = data.accountingManagers.find((m) => m.email === email);
+    return found ? toManager(found) : null;
   },
 
   async accountingManagers(
