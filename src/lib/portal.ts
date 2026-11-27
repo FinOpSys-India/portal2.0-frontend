@@ -1018,23 +1018,40 @@ export interface Reassignment {
   people: PortalPerson[];
 }
 
+/** Dispatched on `window` by the bell's reassignment row; ReassignNotice opens on it. */
+export const REASSIGN_OPEN_EVENT = "reassign:open";
+
 /**
- * The bell's rows for companies that Need Reassignment. Each counts as one
- * unread item until it is reassigned, and opens the company.
+ * The bell's ONE row for every company that Needs Reassignment.
+ *
+ * It was a row per company, so one person made Inactive filled the bell with
+ * ten identical lines and pushed the messages below the fold. Grouped, it is a
+ * single reminder whose count is the companies left, and it reopens the popup
+ * that "Later" closed — the list with a Reassign button per company.
+ *
+ * `role` is what each company needs: "accounting manager" or "specialist".
  */
 export function reassignmentNotifications(
   items: Reassignment[],
-  hrefBase: string,
+  role: string,
 ): Notification[] {
-  return items.map((r) => ({
-    id: `reassign-${r.companyId}`,
-    href: hrefBase + r.companyId,
-    company: r.company,
-    contact: "Needs Reassignment",
-    preview: r.detail,
-    unread: 1,
-    when: "",
-  }));
+  if (items.length === 0) return [];
+  const count = items.length;
+  return [
+    {
+      id: "reassign",
+      href: "",
+      event: REASSIGN_OPEN_EVENT,
+      company: items.map((r) => r.company).join(", "),
+      contact: "Needs Reassignment",
+      preview:
+        count === 1
+          ? `1 company needs a new ${role}.`
+          : `${count} companies need a new ${role}.`,
+      unread: count,
+      when: "",
+    },
+  ];
 }
 
 /**

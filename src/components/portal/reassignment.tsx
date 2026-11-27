@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Reassignment } from "@/lib/portal";
+import { REASSIGN_OPEN_EVENT, type Reassignment } from "@/lib/portal";
 
 /**
  * The slot an Inactive person left (17 Nov): the control that names them,
@@ -92,13 +92,22 @@ export function ReassignNotice({
     () => key,
   );
   const [dismissed, setDismissed] = React.useState<string | null>(null);
-  const open = key !== "" && seen !== key && dismissed !== key;
+  // The bell's Needs Reassignment row asks for it back after "Later".
+  const [recalled, setRecalled] = React.useState(false);
+  React.useEffect(() => {
+    const recall = () => setRecalled(true);
+    window.addEventListener(REASSIGN_OPEN_EVENT, recall);
+    return () => window.removeEventListener(REASSIGN_OPEN_EVENT, recall);
+  }, []);
+  const open =
+    key !== "" && (recalled || (seen !== key && dismissed !== key));
 
   function close() {
     try {
       sessionStorage.setItem(SEEN_KEY, key);
     } catch {}
     setDismissed(key);
+    setRecalled(false);
   }
 
   return (

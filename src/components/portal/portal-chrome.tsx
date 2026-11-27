@@ -21,6 +21,11 @@ export interface Notification {
   id: string;
   /** Where clicking lands. Deep enough to open the thread, not just the inbox. */
   href: string;
+  /**
+   * Dispatched on `window` INSTEAD of navigating, for a row whose target is a
+   * popup on the current page rather than another page (Needs Reassignment).
+   */
+  event?: string;
   /** Which account this arrived on. Every row is tagged, because the list merges companies. */
   company: string;
   contact: string;
@@ -102,45 +107,40 @@ export function NotificationBell({ items = [] }: { items?: Notification[] }) {
                  * and every line collapses onto one row. One flex-col child is
                  * immune to whatever display the item imposes.
                  */}
-                <DropdownMenuItem asChild className="rounded-none p-0">
-                  <Link
-                    href={item.href}
-                    className="cursor-pointer focus:bg-accent"
-                  >
-                    <span className="flex w-full flex-col gap-1.5 px-4 py-3">
-                      {/* WHO, and WHEN. The name leads because it is what the
+                <BellRow item={item}>
+                  <span className="flex w-full flex-col gap-1.5 px-4 py-3">
+                    {/* WHO, and WHEN. The name leads because it is what the
                           reader recognises; the date is the least of it, so it
                           sits right-aligned and small. */}
-                      <span className="flex items-baseline gap-3">
-                        <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                          {item.contact}
-                        </span>
-                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                          {item.when}
-                        </span>
+                    <span className="flex items-baseline gap-3">
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                        {item.contact}
                       </span>
-
-                      {/* WHICH ACCOUNT. Its own line, because two people on two
-                          companies can share a name and the reply goes wherever
-                          this row opens — the tag is not decoration. */}
-                      <span className="flex items-center gap-2">
-                        <span className="max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                          {item.company}
-                        </span>
-                      </span>
-
-                      {/* WHAT ARRIVED, and how much of it. */}
-                      <span className="flex items-center gap-3">
-                        <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-                          {item.preview || "Sent an attachment"}
-                        </span>
-                        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground tabular-nums">
-                          {item.unread}
-                        </span>
+                      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                        {item.when}
                       </span>
                     </span>
-                  </Link>
-                </DropdownMenuItem>
+
+                    {/* WHICH ACCOUNT. Its own line, because two people on two
+                          companies can share a name and the reply goes wherever
+                          this row opens — the tag is not decoration. */}
+                    <span className="flex items-center gap-2">
+                      <span className="max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                        {item.company}
+                      </span>
+                    </span>
+
+                    {/* WHAT ARRIVED, and how much of it. */}
+                    <span className="flex items-center gap-3">
+                      <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                        {item.preview || "Sent an attachment"}
+                      </span>
+                      <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground tabular-nums">
+                        {item.unread}
+                      </span>
+                    </span>
+                  </span>
+                </BellRow>
               </li>
             ))}
           </ul>
@@ -156,6 +156,34 @@ export function NotificationBell({ items = [] }: { items?: Notification[] }) {
         ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/** A bell row: a link to its page, or — with `event` — a trigger for a popup on this one. */
+function BellRow({
+  item,
+  children,
+}: {
+  item: Notification;
+  children: React.ReactNode;
+}) {
+  const event = item.event;
+  if (event) {
+    return (
+      <DropdownMenuItem
+        className="cursor-pointer rounded-none p-0 focus:bg-accent"
+        onSelect={() => window.dispatchEvent(new Event(event))}
+      >
+        {children}
+      </DropdownMenuItem>
+    );
+  }
+  return (
+    <DropdownMenuItem asChild className="rounded-none p-0">
+      <Link href={item.href} className="cursor-pointer focus:bg-accent">
+        {children}
+      </Link>
+    </DropdownMenuItem>
   );
 }
 

@@ -14,6 +14,7 @@ import {
   isOpenProject,
   lockInactive,
   personName,
+  reassignmentNotifications,
   taskMoves,
   taskStatusCode,
   teamPeople,
@@ -746,3 +747,25 @@ assert.deepEqual(
   }),
   ["Bookkeeping, Payroll · Jane Doe (inactive)"],
 );
+
+// Every company that Needs Reassignment is ONE bell row that reopens the popup,
+// not a row per company; none means no row at all.
+{
+  const pending = ["Acme", "Beta", "Gamma"].map((company, i) => ({
+    companyId: String(i),
+    company,
+    detail: "AM user (inactive)",
+    people: [],
+  }));
+  const rows = reassignmentNotifications(pending, "accounting manager");
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].unread, 3);
+  assert.equal(rows[0].event, "reassign:open");
+  assert.equal(rows[0].company, "Acme, Beta, Gamma");
+  assert.equal(rows[0].preview, "3 companies need a new accounting manager.");
+  assert.equal(
+    reassignmentNotifications(pending.slice(0, 1), "specialist")[0].preview,
+    "1 company needs a new specialist.",
+  );
+  assert.deepEqual(reassignmentNotifications([], "specialist"), []);
+}

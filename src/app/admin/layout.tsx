@@ -23,7 +23,7 @@ export default async function AdminLayout({
     <AdminShell
       notifications={
         <NotificationBell
-          items={reassignmentNotifications(pending, "/admin/companies/")}
+          items={reassignmentNotifications(pending, "accounting manager")}
         />
       }
     >

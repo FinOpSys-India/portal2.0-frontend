@@ -40,7 +40,7 @@ async function UnreadBell() {
     <NotificationBell
       items={[
         // Needs Reassignment first (17 Nov): it is work, not a message.
-        ...reassignmentNotifications(pending, "/manager/companies/"),
+        ...reassignmentNotifications(pending, "specialist"),
         ...unreadConversations(conversations).map((c) => ({
           id: c.id,
           /*
