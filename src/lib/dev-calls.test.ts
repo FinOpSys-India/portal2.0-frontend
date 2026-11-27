@@ -6,9 +6,11 @@
  * request in the Network panel, and a list that is never cleared is one page's
  * calls replayed on every page after it.
  *
- * The off case is the one with a consequence outside the panel: with the flag
- * unset, a production build must record nothing, because `collect` streams the
- * same buffer to the browser and those paths are not for the public.
+ * The off cases are the ones with a consequence outside the panel, because
+ * `collect` streams the same buffer to the browser and those paths are not for
+ * the public. A production build stays off with the flag unset, and also with
+ * it SET — on Vercel production and on the self-hosted build alike — since the
+ * flag is meant for preview and a variable can be retargeted by hand.
  */
 import assert from "node:assert/strict";
 
@@ -61,21 +63,48 @@ async function main() {
   off.record("/auth/me");
   assert.deepEqual(off.drain(), [], "nothing is recorded while it is off");
 
-  /* ---------------------------------------- no environment can opt in --- */
+  /* ------------------------------------- production cannot opt in ------ */
 
-  // The point of the assertion: NEXT_PUBLIC_API_ECHO used to turn this on for a
-  // deployed build, and the echo streams every recorded path to the browser to
-  // be replayed with its real response body. The flag is gone, so a variable
-  // still sitting on some project — or one added back by hand — must not be
-  // able to re-open that.
+  // THE ASSERTION THAT MATTERS. NEXT_PUBLIC_API_ECHO turns the echo on for a
+  // preview build, and the echo streams every recorded path to the browser to
+  // be replayed with its real response body. A variable is one click from being
+  // retargeted, so a production build must refuse it even when it is present.
   process.env.NEXT_PUBLIC_API_ECHO = "1";
+  process.env.NEXT_PUBLIC_VERCEL_ENV = "production";
   const flagged = await reload("production-flagged");
 
-  assert.equal(flagged.ECHO_ENABLED, false, "no env var re-enables the echo");
+  assert.equal(
+    flagged.ECHO_ENABLED,
+    false,
+    "the flag must not open the echo on a production build",
+  );
   flagged.record("/auth/me");
   assert.deepEqual(flagged.drain(), [], "and it records nothing either way");
   assert.deepEqual(await flagged.collect(), [], "so it streams nothing down");
+
+  // The self-hosted production build has no NEXT_PUBLIC_VERCEL_ENV at all.
+  delete process.env.NEXT_PUBLIC_VERCEL_ENV;
+  const selfHosted = await reload("self-hosted-flagged");
+
+  assert.equal(selfHosted.ECHO_ENABLED, false, "self-hosted stays off too");
+
+  /* ------------------------------------------- preview may opt in ------- */
+
+  // The case the flag exists for: reading the API off a preview deploy by eye.
+  process.env.NEXT_PUBLIC_VERCEL_ENV = "preview";
+  const preview = await reload("preview-flagged");
+
+  assert.equal(preview.ECHO_ENABLED, true, "preview opts in with the flag");
+  preview.record("/users/me");
+  assert.deepEqual(preview.drain(), ["/users/me"], "and it records there");
+
+  // Preview WITHOUT the flag stays off: opting in is the deliberate act.
   delete process.env.NEXT_PUBLIC_API_ECHO;
+  const quiet = await reload("preview-unflagged");
+
+  assert.equal(quiet.ECHO_ENABLED, false, "preview stays off without the flag");
+
+  delete process.env.NEXT_PUBLIC_VERCEL_ENV;
 
   /* ---------------------------------------- reset drops the last request --- */
 
@@ -94,7 +123,7 @@ async function main() {
     "a render must not inherit the previous request's paths",
   );
 
-  // Still usable afterwards — reset clears, it does not disable.
+  // Still usable afterward — reset clears, it does not disable.
   record("/users/me");
   assert.deepEqual(drain(), ["/users/me"]);
 

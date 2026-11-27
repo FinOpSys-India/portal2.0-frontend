@@ -18,9 +18,9 @@ import { inflightCount } from "@/lib/http";
  * answered with an empty list, silently, and the echo replayed nothing. Locally
  * it is all one process, which is exactly why the bug did not show there.
  *
- * NEVER ON A DEPLOY. `record` is a no-op unless the echo is enabled, and it is
- * only ever enabled by `next dev` — so none of this costs, or discloses,
- * anything on a built deployment.
+ * NEVER ON PRODUCTION. `record` is a no-op unless the echo is enabled, and it is
+ * only enabled by `next dev` or a Vercel preview that asks for it — so none of
+ * this costs, or discloses, anything on a production build.
  *
  * ponytail: one module-level buffer, not per-request. Two pages rendering at
  * once interleave their paths and the echo replays both — harmless when one
@@ -33,23 +33,31 @@ import { inflightCount } from "@/lib/http";
  * ever bites.
  */
 /**
- * Whether the echo runs at all. LOCAL DEVELOPMENT ONLY, and no environment can
- * change that.
+ * Whether the echo runs at all: local development, or a PREVIEW deploy that
+ * asks for it with NEXT_PUBLIC_API_ECHO=1. Production cannot have it, and not
+ * by convention — see below.
  *
- * This used to honour NEXT_PUBLIC_API_ECHO=1 so a deployed build could show its
- * server-side reads in DevTools, which was a deliberate disclosure while the
- * deployment was a test environment with nobody real on it. Turning it on is a
- * genuine one: the echo re-issues every backend GET a render made, from the
- * browser, so anyone with the tab open reads the internal API surface and the
- * FULL response body of each call — including the fields a page fetched and
- * chose not to show.
+ * Turning this on is a real disclosure. The echo re-issues every backend GET a
+ * render made, from the browser, so anyone with the tab open reads the internal
+ * API surface and the FULL response body of each call — including the fields a
+ * page fetched and chose NOT to show. Each replay carries the viewer's own
+ * bearer token, so nobody sees another account's data; what they see is their
+ * own, unredacted by the UI. It also DOUBLES a page's backend reads, which is
+ * not free on the per-company sweeps.
  *
- * The flag is deleted rather than left unset, so a stray variable on a project
- * nobody re-reads cannot turn it back on. `next dev` still prints every server
- * fetch with its full URL and status to the terminal — see `logging.fetches` in
- * next.config.ts — which is the half of this that never left the machine.
+ * PRODUCTION IS EXCLUDED BY THE BUILD, NOT BY REMEMBERING. The second clause
+ * requires `NEXT_PUBLIC_VERCEL_ENV` to be "preview", which Vercel inlines at
+ * build time — so the flag set on a Vercel production build, or on the
+ * self-hosted build where that variable is unset, still yields the echo off.
+ * The variable is set on Preview alone; that is the belt, this is the braces.
+ *
+ * `next dev` also prints every server fetch with its full URL and status to the
+ * terminal — see `logging.fetches` in next.config.ts.
  */
-export const ECHO_ENABLED = process.env.NODE_ENV === "development";
+export const ECHO_ENABLED =
+  process.env.NODE_ENV === "development" ||
+  (process.env.NEXT_PUBLIC_API_ECHO === "1" &&
+    process.env.NEXT_PUBLIC_VERCEL_ENV === "preview");
 
 /** Bounded so a fan-out page (manager sweeps eight companies) cannot grow it without limit. */
 const LIMIT = 60;
