@@ -68,3 +68,42 @@ export function DetailRow({
     </div>
   );
 }
+
+/**
+ * A detail page while it fetches: the header (avatar, name, email) and two
+ * sections of fields, in the places the real ones land, so nothing jumps.
+ *
+ * Each detail folder's `loading.tsx` renders this. One higher up does not
+ * cover a row click: list to detail changes only the `[email]` / `[id]`
+ * segment, and a loading boundary shows only for the segment it sits in.
+ */
+export function DetailSkeleton() {
+  const bar = "animate-pulse rounded bg-muted";
+  return (
+    <div aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading</span>
+      <div className="mb-6 flex items-center gap-2.5">
+        <div className={cn(bar, "size-11 rounded-full")} />
+        <div className="space-y-2">
+          <div className={cn(bar, "h-6 w-48")} />
+          <div className={cn(bar, "h-4 w-64")} />
+        </div>
+      </div>
+      <div className="grid gap-6">
+        {[6, 4].map((fields, i) => (
+          <section key={i} className="rounded-xl border border-border bg-card p-6">
+            <div className={cn(bar, "mb-4 h-4 w-40")} />
+            <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+              {Array.from({ length: fields }, (_, j) => (
+                <div key={j} className="space-y-1.5">
+                  <div className={cn(bar, "h-3.5 w-24")} />
+                  <div className={cn(bar, "h-4 w-40")} />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -1,4 +1,3 @@
-// The manager's table skeleton. Without it, a row click showed nothing until
-// the detail page's backend reads came back — seconds on the dev API, which
-// read as a link that does not work.
+// The manager's table skeleton, for moving between admin lists. A row click
+// into a detail page is covered by that folder's own loading.tsx instead.
 export { default } from "../manager/loading";
