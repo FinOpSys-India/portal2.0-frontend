@@ -20,14 +20,15 @@ import {
 import { Form } from "@/components/ui/form";
 import { toast } from "@/components/ui/toast";
 import type { InviteInput, InviteResult } from "@/lib/admin";
+import { personName } from "@/lib/schemas";
 
 const baseSchema = z.object({
   email: z
     .string()
     .min(1, "Enter an email address.")
     .email("Enter a valid email address."),
-  firstName: z.string().min(1, "Enter a first name."),
-  lastName: z.string().min(1, "Enter a last name."),
+  firstName: personName("Enter a first name."),
+  lastName: personName("Enter a last name."),
   role: z.string().optional(),
 });
 

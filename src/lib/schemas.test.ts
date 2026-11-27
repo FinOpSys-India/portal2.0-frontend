@@ -70,6 +70,16 @@ for (const field of ["email", "firstName", "lastName"] as const) {
   );
 }
 
+// Names cap at 50 (NAME_MAX), counted after trimming. The invite forms share
+// the same `personName` rule, so this pins theirs too.
+for (const field of ["firstName", "lastName"] as const) {
+  assert.ok(signupSchema.safeParse({ ...signup, [field]: ` ${"a".repeat(50)} ` }).success);
+  assert.equal(
+    errorFor(signupSchema.safeParse({ ...signup, [field]: "a".repeat(51) }), field),
+    "Use at most 50 characters.",
+  );
+}
+
 // Mismatch must be reported on the confirm field, not the password field.
 const mismatch = signupSchema.safeParse({ ...signup, confirm: "different" });
 assert.equal(errorFor(mismatch, "confirm"), "Passwords do not match.");

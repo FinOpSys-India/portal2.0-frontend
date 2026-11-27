@@ -19,6 +19,20 @@ const email = z
   .min(1, "Enter your email address.")
   .email("Enter a valid email address.");
 
+/**
+ * A first or last name, wherever one is typed. 50 sits under the backend's
+ * 100 (`LIMITS.firstName`/`lastName`) and close to Google Workspace's 60, so a
+ * real name fits and a pasted paragraph doesn't.
+ */
+export const NAME_MAX = 50;
+
+export const personName = (empty: string) =>
+  z
+    .string()
+    .trim()
+    .min(1, empty)
+    .max(NAME_MAX, `Use at most ${NAME_MAX} characters.`);
+
 export const loginSchema = z.object({
   email,
   password: z.string().min(1, "Enter your password."),
@@ -36,8 +50,8 @@ export const loginSchema = z.object({
 export const signupSchema = z
   .object({
     email,
-    firstName: z.string().trim().min(1, "Enter your first name."),
-    lastName: z.string().trim().min(1, "Enter your last name."),
+    firstName: personName("Enter your first name."),
+    lastName: personName("Enter your last name."),
     password: z.string().min(8, "Use at least 8 characters."),
     confirm: z.string().min(1, "Re-enter your password."),
   })
@@ -233,8 +247,8 @@ export type ReviewNoteValues = z.infer<typeof reviewNoteSchema>;
  */
 export const inviteTeammateSchema = z.object({
   email,
-  firstName: z.string().min(1, "Enter a first name."),
-  lastName: z.string().min(1, "Enter a last name."),
+  firstName: personName("Enter a first name."),
+  lastName: personName("Enter a last name."),
   jobTitle: z.string().min(1, "Enter a job title."),
   // 50 is the server's own ceiling (MAX_COMPANIES_PER_INVITATION), mirrored so
   // an over-long list is refused here rather than as an opaque 400.
