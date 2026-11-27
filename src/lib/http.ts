@@ -56,6 +56,43 @@ export class ApiError extends Error {
   }
 }
 
+/* ------------------------------------------------------ inactive account -- */
+
+/**
+ * The backend's own line for this is "This account cannot be used.", which
+ * reads as a fault rather than a decision someone made. Replaced wherever the
+ * code arrives, so the OTP and password-reset screens say the same thing.
+ */
+export const ACCOUNT_INACTIVE_MESSAGE =
+  "Your account is inactive. You can no longer sign in to FinOpSys. Please contact your administrator if you think this is a mistake.";
+
+/**
+ * An admin made this account Inactive while it was signed in.
+ *
+ * `requireAuth` answers EVERY request from that account with 403
+ * ACCOUNT_INACTIVE, so a manager or specialist with the portal open got
+ * "Something Went Wrong" on the next page load and on every one after it. It
+ * is the end of the session, not a failed render: send them to the screen that
+ * clears it and says why.
+ *
+ * Not for `/auth/*`. Those calls are made from the sign-in screens themselves
+ * (OTP, password reset), where the message on the form is the right answer —
+ * and `/auth/logout` is what the destination page calls, so redirecting from
+ * it would loop.
+ */
+async function endIfInactive(path: string, code?: string): Promise<void> {
+  if (code !== "ACCOUNT_INACTIVE" || path.startsWith("/auth/")) return;
+  if (onServer) {
+    const { redirect } = await import("next/navigation");
+    redirect("/login/inactive");
+  }
+  window.location.replace("/login/inactive");
+  // Never settles, so no caller gets to act on the way out — the refresh page
+  // would otherwise replace this navigation with its own to /login, and a form
+  // would flash the error it is about to leave behind.
+  await new Promise<never>(() => {});
+}
+
 /* --------------------------------------------------------------- cookies -- */
 
 /**
@@ -128,7 +165,9 @@ async function unwrap<T>(res: Response): Promise<T> {
     // only "Request failed." and threw the status away, which is exactly the case
     // where the status is the whole diagnosis. Always carry it.
     const message =
-      error?.message ?? body?.message ?? `Request failed (HTTP ${res.status}).`;
+      error?.code === "ACCOUNT_INACTIVE"
+        ? ACCOUNT_INACTIVE_MESSAGE
+        : error?.message ?? body?.message ?? `Request failed (HTTP ${res.status}).`;
     // Log the raw body when it is not the expected envelope. Kept rather than
     // removed once it had done its job: a non-JSON failure is exactly the one
     // the envelope cannot describe, and this is what named the /manager outage
@@ -178,6 +217,12 @@ export async function refreshSession(): Promise<boolean> {
         headers: csrf ? { [CSRF_HEADER]: csrf } : {},
         credentials: "include",
       });
+      // The access token lapsed before anything else noticed the account was
+      // made Inactive; the refresh is where the backend says so instead.
+      if (res.status === 403) {
+        const refused = await res.json().catch(() => null);
+        await endIfInactive("/", refused?.error?.code);
+      }
       if (!res.ok) return false;
 
       const body = await res.json().catch(() => null);
@@ -230,7 +275,7 @@ export async function storeAccessToken(
     body: JSON.stringify({ token, expiresInSeconds }),
     credentials: "include",
   });
-  if (!res.ok) throw new Error("Could not start the session on this browser.");
+  if (!res.ok) throw new Error("Couldn't start your session in this browser. Try again.");
 }
 
 /* ------------------------------------------------------- concurrency cap -- */
@@ -419,6 +464,7 @@ async function request<T>(
         const { redirect } = await import("next/navigation");
         redirect("/login");
       }
+      if (err instanceof ApiError) await endIfInactive(path, err.code);
       throw err;
     }
   }
@@ -474,7 +520,12 @@ async function request<T>(
     redirect("/login");
   }
 
-  return unwrap<T>(res);
+  try {
+    return await unwrap<T>(res);
+  } catch (err) {
+    if (err instanceof ApiError) await endIfInactive(path, err.code);
+    throw err;
+  }
 }
 
 export function get<T>(path: string): Promise<T> {
@@ -565,7 +616,7 @@ export interface UploadTicket {
  * The MIME type for an extension the browser would not name.
  *
  * `File.type` is empty surprisingly often — Windows reports nothing for `.doc`,
- * `.xls` and `.csv` unless Office is installed, and `.heic` is unrecognised on
+ * `.xls` and `.csv` unless Office is installed, and `.heic` is unrecognized on
  * most desktops. The fallback used to be `application/octet-stream`, which the
  * backend's allowlist does not contain, so those uploads died at the FIRST call
  * with a 415 saying the file type was unsupported — about a `.doc`, on a form
