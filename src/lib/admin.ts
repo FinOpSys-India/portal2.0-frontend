@@ -81,6 +81,15 @@ export interface SpecialistDetail extends Specialist {
   country: string;
 }
 
+export interface AccountingManagerDetail extends AccountingManager {
+  phone: string;
+  addressLine1: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+}
+
 export interface AccountingManager {
   userId: number;
   name: string;
@@ -271,8 +280,11 @@ interface SpecialistRow extends DirectoryUser {
   companies?: { companyId: number; companyName: string }[];
 }
 
-/** `companyDto.toSpecialistDetail`, the fields the detail page reads. */
-interface SpecialistProfile {
+/**
+ * `companyDto.toSpecialistDetail`, the fields the detail pages read. The
+ * manager read asked for in docs/pratibha-backend-list.md #15 returns the same.
+ */
+interface StaffProfile {
   phone: string | null;
   avatarUrl?: string | null;
   address: BackendAddress | null;
@@ -610,7 +622,7 @@ export const adminApi = {
     if (!found) return null;
 
     const profile = (
-      await getOrNull<{ specialist: SpecialistProfile }>(`/specialists/${found.userId}`)
+      await getOrNull<{ specialist: StaffProfile }>(`/specialists/${found.userId}`)
     )?.specialist;
 
     return {
@@ -625,16 +637,30 @@ export const adminApi = {
   },
 
   /**
-   * No `GET /admin/accounting-managers/:userId` exists, so the detail page is
-   * the directory row found by email. Phone and address wait on that endpoint
-   * (docs/pratibha-backend-list.md).
+   * The directory row found by email, as `specialist` does, plus phone and
+   * address from `GET /admin/accounting-managers/:userId`. That read does not
+   * exist yet (docs/pratibha-backend-list.md #15): it answers 404, which reads
+   * as no profile, so the fields show a dash until it lands.
    */
-  async accountingManager(email: string): Promise<AccountingManager | null> {
+  async accountingManager(email: string): Promise<AccountingManagerDetail | null> {
     const data = await get<{ accountingManagers: ManagerRow[] }>(
       `/admin/accounting-managers?search=${encodeURIComponent(email)}&includeInactive=true&limit=${PAGE_SIZE}`,
     );
     const found = data.accountingManagers.find((m) => m.email === email);
-    return found ? toManager(found) : null;
+    if (!found) return null;
+
+    const profile = (
+      await getOrNull<{ accountingManager: StaffProfile }>(
+        `/admin/accounting-managers/${found.userId}`,
+      )
+    )?.accountingManager;
+
+    return {
+      ...toManager(found),
+      phone: withDialCode(profile?.phone ?? "", profile?.address?.country ?? ""),
+      avatarUrl: profile?.avatarUrl ?? found.avatarUrl ?? null,
+      ...address(profile?.address ?? null),
+    };
   },
 
   async accountingManagers(
