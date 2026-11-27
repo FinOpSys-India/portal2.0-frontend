@@ -297,6 +297,7 @@ export function PortalShell({
 
           <SidebarRail />
         </Sidebar>
+        <FitSidebarToWidth />
 
         <SidebarInset>
           <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-card px-6">
@@ -312,12 +313,44 @@ export function PortalShell({
           {/* `flex-1` so the content area owns the rest of the viewport rather
               than only the height of what is in it — a page that wants a
               full-height column (a side rail, a chat pane) can then ask for
-              `h-full` and get something real to measure against. */}
-          <div className="flex-1 p-6">{children}</div>
+              `h-full` and get something real to measure against. Capped at
+              100rem and centered: on a 2560 monitor a two-column card put a
+              label 1,100px from its value. */}
+          <div className="mx-auto w-full max-w-[100rem] flex-1 p-6">
+            {children}
+          </div>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
   );
+}
+
+const NARROW = "(max-width: 1023px)";
+
+function subscribeNarrow(onChange: () => void) {
+  const mql = window.matchMedia(NARROW);
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+}
+
+/**
+ * Folds the sidebar to its icon rail below 1024px and opens it again above.
+ *
+ * At 768 the open sidebar took 256px of a tablet's width. Only crossing the
+ * breakpoint changes it, so opening the rail by hand on a tablet sticks.
+ */
+function FitSidebarToWidth() {
+  const { setOpen } = useSidebar();
+  const narrow = React.useSyncExternalStore(
+    subscribeNarrow,
+    () => window.matchMedia(NARROW).matches,
+    () => false,
+  );
+  const fit = React.useEffectEvent((isNarrow: boolean) => setOpen(!isNarrow));
+
+  React.useEffect(() => fit(narrow), [narrow]);
+
+  return null;
 }
 
 /**
