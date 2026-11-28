@@ -12,12 +12,13 @@ import {
  * and no financial data go to the model (Sir, Q24); that is the backend's rule
  * to keep, and the window says it.
  *
- * Built ahead of the backend (list #10): every route below is the shape we
- * asked Pratibha for, not one read off her code. Behind
- * `NEXT_PUBLIC_ASSISTANT=on` until it is deployed: see `assistantEnabled`.
+ * Wired to Pratibha's `/ai-assistant` routes (list #10, samples shared Nov 27,
+ * not deployed yet). Behind `NEXT_PUBLIC_ASSISTANT=on` until they are: see
+ * `assistantEnabled`.
  *
- * Every route takes `?companyId=`, as the meeting routes do, and only ever
- * answers with the caller's own chats and documents the caller can already see.
+ * Asking and listing name the company; a chat's own routes go by its id, and
+ * the backend answers only with the caller's own chats and documents the
+ * caller can already see.
  */
 
 /** The flag. `NEXT_PUBLIC_` because the shell that draws the button is a client component. */
@@ -43,8 +44,8 @@ export interface AssistantMessage {
   text: string;
   /** The files the reply points at; empty on the customer's own messages. */
   documents: AssistantDocument[];
-  /** How many files the search looked through, when the server says. */
-  searched: number | null;
+  /** How many documents matched; can exceed `documents` when the reply shows a batch. */
+  found: number | null;
 }
 
 export interface Conversation {
@@ -56,94 +57,121 @@ export interface Conversation {
 
 interface BackendConversation {
   id: number;
-  title: string;
-  updatedAt: string;
+  title: string | null;
+  lastMessageAt: string | null;
+  createdAt: string;
+}
+
+/** A document row as the assistant returns it: the project carries the service. */
+interface BackendAssistantDocument
+  extends Omit<BackendDocument, "uploadedBy" | "project"> {
+  uploadedBy?: BackendDocument["uploadedBy"];
+  project?: { id: number; projectName: string; service?: string | null } | null;
 }
 
 interface BackendAssistantMessage {
-  id: number;
-  role: "USER" | "ASSISTANT";
-  text: string;
-  documents?: (BackendDocument & { service?: string | null })[];
-  searchedCount?: number | null;
+  id: string | number;
+  role: "user" | "assistant";
+  content: string;
+  documents?: BackendAssistantDocument[];
+  total?: number | null;
 }
 
+/** The answer to a question, as `POST /ai-assistant/query` returns it. */
+interface BackendAnswer {
+  conversationId: number;
+  answer: string;
+  documents: BackendAssistantDocument[];
+  total: number;
+}
+
+// Not `updatedAt`: a rename bumps that, and a renamed chat hasn't moved.
 const toConversation = (c: BackendConversation): Conversation => ({
   id: String(c.id),
-  title: c.title,
-  updatedAt: c.updatedAt,
+  title: c.title || "New chat",
+  updatedAt: c.lastMessageAt ?? c.createdAt,
+});
+
+const toAssistantDocument = (d: BackendAssistantDocument): AssistantDocument => ({
+  id: String(d.id),
+  projectId: documentProjectId(d),
+  name: d.fileName,
+  project: d.project?.projectName ?? null,
+  service: d.project?.service ?? null,
+  // No uploader on these rows yet (asked under #10); the card leaves it out.
+  owner: personName(d.uploadedBy),
+  uploadedAt: usDate(d.createdAt),
+  size: d.sizeBytes,
 });
 
 export function toAssistantMessage(m: BackendAssistantMessage): AssistantMessage {
   return {
     id: String(m.id),
-    role: m.role === "USER" ? "user" : "assistant",
-    text: m.text,
-    documents: (m.documents ?? []).map((d) => ({
-      id: String(d.id),
-      projectId: documentProjectId(d),
-      name: d.fileName,
-      project: d.project?.projectName ?? null,
-      service: d.service ?? null,
-      owner: personName(d.uploadedBy),
-      uploadedAt: usDate(d.createdAt),
-      size: d.sizeBytes,
-    })),
-    searched: m.searchedCount ?? null,
+    role: m.role === "user" ? "user" : "assistant",
+    text: m.content,
+    documents: (m.documents ?? []).map(toAssistantDocument),
+    found: m.role === "user" ? null : (m.total ?? null),
   };
 }
 
-const scope = (companyId: string) =>
-  `companyId=${encodeURIComponent(companyId)}`;
 const one = (id: string) =>
-  `/assistant/conversations/${encodeURIComponent(id)}`;
+  `/ai-assistant/conversations/${encodeURIComponent(id)}`;
 
 export const assistantApi = {
   /** The caller's chats on this company, newest first. */
   async list(companyId: string): Promise<Conversation[]> {
-    const data = await get<{ conversations: BackendConversation[] }>(
-      `/assistant/conversations?${scope(companyId)}`,
-    );
-    return data.conversations.map(toConversation);
+    // ponytail: first 20 chats only (her sample's page); page with `offset` once people have more.
+    const data = await get<
+      BackendConversation[] | { conversations: BackendConversation[] }
+    >(`/ai-assistant/conversations?companyId=${encodeURIComponent(companyId)}&limit=20&offset=0`);
+    // The list's shape wasn't in the samples; take either an array or a wrapper.
+    return (Array.isArray(data) ? data : data.conversations).map(toConversation);
   },
 
-  async read(companyId: string, id: string): Promise<AssistantMessage[]> {
+  /** The chat's messages, oldest first. */
+  async read(id: string): Promise<AssistantMessage[]> {
+    // ponytail: newest 100 messages; older ones need `before=<nextBefore>` paging.
     const data = await get<{ messages: BackendAssistantMessage[] }>(
-      `${one(id)}?${scope(companyId)}`,
+      `${one(id)}?limit=100`,
     );
     return data.messages.map(toAssistantMessage);
   },
 
   /**
    * Ask. With no `conversationId` the server starts a chat, named after the
-   * question, and answers with it; otherwise the reply reads the earlier
-   * messages, so "just the federal one" narrows the last answer.
+   * question; otherwise the reply reads the earlier messages, so "just the
+   * federal one" narrows the last answer.
    */
   async send(
     companyId: string,
     message: string,
     conversationId: string | null,
-  ): Promise<{ conversation: Conversation; reply: AssistantMessage }> {
-    const data = await post<{
-      conversation: BackendConversation;
-      reply: BackendAssistantMessage;
-    }>(`/assistant/messages?${scope(companyId)}`, {
+  ): Promise<{ conversationId: string; reply: AssistantMessage }> {
+    const data = await post<BackendAnswer>("/ai-assistant/query", {
+      companyId: Number(companyId),
       message,
       ...(conversationId ? { conversationId: Number(conversationId) } : {}),
     });
     return {
-      conversation: toConversation(data.conversation),
-      reply: toAssistantMessage(data.reply),
+      conversationId: String(data.conversationId),
+      reply: toAssistantMessage({
+        // The answer carries no message id; this one only has to be unique on screen.
+        id: `reply-${data.conversationId}-${Date.now()}`,
+        role: "assistant",
+        content: data.answer,
+        documents: data.documents,
+        total: data.total,
+      }),
     };
   },
 
-  async rename(companyId: string, id: string, title: string): Promise<void> {
-    await patch(`${one(id)}?${scope(companyId)}`, { title });
+  async rename(id: string, title: string): Promise<void> {
+    await patch(one(id), { title });
   },
 
   /** Permanent, like every other delete in the portal. The documents stay. */
-  async remove(companyId: string, id: string): Promise<void> {
-    await del(`${one(id)}?${scope(companyId)}`);
+  async remove(id: string): Promise<void> {
+    await del(one(id));
   },
 };
 

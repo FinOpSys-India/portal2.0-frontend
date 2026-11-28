@@ -336,7 +336,9 @@ export interface BackendDocument {
  * The company-wide list nests it and the upload's confirm names it flat; either
  * is the half of the download URL that route checks the document against.
  */
-export function documentProjectId(d: BackendDocument): string | null {
+export function documentProjectId(
+  d: Pick<BackendDocument, "projectId" | "project">,
+): string | null {
   const id = d.projectId ?? d.project?.id ?? null;
   return id === null ? null : String(id);
 }

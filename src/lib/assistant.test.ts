@@ -1,9 +1,8 @@
 /**
  * The assistant boundary. Run: npx tsx src/lib/assistant.test.ts
  *
- * Rows are shaped like the routes we asked for in backend list #10; nothing
- * here is read off Pratibha's code yet. Pure functions only: the parts of the
- * chat that can be wrong without erroring.
+ * Rows are shaped like Pratibha's `/ai-assistant` samples (list #10, Nov 27).
+ * Pure functions only: the parts of the chat that can be wrong without erroring.
  */
 import assert from "node:assert/strict";
 
@@ -41,46 +40,42 @@ assert.match(historyWhen(at(2026, 11, 26, 8), now), /^8:00\sAM$/);
 assert.equal(historyWhen(at(2026, 11, 24), now), "Nov 24");
 assert.equal(historyWhen(at(2025, 12, 30), now), "Dec 30, 2025");
 
-// A reply's documents map like a Documents row, and open through their project.
+// A reply's documents map like a Documents row, take the service off the
+// project, and open through it. These rows carry no uploader yet.
 const reply = toAssistantMessage({
-  id: 7,
-  role: "ASSISTANT",
-  text: "I found 1 document.",
-  searchedCount: 142,
+  id: "6",
+  role: "assistant",
+  content: "Here are your Payroll documents. Found 3 documents.",
+  total: 3,
   documents: [
     {
-      id: 31,
+      id: 15,
       projectId: null,
-      fileName: "2023 Federal Return.pdf",
-      sizeBytes: 1200,
-      uploadedBy: { id: 4, firstName: "Anita", lastName: "Rao" },
-      createdAt: "2024-03-14T10:00:00.000Z",
-      project: { id: 9, projectName: "2023 Tax Return" },
-      service: "Tax",
+      fileName: "US_SAMPLE_12.pdf",
+      sizeBytes: 44869,
+      createdAt: "2026-10-13T10:47:43.630Z",
+      project: { id: 18, projectName: "p2", service: "Payroll" },
     },
   ],
 });
 assert.equal(reply.role, "assistant");
-assert.equal(reply.searched, 142);
+assert.equal(reply.found, 3);
 assert.deepEqual(
   { ...reply.documents[0], uploadedAt: "" },
   {
-    id: "31",
-    projectId: "9",
-    name: "2023 Federal Return.pdf",
-    project: "2023 Tax Return",
-    service: "Tax",
-    owner: "Anita Rao",
+    id: "15",
+    projectId: "18",
+    name: "US_SAMPLE_12.pdf",
+    project: "p2",
+    service: "Payroll",
+    owner: "",
     uploadedAt: "",
-    size: 1200,
+    size: 44869,
   },
 );
 
 // The customer's own message: no documents, no count, whatever the server omits.
-const mine = toAssistantMessage({ id: 6, role: "USER", text: "tax 2023" });
-assert.deepEqual(
-  [mine.role, mine.documents, mine.searched],
-  ["user", [], null],
-);
+const mine = toAssistantMessage({ id: "5", role: "user", content: "payroll", total: 0 });
+assert.deepEqual([mine.role, mine.text, mine.documents, mine.found], ["user", "payroll", [], null]);
 
 console.log("assistant: ok");

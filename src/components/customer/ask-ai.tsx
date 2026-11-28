@@ -202,7 +202,7 @@ export function AskAi({ workspace }: { workspace: { id: string; name: string } }
     setDraftError(null);
     setMessages((m) => [
       ...m,
-      { id: `local-${Date.now()}`, role: "user", text, documents: [], searched: null },
+      { id: `local-${Date.now()}`, role: "user", text, documents: [], found: null },
     ]);
     setStep(0);
     timers.current = [1, 2].map((n) =>
@@ -210,16 +210,22 @@ export function AskAi({ workspace }: { workspace: { id: string; name: string } }
     );
 
     try {
-      const { conversation, reply } = await assistantApi.send(
+      const { conversationId: id, reply } = await assistantApi.send(
         companyId,
         text,
         conversationRef.current,
       );
-      setConversations((list) =>
-        list ? [conversation, ...list.filter((c) => c.id !== conversation.id)] : list,
-      );
+      // The answer names only the chat: a new one is titled after its question.
+      setConversations((list) => {
+        if (!list) return list;
+        const title = list.find((c) => c.id === id)?.title ?? text;
+        return [
+          { id, title, updatedAt: new Date().toISOString() },
+          ...list.filter((c) => c.id !== id),
+        ];
+      });
       if (generation.current !== asked) return;
-      setCurrent(conversation.id);
+      setCurrent(id);
       setMessages((m) => [...m, reply]);
     } catch {
       if (generation.current === asked) setFailed(text);
@@ -259,7 +265,7 @@ export function AskAi({ workspace }: { workspace: { id: string; name: string } }
     const mine = generation.current;
     setChatState("loading");
     try {
-      const read = await assistantApi.read(companyId, c.id);
+      const read = await assistantApi.read(c.id);
       if (generation.current !== mine) return;
       setMessages(read);
       setChatState("ready");
@@ -384,7 +390,6 @@ export function AskAi({ workspace }: { workspace: { id: string; name: string } }
 
         {view === "history" ? (
           <ChatHistory
-            companyId={companyId}
             conversations={conversations}
             listState={listState}
             current={conversationId}
@@ -670,10 +675,10 @@ function Reply({ message }: { message: AssistantMessage }) {
     <div className="flex items-start gap-2">
       <BotMark className="mt-0.5 size-6 rounded-lg" />
       <div className="grid min-w-0 flex-1 gap-2">
-        {message.searched !== null ? (
+        {message.found ? (
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
             <Check className="size-3.5 text-success" aria-hidden />
-            Searched {message.searched} {message.searched === 1 ? "file" : "files"}
+            Found {message.found} {message.found === 1 ? "document" : "documents"}
           </p>
         ) : null}
         <p className="max-w-[95%] justify-self-start rounded-2xl rounded-bl-sm border border-border bg-card px-3 py-2 text-sm whitespace-pre-wrap break-words">
@@ -719,7 +724,6 @@ function DocumentCard({ doc }: { doc: AssistantDocument }) {
 /* -------------------------------------------------------------- history -- */
 
 function ChatHistory({
-  companyId,
   conversations,
   listState,
   current,
@@ -731,7 +735,6 @@ function ChatHistory({
   onChange,
   onDeletedCurrent,
 }: {
-  companyId: string;
   conversations: Conversation[] | null;
   listState: "idle" | "loading" | "error";
   current: string | null;
@@ -775,7 +778,7 @@ function ChatHistory({
       onChange((list) => list?.map((x) => (x.id === c.id ? { ...x, title: to } : x)) ?? list);
     rename(parsed.data);
     try {
-      await assistantApi.rename(companyId, c.id, parsed.data);
+      await assistantApi.rename(c.id, parsed.data);
     } catch {
       rename(c.title);
       toast.error("This chat couldn't be renamed. Try again.");
@@ -785,7 +788,7 @@ function ChatHistory({
   async function remove(c: Conversation) {
     setRemoving(true);
     try {
-      await assistantApi.remove(companyId, c.id);
+      await assistantApi.remove(c.id);
       onChange((list) => list?.filter((x) => x.id !== c.id) ?? list);
       setDeleting(null);
       if (c.id === current) onDeletedCurrent();
